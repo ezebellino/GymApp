@@ -4,13 +4,9 @@ from sqlalchemy.orm import sessionmaker
 
 
 # Cambiar a Postgres en producción, ej: "postgresql+psycopg://user:pass@host/db"
-DATABASE_URL = "sqlite:///./gym.db"
+DATABASE_URL = "postgresql+psycopg://postgres:Eze030790.@localhost:5432/LibreFuncional"
 
-
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

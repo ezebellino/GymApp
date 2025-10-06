@@ -32,9 +32,9 @@ class PaymentBase(BaseModel):
     method: str
     note: Optional[str] = None
     period_month: int = Field(..., ge=1, le=12)
-    period_year: int = Field(..., ge=2000)
+    period_year: int = Field(..., ge=2020)
     
-    @field_validator('period_year')
+    @field_validator('period_month')
     @classmethod
     def validate_month(cls, v):
         if not 1 <= v <= 12:
