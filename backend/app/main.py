@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import clients, payments
+from .config import settings
 
-app = FastAPI(title="Gym Libre Funcional", version="0.1.0")
+app = FastAPI(debug=settings.DEBUG, title="Gym Libre Funcional", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

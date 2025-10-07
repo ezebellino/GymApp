@@ -4,14 +4,15 @@ from typing import List, Optional
 from .. import models, schemas
 from ..deps import get_db
 from ..utils import current_period
-
+from ..auth import get_current_user, require_role
+from ..models import UserRole
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
 
-@router.post("/", response_model=schemas.ClientOut)
-def create_client(payload: schemas.ClientCreate, db: Session = Depends(get_db)):
-    obj = models.Client(**payload.model_dump())
+@router.post("/", response_model=schemas.ClientOut, dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))])
+def create_client(payload: schemas.ClientCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    obj = models.Client(**payload.model_dump(), created_by_user_id=current_user.id)
     db.add(obj)
     db.commit()
     db.refresh(obj)
@@ -54,7 +55,7 @@ def update_client(client_id: str, payload: schemas.ClientUpdate, db: Session = D
     return obj
 
 
-@router.delete("/{client_id}")
+@router.delete("/{client_id}", dependencies=[Depends(require_role(UserRole.owner))])
 def delete_client(client_id: str, db: Session = Depends(get_db)):
     obj = db.query(models.Client).get(client_id)
     if not obj:
