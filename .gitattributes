@@ -1,0 +1,13 @@
+# .gitattributes
+* text=auto eol=lf
+
+# Asegurar LF para código
+*.py  text eol=lf
+*.sql text eol=lf
+*.sh  text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+
+# Permitir CRLF solo donde tiene sentido (opcional)
+*.bat text eol=crlf
