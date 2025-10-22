@@ -7,7 +7,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 
 class Settings(BaseSettings):
-    # === Variables requeridas ===
     DATABASE_URL: str
     SECRET_KEY: str
     ALGORITHM: str = "HS256"

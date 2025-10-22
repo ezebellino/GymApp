@@ -5,8 +5,9 @@ from .. import models, schemas
 from ..deps import get_db
 from ..auth import get_current_user, require_role
 from ..models import UserRole
+from ..security import optional_bearer
 
-router = APIRouter(prefix="/attendance", tags=["attendance"])
+router = APIRouter(prefix="/attendance", tags=["attendance"], dependencies=[Depends(optional_bearer)])
 
 @router.post("/", dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))])
 def checkin(client_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):

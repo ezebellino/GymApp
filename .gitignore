@@ -26,3 +26,5 @@ migrations/versions/__pycache__/
 
 # Logs
 *.log
+logs/*.log
+logs/*.log.*
