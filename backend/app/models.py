@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, DateTime, Boolean, Integer, Float,
+    Column, Index, String, DateTime, Boolean, Integer, Float,
     ForeignKey, UniqueConstraint, Enum
 )
 from sqlalchemy.orm import declarative_base
@@ -32,13 +32,21 @@ class Client(Base):
     join_date = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    
+    __table_args__ = (
+    Index("ix_clients_full_name", "full_name"),
+    Index("ix_clients_email", "email"),
+    Index("ix_clients_join_date", "join_date"),
+    Index("ix_clients_is_active", "is_active"),
+)
 
 class Payment(Base):
     __tablename__ = "payments"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     client_id = Column(String, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
     amount = Column(Float, nullable=False)
-    method = Column(String, nullable=True)  # efectivo, transferencia, etc.
+    method = Column(String, nullable=False)  # efectivo, transferencia, etc.
+    method_channel = Column(String, nullable=True)  # detalles adicionales del método
     note = Column(String, nullable=True)
     period_month = Column(Integer, nullable=False)  # 1..12
     period_year = Column(Integer, nullable=False)
@@ -47,6 +55,8 @@ class Payment(Base):
 
     __table_args__ = (
         UniqueConstraint("client_id", "period_month", "period_year", name="uq_payment_period"),
+        Index("ix_payments_method", "method"),
+        Index("ix_payments_method_channel", "method_channel"),
     )
 
 class Attendance(Base):

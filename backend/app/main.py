@@ -27,8 +27,11 @@ async def integrity_error_handler(request: Request, exc: IntegrityError):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], allow_credentials=True,
-    allow_methods=["*"], allow_headers=["*"],
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"], 
+    allow_headers=["*"],
+    expose_headers=["X-Total-Count", "Link"],  # ⬅️ para paginación
 )
 
 app.add_middleware(RequestLogMiddleware)  # ⬅️ aseguralo
