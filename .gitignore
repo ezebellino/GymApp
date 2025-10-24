@@ -1,30 +1,65 @@
-# .gitignore (root)
-# Python
+# ==== BACKEND (Python / FastAPI) ====
+
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 *.egg-info/
 .eggs/
-.dist/
 build/
+dist/
+*.spec
 .env
-venv/
+.env.*
 .venv/
-.env.*  # por si usás .env.local, etc
+venv/
 .pytest_cache/
 .mypy_cache/
-
-# OS / IDE
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# Alembic/SQLAlchemy caches
+.alembic/
 migrations/versions/__pycache__/
 
 # Logs
 *.log
 logs/*.log
 logs/*.log.*
+
+# Database local (si usas SQLite)
+*.db
+*.sqlite3
+
+# ==== FRONTEND (React / Vite / Tauri) ====
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Builds
+dist/
+build/
+out/
+coverage/
+*.tsbuildinfo
+
+# Env vars
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Tauri build outputs
+/src-tauri/target/
+src-tauri/target/
+src-tauri/tauri.conf.json.orig
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
