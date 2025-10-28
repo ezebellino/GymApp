@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
+from sqlalchemy.orm import Session, joinedload, contains_eager
+from sqlalchemy import func, and_, or_
 from typing import List, Optional, Literal, Dict, Any
-from datetime import datetime, timedelta,date
+from datetime import datetime, timedelta, date
 
 from .. import models, schemas
 from ..deps import get_db
@@ -80,70 +80,45 @@ def create_payment(
 def list_payments(
     response: Response,
     db: Session = Depends(get_db),
-    # Filtros
-    client_id: Optional[str] = Query(None, description="Filtra por cliente"),
-    method: Optional[str] = Query(None, description="Filtra por método (cash, card, transfer)"),
-    method_channel: Optional[str] = Query(None, description="Filtra por sub-canal del método"),
-    period_year: Optional[int] = Query(None, ge=2000),
-    period_month: Optional[int] = Query(None, ge=1, le=12),
-    created_from: Optional[datetime] = Query(None, description="Filtra pagos desde esta fecha (created_at >=)"),
-    created_to: Optional[datetime] = Query(None, description="Filtra pagos hasta esta fecha (created_at <=)"),
-    amount_min: Optional[float] = Query(None, ge=0),
-    amount_max: Optional[float] = Query(None, ge=0),
-    # Orden
-    sort_by: Literal["created_at", "period", "amount"] = Query("created_at"),
-    sort_dir: Literal["asc", "desc"] = Query("desc"),
-    # Paginación
+    client_id: Optional[str] = None,   # sigue disponible
+    q: Optional[str] = Query(None, description="nombre, email o teléfono"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
-    q = db.query(models.Payment)
+    query = (
+        db.query(models.Payment)
+          .join(models.Client)
+          .options(contains_eager(models.Payment.client))
+    )
 
-    # Filtros dinámicos
     if client_id:
-        q = q.filter(models.Payment.client_id == client_id)
-    if method:
-        q = q.filter(models.Payment.method == method)
-    if method_channel:
-        q = q.filter(models.Payment.method_channel == method_channel)
-    if period_year is not None:
-        q = q.filter(models.Payment.period_year == period_year)
-    if period_month is not None:
-        q = q.filter(models.Payment.period_month == period_month)
-    if created_from:
-        q = q.filter(models.Payment.created_at >= created_from)
-    if created_to:
-        q = q.filter(models.Payment.created_at <= created_to)
-    if (amount_min is not None) and (amount_max is not None):
-        q = q.filter(and_(models.Payment.amount >= amount_min, models.Payment.amount <= amount_max))
-    elif amount_min is not None:
-        q = q.filter(models.Payment.amount >= amount_min)
-    elif amount_max is not None:
-        q = q.filter(models.Payment.amount <= amount_max)
+        query = query.filter(models.Payment.client_id == client_id)
 
-    # Total antes de paginar
-    total = q.with_entities(func.count(models.Payment.id)).scalar()
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            or_(
+                models.Client.full_name.ilike(like),
+                models.Client.email.ilike(like),
+                models.Client.phone.ilike(like),
+            )
+        )
+
+    total = query.with_entities(func.count(models.Payment.id)).scalar()
     response.headers["X-Total-Count"] = str(total)
 
-    # Orden seguro (lista blanca)
-    if sort_by == "created_at":
-        sort_col = models.Payment.created_at
-    elif sort_by == "period":
-        sort_col = (models.Payment.period_year, models.Payment.period_month)
-    else: 
-        sort_col = models.Payment.amount
-
-    if isinstance(sort_col, tuple):
-        cols = sort_col
-        if sort_dir == "asc":
-            q = q.order_by(*cols)
-        else:
-            q = q.order_by(*[c.desc() for c in cols])
-    else:
-        q = q.order_by(sort_col.asc() if sort_dir == "asc" else sort_col.desc())
-
-    items = q.offset(offset).limit(limit).all()
+    items = (
+        query.order_by(
+            models.Payment.period_year.desc(),
+            models.Payment.period_month.desc(),
+            models.Payment.created_at.desc(),
+        )
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
     return items
+
 
 @router.get("/{payment_id}", response_model=schemas.PaymentOut, name="payments:get_one")
 def get_payment(payment_id: str, db: Session = Depends(get_db)):

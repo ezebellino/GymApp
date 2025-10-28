@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Literal, Annotated
 from uuid import UUID
+from sqlalchemy import func
 
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
 
@@ -79,6 +80,7 @@ class PaymentCreate(PaymentBase):
 class PaymentOut(PaymentBase):
     id: UUID
     created_at: datetime
+    client: Optional[ClientOut] = None  # para evitar ciclo infinito en serialización
     
     class Config:
         from_attributes = True
@@ -93,3 +95,42 @@ class ClientStatus(BaseSchema):
     is_up_to_date: bool
     last_payment_month: Optional[int] = None
     last_payment_year: Optional[int] = None
+
+
+# ==================================
+# ATTENDANCE
+# ==================================
+class AttendanceBase(BaseSchema):
+    client_id: Annotated[str, Field(min_length=36, max_length=36)]  # uuid en formato string
+class AttendanceCheckinIn(BaseSchema):
+    client_id: Optional[Annotated[str, Field(min_length=36, max_length=36)]] = None
+    q: Optional[str] = Field(None, max_length=120, description="nombre, email o teléfono")
+class AttendanceOut(AttendanceBase):
+    id: UUID
+    checkin_at: datetime
+    client: ClientOut
+    class Config:
+        from_attributes = True
+        
+# ==================================
+# REPORTS
+class AttendanceReportItem(BaseSchema):
+    bucket: str  # ISO date string
+    count: int
+class NewClientsReportItem(BaseSchema):
+    bucket: str  # ISO date string
+    count: int
+class RevenueReportItem(BaseSchema):
+    bucket: str  # ISO date string
+    total: float
+# ==================================
+# UTILITIES
+def _bucket_expr(column, bucket: Literal["day", "week", "month"]):
+    # Ajustar a zona horaria si es necesario
+    with_tz = func.timezone("UTC", column)  # Cambiar "UTC" por la zona horaria deseada
+
+    if bucket == "day":
+        return func.date_trunc("day", with_tz)
+    if bucket == "week":
+        return func.date_trunc("week", with_tz)
+    return func.date_trunc("month", with_tz)

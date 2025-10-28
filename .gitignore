@@ -1,5 +1,6 @@
-# ==== BACKEND (Python / FastAPI) ====
-
+# =========================
+#   BACKEND (Python/FastAPI)
+# =========================
 __pycache__/
 *.py[cod]
 *.pyo
@@ -9,35 +10,64 @@ __pycache__/
 build/
 dist/
 *.spec
-.env
-.env.*
+
+# Virtual envs
 .venv/
 venv/
+
+# Pydantic / mypy / pytest / ruff
 .pytest_cache/
 .mypy_cache/
-.alembic/
+.ruff_cache/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Alembic / migrations
 migrations/versions/__pycache__/
 
 # Logs
 *.log
-logs/*.log
-logs/*.log.*
+logs/
+!logs/.gitkeep
 
-# Database local (si usas SQLite)
+# Local SQLite (si en algún momento usás sqlite)
 *.db
 *.sqlite3
 
-# ==== FRONTEND (React / Vite / Tauri) ====
+# Dumps locales de DB (opcionales)
+*.sql
+*.dump
 
+# pyenv / direnv
+.python-version
+.envrc
+
+# =========================
+#   ENV VARS (tanto FE como BE)
+# =========================
+# Ignora todos los .env* menos los .example
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# =========================
+#   FRONTEND (React / Vite / Tauri)
+# =========================
 # Node
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+
+# ✨ Mantener lockfiles en el repo (no ignorarlos)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 
 # Builds
 dist/
@@ -46,18 +76,16 @@ out/
 coverage/
 *.tsbuildinfo
 
-# Env vars
-.env.local
-.env.development
-.env.production
-.env.test
+# Vite cache
+.vite/
 
-# Tauri build outputs
-/src-tauri/target/
+# Tauri (Rust target)
 src-tauri/target/
 src-tauri/tauri.conf.json.orig
 
-# Editor / OS
+# =========================
+#   EDITOR / OS
+# =========================
 .DS_Store
 Thumbs.db
 .vscode/

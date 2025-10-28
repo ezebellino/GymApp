@@ -4,7 +4,7 @@ from sqlalchemy import (
     Column, Index, String, DateTime, Boolean, Integer, Float,
     ForeignKey, UniqueConstraint, Enum
 )
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, relationship
 import enum
 
 Base = declarative_base()
@@ -33,6 +33,9 @@ class Client(Base):
     is_active = Column(Boolean, default=True)
     created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     
+    payments = relationship("Payment", back_populates="client")
+    attendance = relationship("Attendance", back_populates="client", cascade="all, delete-orphan")
+    
     __table_args__ = (
     Index("ix_clients_full_name", "full_name"),
     Index("ix_clients_email", "email"),
@@ -44,6 +47,7 @@ class Payment(Base):
     __tablename__ = "payments"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     client_id = Column(String, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    client = relationship("Client", back_populates="payments")
     amount = Column(Float, nullable=False)
     method = Column(String, nullable=False)  # efectivo, transferencia, etc.
     method_channel = Column(String, nullable=True)  # detalles adicionales del método
@@ -65,3 +69,7 @@ class Attendance(Base):
     client_id = Column(String, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
     checkin_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     coach_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    
+    client = relationship("Client", back_populates="attendance")
+    
+    
