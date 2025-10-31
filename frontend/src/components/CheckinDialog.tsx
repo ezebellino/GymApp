@@ -41,11 +41,11 @@ export default function CheckinDialog({ open, onOpenChange, clientId, clientName
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" className="border-white/10 hover:bg-white/10" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" className="text-gray-100 border-white/10 hover:bg-white/10" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
           <Button
-            className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30"
+            className="text-gray-100 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30"
             onClick={handleConfirm}
             disabled={loading}
           >

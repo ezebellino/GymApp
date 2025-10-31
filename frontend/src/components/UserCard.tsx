@@ -26,6 +26,7 @@ export default function UserCard({ viewerRole, client, stats, onAction, onRefres
 
   const [openCheckin, setOpenCheckin] = useState(false);
   const [openPayment, setOpenPayment] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   return (
     <Card className="border-white/10 bg-zinc-900/70 backdrop-blur-sm shadow-[0_0_20px_rgba(0,255,255,0.08)]">
@@ -51,8 +52,11 @@ export default function UserCard({ viewerRole, client, stats, onAction, onRefres
         </div>
       </CardHeader>
 
-      {/* Contenido scrolleable */}
-      <CardContent className="space-y-5 max-h-[80vh] overflow-y-auto pr-1">
+      {/* Contenido scrolleable + detector de scroll para el footer */}
+      <CardContent
+        className="space-y-5 max-h-[80vh] overflow-y-auto pr-1"
+        onScroll={(e) => setScrolled((e.currentTarget.scrollTop || 0) > 0)}
+      >
         {/* Stats mini */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-white/10 p-3">
@@ -90,12 +94,20 @@ export default function UserCard({ viewerRole, client, stats, onAction, onRefres
           </div>
         </div>
 
-        {/* Footer de acciones sticky */}
-        <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-3 bg-gradient-to-t from-zinc-900/90 to-transparent backdrop-blur">
+        {/* Footer de acciones sticky (con blur y borde/sombra al scrollear) */}
+        <div
+          className={[
+            "sticky bottom-0 -mx-4 px-4 pt-3 pb-3 backdrop-blur-md bg-zinc-900/75",
+            "transition-shadow border-t",
+            scrolled ? "border-white/10 shadow-[0_-8px_24px_-8px_rgba(0,0,0,0.6)]" : "border-transparent shadow-none",
+          ].join(" ")}
+        >
+          {/* sutil gradiente para el reflejo */}
+          <div className="pointer-events-none absolute left-0 right-0 -top-6 h-6 bg-linear-to-t from-transparent to-zinc-900/60" />
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
-              className="bg-zinc-800 hover:bg-zinc-700"
+              className="text-gray-100 bg-zinc-800 hover:bg-zinc-700"
               onClick={() => {
                 setOpenCheckin(true);
                 onAction?.("checkin", client);
@@ -107,7 +119,7 @@ export default function UserCard({ viewerRole, client, stats, onAction, onRefres
             <Button
               size="sm"
               variant="outline"
-              className="border-cyan-400/40 hover:bg-cyan-400/10"
+              className="text-gray-100 border-cyan-400/40 hover:bg-cyan-400/10"
               onClick={() => {
                 setOpenPayment(true);
                 onAction?.("newPayment", client);
@@ -119,7 +131,7 @@ export default function UserCard({ viewerRole, client, stats, onAction, onRefres
             <Button
               size="sm"
               variant="ghost"
-              className="hover:bg-zinc-800"
+              className="text-gray-100 hover:bg-zinc-800"
               onClick={() => onAction?.("viewHistory", client)}
             >
               Ver historial

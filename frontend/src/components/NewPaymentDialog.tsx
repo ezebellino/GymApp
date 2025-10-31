@@ -60,7 +60,7 @@ export default function NewPaymentDialog({ open, onOpenChange, clientId, clientN
               type="number"
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
-              className="bg-zinc-900/70 border-white/10"
+              className="text-gray-100 bg-zinc-900/70 border-white/10"
             />
           </div>
 
@@ -69,7 +69,7 @@ export default function NewPaymentDialog({ open, onOpenChange, clientId, clientN
             <select
               value={method}
               onChange={(e) => setMethod(e.target.value as "cash" | "transfer")}
-              className="w-full rounded-md border border-white/10 bg-zinc-900/70 px-3 py-2 text-sm"
+              className="w-full rounded-md border text-gray-100 border-white/10 bg-zinc-900/70 px-3 py-2 text-sm"
             >
               <option value="cash">Efectivo</option>
               <option value="transfer">Transferencia</option>
@@ -83,7 +83,7 @@ export default function NewPaymentDialog({ open, onOpenChange, clientId, clientN
                 placeholder="mercadopago, cuentadni, etc."
                 value={methodChannel}
                 onChange={(e) => setMethodChannel(e.target.value)}
-                className="bg-zinc-900/70 border-white/10"
+                className="bg-zinc-900/70 border-white/10 text-gray-100"
               />
             </div>
           )}
@@ -96,7 +96,7 @@ export default function NewPaymentDialog({ open, onOpenChange, clientId, clientN
               max={12}
               value={periodMonth}
               onChange={(e) => setPeriodMonth(Number(e.target.value))}
-              className="bg-zinc-900/70 border-white/10"
+              className="bg-zinc-900/70 border-white/10 text-gray-100"
             />
           </div>
 
@@ -108,7 +108,7 @@ export default function NewPaymentDialog({ open, onOpenChange, clientId, clientN
               max={2100}
               value={periodYear}
               onChange={(e) => setPeriodYear(Number(e.target.value))}
-              className="bg-zinc-900/70 border-white/10"
+              className="bg-zinc-900/70 border-white/10 text-gray-100"
             />
           </div>
 
@@ -117,19 +117,19 @@ export default function NewPaymentDialog({ open, onOpenChange, clientId, clientN
             <Input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="bg-zinc-900/70 border-white/10"
+              className="bg-zinc-900/70 border-white/10 text-gray-100"
             />
           </div>
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" className="border-white/10 hover:bg-white/10" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" className="text-gray-100 border-white/10 hover:bg-white/10" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
           <Button
             onClick={handleCreate}
             disabled={loading}
-            className="bg-violet-600/40 hover:bg-violet-600/60 border border-violet-400/30"
+            className="text-gray-100 bg-violet-600/40 hover:bg-violet-600/60 border border-violet-400/30"
           >
             {loading ? "Guardando…" : "Crear pago"}
           </Button>
