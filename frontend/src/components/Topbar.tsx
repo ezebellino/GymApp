@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, UserPlus } from "lucide-react";
 import SpotlightSearch from "./SpotlightSearch";
 import type { Role } from "@/types";
 
@@ -13,7 +13,6 @@ export default function Topbar() {
   const [isAuthed, setIsAuthed] = useState<boolean>(false);
   const navigate = useNavigate();
 
-  // Hotkey Ctrl/⌘+K
   useEffect(() => {
     const storedRole = (localStorage.getItem("user_role") as Role) || "coach";
     setRole(storedRole);
@@ -35,7 +34,6 @@ export default function Topbar() {
   };
 
   const handleLogout = async () => {
-    // Limpio credenciales primero
     localStorage.removeItem("access_token");
     localStorage.removeItem("user_role");
     setIsAuthed(false);
@@ -47,19 +45,26 @@ export default function Topbar() {
       timer: 1400,
       showConfirmButton: false,
       timerProgressBar: true,
-      didOpen: () => {
-        const b = Swal.getHtmlContainer()?.querySelector("b");
-        if (b) b.textContent = "";
-      },
     });
 
     navigate("/login", { replace: true });
   };
 
+  const handleNewCoach = async () => {
+    // Por ahora stub. Más adelante podés navegar a /coaches/new
+    // navigate("/coaches/new");
+    await Swal.fire({
+      title: "Nuevo coach",
+      text: "Acá vas a poder crear y gestionar coaches. Próximamente ✨",
+      icon: "info",
+      confirmButtonText: "Cerrar",
+    });
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950/70 backdrop-blur">
       <div className="mx-auto flex h-14 items-center justify-between px-4">
-        {/* Izquierda: Logo */}
+        {/* Logo izquierda */}
         <div className="flex items-center gap-3">
           <img
             src="/src/assets/LogoLibreFuncional.png"
@@ -68,7 +73,7 @@ export default function Topbar() {
           />
         </div>
 
-        {/* Centro: Trigger del Spotlight */}
+        {/* Centro: Spotlight trigger */}
         <div className="flex-1 flex justify-center">
           <Button
             variant="outline"
@@ -79,8 +84,21 @@ export default function Topbar() {
           </Button>
         </div>
 
-        {/* Derecha: Login / Logout */}
+        {/* Derecha */}
         <div className="flex items-center gap-3">
+          {/* Solo owner: botón Nuevo coach */}
+          {isAuthed && role === "owner" && (
+            <Button
+              variant="outline"
+              onClick={() => navigate("/coaches/new")}
+              className="border-violet-400/60 text-violet-100 bg-violet-500/10 hover:bg-violet-500/20 text-xs sm:text-sm"
+            >
+              <UserPlus className="h-4 w-4" />
+             + Nuevo coach
+            </Button>
+          )}
+
+          {/* Login / Logout */}
           {isAuthed ? (
             <Button
               onClick={handleLogout}
@@ -94,7 +112,6 @@ export default function Topbar() {
                 <LogOut size={16} />
                 Logout
               </span>
-              {/* Shine */}
               <span
                 className="
                   pointer-events-none absolute inset-0

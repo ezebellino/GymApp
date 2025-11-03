@@ -4,7 +4,7 @@ from typing import Optional, Literal, Annotated
 from uuid import UUID
 from sqlalchemy import func
 
-from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
+from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator, field_serializer
 
 # ==================================
 # CONFIG BASE (reutilizable)
@@ -123,6 +123,36 @@ class NewClientsReportItem(BaseSchema):
 class RevenueReportItem(BaseSchema):
     bucket: str  # ISO date string
     total: float
+    
+    
+# ==================================
+# SETTINGS
+
+class SettingsBase(BaseSchema):
+    gym_name: Annotated[str, Field(min_length=1, max_length=100)]
+    currency: Annotated[str, Field(min_length=1, max_length=10)]
+    default_fee: Annotated[Decimal, Field(ge=0)]
+    address: Optional[Annotated[str, Field(max_length=200)]] = None
+
+    # Si preferís que salga siempre como número en el JSON
+    @field_serializer('default_fee')
+    def serialize_decimal(self, v: Decimal, _info):
+        return float(v)
+
+class Settings(SettingsBase):
+    """Modelo completo para PUT."""
+    pass
+
+class SettingsUpdate(BaseSchema):
+    """Modelo parcial para PATCH."""
+    gym_name: Optional[Annotated[str, Field(min_length=1, max_length=100)]] = None
+    currency: Optional[Annotated[str, Field(min_length=1, max_length=10)]] = None
+    default_fee: Optional[Annotated[Decimal, Field(ge=0)]] = None
+    address: Optional[Annotated[str, Field(max_length=200)]] = None
+
+class SettingsOut(SettingsBase):
+    """Modelo de salida para respuestas."""
+    pass   
 # ==================================
 # UTILITIES
 def _bucket_expr(column, bucket: Literal["day", "week", "month"]):

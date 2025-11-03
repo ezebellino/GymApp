@@ -4,10 +4,12 @@ import { CreditCard, Users, CalendarCheck2, Search, CheckCircle2, Plus } from "l
 import api from "@/lib/http";
 import SpotlightSearch from "@/components/SpotlightSearch";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import type { Role } from "@/types";
+import { Await } from "react-router-dom";
 
 // ===== Tipos =====
 type AttendanceBucketRow = { bucket: string; count?: number };
@@ -56,6 +58,7 @@ const monthBounds = (d = new Date()) => {
 export default function Dashboard() {
   const [userName, setUserName] = useState<string>("Usuario");
   const [role, setRole] = useState<Role>("owner");
+  const [series, setSeries] = useState<{ date: string; amount: number }[]>([]);
 
   // KPIs
   const [clientsTotal, setClientsTotal] = useState<number>(0);
@@ -80,6 +83,8 @@ export default function Dashboard() {
   const [newEmail, setNewEmail] = useState<string>("");
   const [newPhone, setNewPhone] = useState<string>("");
   const [creatingClient, setCreatingClient] = useState<boolean>(false);
+
+  const d2 = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
   useEffect(() => {
     setUserName(localStorage.getItem("user_name") || "Usuario");
@@ -113,6 +118,22 @@ export default function Dashboard() {
           0
         );
         setCheckinsToday(sumToday);
+
+        // Datos ultimos 30 dias y agregacion client-side
+        const since = new Date(); since.setDate(since.getDate() - 29);
+        const payments30 = await api.get<PaymentRow[]>("/payments", { params: { start: d2(since), end: d2(new Date()), limit: 1000, offset: 0 }});
+        const map = new Map<string, number>();
+        for (const p of payments30.data ?? []) {
+          const key = d2(new Date(p.created_at));
+          map.set(key, (map.get(key) ?? 0) + (p.amount || 0));
+        }
+        const out: { date: string; amount: number }[] = [];
+        for (let i = 0; i < 30; i++) {
+          const dt = new Date(since); dt.setDate(since.getDate() + i  );
+          const key = d2(dt);
+          out.push({ date: key.slice(5), amount: map.get(key) ?? 0 });
+        }
+        setSeries(out);
 
         // 4) Pagos recientes
         setLoadingPayments(true);
@@ -379,7 +400,7 @@ export default function Dashboard() {
                   <Input
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="mt-1 bg-zinc-900/70 border-white/10"
+                    className="mt-1 bg-zinc-900/70 border-white/10 text-gray-200"
                     placeholder="Juan Pérez"
                     required
                   />
@@ -391,7 +412,7 @@ export default function Dashboard() {
                       type="email"
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
-                      className="mt-1 bg-zinc-900/70 border-white/10"
+                      className="mt-1 bg-zinc-900/70 border-white/10 text-gray-200"
                       placeholder="juan@mail.com (opcional)"
                     />
                   </div>
@@ -400,7 +421,7 @@ export default function Dashboard() {
                     <Input
                       value={newPhone}
                       onChange={(e) => setNewPhone(e.target.value)}
-                      className="mt-1 bg-zinc-900/70 border-white/10"
+                      className="mt-1 bg-zinc-900/70 border-white/10 text-gray-200"
                       placeholder="11 5555 5555 (opcional)"
                     />
                   </div>
@@ -410,7 +431,7 @@ export default function Dashboard() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-white/10 hover:bg-white/10"
+                    className="border-white/10 hover:bg-white/10 text-gray-200"
                     onClick={() => setNewClientOpen(false)}
                   >
                     Cancelar
@@ -418,7 +439,7 @@ export default function Dashboard() {
                   <Button
                     type="submit"
                     disabled={creatingClient || !newName.trim()}
-                    className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30"
+                    className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30 text-amber-200"
                     variant="outline"
                   >
                     {creatingClient ? "Creando…" : "Crear cliente"}

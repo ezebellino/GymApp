@@ -34,6 +34,12 @@ export default function Login() {
       const payload = jwtDecode<TokenPayload>(data.access_token);
       localStorage.setItem("user_name", payload.name ?? payload.email ?? "Usuario");
 
+      if (payload.role === "owner" || payload.role === "coach") {
+        localStorage.setItem("user_role", payload.role);
+      } else {
+        localStorage.setItem("user_role", "coach");
+      }
+
       await alertSuccess("¡Bienvenido!", "Inicio de sesión correcto.");
       navigate("/", { replace: true });
     } catch (err) {

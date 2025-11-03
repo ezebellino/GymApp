@@ -2,23 +2,85 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import api from "@/lib/http";
 import type { Role } from "@/types";
+import { alertError, alertSuccess } from "@/lib/alerts";
+
+type AppSettings = {
+  gym_name: string;
+  currency: string;
+  default_fee: number;
+  address: string;
+};
+
+const LS_KEY = "app_settings";
 
 export default function SettingsPage() {
-  const [gymName] = useState("Libre Funcional");
-  const [currency] = useState("ARS");
-  const [defaultFee, setDefaultFee] = useState(24000);
-  const [address, setAddress] = useState("Av. San Martín 325 - Dolores");
   const [role, setRole] = useState<Role>("coach");
+  const [settings, setSettings] = useState<AppSettings>({
+    gym_name: "Libre Funcional",
+    currency: "ARS",
+    default_fee: 24000,
+    address: "Av. San Martín 325 - Dolores",
+  });
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
+  // Cargar rol y settings
   useEffect(() => {
     const storedRole = (localStorage.getItem("user_role") as Role) || "coach";
     setRole(storedRole);
+
+    (async () => {
+      try {
+        // 1) Intentar backend
+        const { data } = await api.get<AppSettings>("/settings");
+        setSettings(data);
+        // Actualizar cache local
+        localStorage.setItem(LS_KEY, JSON.stringify(data));
+      } catch {
+        // 2) Fallback: localStorage
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) {
+          try {
+            setSettings(JSON.parse(raw));
+          } catch {
+            // usar defaults
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
-  function save() {
-    console.log({ defaultFee });
-    alert("Guardado (stub). Luego conectamos al backend.");
+  async function save() {
+    setSaving(true);
+    try {
+      // Primero intentamos persistir en backend
+      const payload = { ...settings };
+      const { data } = await api.put<AppSettings>("/settings", payload);
+      setSettings(data);
+      localStorage.setItem(LS_KEY, JSON.stringify(data));
+      await alertSuccess("Listo", "Configuración guardada.");
+    } catch (e: any) {
+      // Si falla backend, guardamos local y avisamos
+      localStorage.setItem(LS_KEY, JSON.stringify(settings));
+      alertError(
+        "Guardado local",
+        "No se pudo conectar al servidor. Los cambios se guardaron de forma local y se sincronizarán luego."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen grid place-items-center text-zinc-400">
+        Cargando configuración…
+      </div>
+    );
   }
 
   return (
@@ -31,33 +93,35 @@ export default function SettingsPage() {
         </CardHeader>
 
         <CardContent className="space-y-6 px-6 pb-6">
-          {/* Nombre */}
+          {/* Nombre (solo lectura) */}
           <div className="space-y-1">
             <label className="text-sm text-zinc-400">Nombre del Gimnasio</label>
             <Input
-              value={gymName}
+              value={settings.gym_name}
               readOnly
               className="bg-zinc-900/70 border-white/10 text-zinc-400 cursor-not-allowed"
             />
           </div>
 
-          {/* Moneda */}
+          {/* Moneda (solo lectura) */}
           <div className="space-y-1">
             <label className="text-sm text-zinc-400">Moneda</label>
             <Input
-              value={currency}
+              value={settings.currency}
               readOnly
               className="bg-zinc-900/70 border-white/10 text-zinc-400 cursor-not-allowed"
             />
           </div>
 
-          {/* Dirección solo visible para Owner */}
+          {/* Dirección (solo Owner) */}
           {role === "owner" && (
             <div className="space-y-1">
               <label className="text-sm text-zinc-400">Dirección</label>
               <Input
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                value={settings.address}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, address: e.target.value }))
+                }
                 className="bg-zinc-900/70 border-white/10 text-zinc-200"
               />
             </div>
@@ -68,8 +132,10 @@ export default function SettingsPage() {
             <label className="text-sm text-zinc-400">Cuota mensual</label>
             <Input
               type="number"
-              value={defaultFee}
-              onChange={(e) => setDefaultFee(Number(e.target.value))}
+              value={settings.default_fee}
+              onChange={(e) =>
+                setSettings((s) => ({ ...s, default_fee: Number(e.target.value) || 0 }))
+              }
               className="bg-zinc-900/70 border-white/10 focus:ring-amber-400/50"
             />
           </div>
@@ -77,9 +143,10 @@ export default function SettingsPage() {
           <div className="pt-2 flex justify-center">
             <Button
               onClick={save}
+              disabled={saving}
               className="px-6 bg-amber-400/90 text-black font-medium hover:bg-amber-300"
             >
-              Guardar cambios
+              {saving ? "Guardando…" : "Guardar cambios"}
             </Button>
           </div>
         </CardContent>

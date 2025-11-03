@@ -4,10 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Client, Role, Payment } from "@/types";
-import CheckinDialog from "./CheckinDialog";
 import NewPaymentDialog from "./NewPaymentDialog";
 import AttendanceCalendar from "./AttendanceCalendar";
 import LastPayments from "./LastPayments";
+import EditClientDialog from "./EditClientDialog";
 
 type Props = {
   viewerRole: Role;
@@ -18,19 +18,25 @@ type Props = {
   };
   onAction?: (action: "checkin" | "newPayment" | "viewHistory", client: Client) => void;
   onRefresh?: () => void;
+  onCloseAll?: () => void;
 };
 
-export default function UserCard({ viewerRole, client, stats, onAction, onRefresh }: Props) {
+export default function UserCard({
+  viewerRole,
+  client,
+  stats,
+  onAction,
+  onRefresh,
+}: Props) {
   const lastPay = stats?.lastPayment;
   const attCount = stats?.attendanceCount ?? 0;
 
-  const [openCheckin, setOpenCheckin] = useState(false);
   const [openPayment, setOpenPayment] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
 
   return (
     <Card className="border-white/10 bg-zinc-900/70 backdrop-blur-sm shadow-[0_0_20px_rgba(0,255,255,0.08)]">
-      <CardHeader className="pb-3">
+      <CardHeader className="sm:pb-3 pb-2">
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardTitle className="text-xl text-zinc-100">
@@ -38,30 +44,35 @@ export default function UserCard({ viewerRole, client, stats, onAction, onRefres
                 {client.full_name}
               </span>
             </CardTitle>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-zinc-400">
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-zinc-100">
               <span>Alta: {new Date(client.join_date).toLocaleDateString()}</span>
               <span className="text-zinc-600">•</span>
-              {client.is_active ? <Badge>Activo</Badge> : <Badge variant="outline">Inactivo</Badge>}
+              {client.is_active ? (
+                <Badge>Activo</Badge>
+              ) : (
+                <Badge variant="outline">Inactivo</Badge>
+              )}
             </div>
           </div>
 
           <div className="text-right text-sm">
             <div className="text-zinc-300">📱 {client.phone || "—"}</div>
-            {viewerRole === "owner" && <div className="mt-0.5 text-zinc-400">✉️ {client.email ?? "—"}</div>}
+            {viewerRole === "owner" && (
+              <div className="mt-0.5 text-zinc-400">✉️ {client.email ?? "—"}</div>
+            )}
           </div>
         </div>
       </CardHeader>
 
-      {/* Contenido scrolleable + detector de scroll para el footer */}
-      <CardContent
-        className="space-y-5 max-h-[80vh] overflow-y-auto pr-1"
-        onScroll={(e) => setScrolled((e.currentTarget.scrollTop || 0) > 0)}
-      >
+      {/* 👇 sin max-height ni overflow: el scroll lo maneja el Drawer */}
+      <CardContent className="text-zinc-100 sm:px-6 px-4 space-y-4">
         {/* Stats mini */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-white/10 p-3">
             <div className="text-xs text-zinc-400">Asistencias</div>
-            <div className="mt-1 text-2xl font-semibold text-zinc-100">{attCount}</div>
+            <div className="mt-1 text-2xl font-semibold text-zinc-100">
+              {attCount}
+            </div>
           </div>
 
           <div className="rounded-xl border border-white/10 p-3">
@@ -72,8 +83,11 @@ export default function UserCard({ viewerRole, client, stats, onAction, onRefres
                   ${lastPay.amount.toFixed(0)}
                 </div>
                 <div className="text-xs text-zinc-400">
-                  {String(lastPay.period_month).padStart(2, "0")}/{lastPay.period_year} • {lastPay.method ?? "—"}
-                  {lastPay.method === "transfer" && lastPay.method_channel ? ` (${lastPay.method_channel})` : ""}
+                  {String(lastPay.period_month).padStart(2, "0")}/{lastPay.period_year} •{" "}
+                  {lastPay.method ?? "—"}
+                  {lastPay.method === "transfer" && lastPay.method_channel
+                    ? ` (${lastPay.method_channel})`
+                    : ""}
                 </div>
               </div>
             ) : (
@@ -83,76 +97,62 @@ export default function UserCard({ viewerRole, client, stats, onAction, onRefres
         </div>
 
         {/* Vista enriquecida */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
           {/* Calendario de asistencias */}
           <AttendanceCalendar clientId={client.id} monthsBack={3} />
 
           {/* Últimos 3 pagos */}
           <div className="rounded-xl border border-white/10 bg-zinc-950/60 p-3">
-            <div className="text-sm mb-2 text-zinc-300">Últimos pagos</div>
+            <div className="text-sm mb-2 text-zinc-200">Últimos pagos</div>
             <LastPayments clientId={client.id} />
           </div>
         </div>
 
-        {/* Footer de acciones sticky (con blur y borde/sombra al scrollear) */}
-        <div
-          className={[
-            "sticky bottom-0 -mx-4 px-4 pt-3 pb-3 backdrop-blur-md bg-zinc-900/75",
-            "transition-shadow border-t",
-            scrolled ? "border-white/10 shadow-[0_-8px_24px_-8px_rgba(0,0,0,0.6)]" : "border-transparent shadow-none",
-          ].join(" ")}
-        >
-          {/* sutil gradiente para el reflejo */}
-          <div className="pointer-events-none absolute left-0 right-0 -top-6 h-6 bg-linear-to-t from-transparent to-zinc-900/60" />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              className="text-gray-100 bg-zinc-800 hover:bg-zinc-700"
-              onClick={() => {
-                setOpenCheckin(true);
-                onAction?.("checkin", client);
-              }}
-            >
-              Registrar asistencia
-            </Button>
+        {/* Acciones al final (ya no sticky) */}
+        <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            className="text-gray-100 bg-zinc-800 hover:bg-zinc-700"
+            onClick={() => setOpenEdit(true)}
+          >
+            Editar datos
+          </Button>
 
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-gray-100 border-cyan-400/40 hover:bg-cyan-400/10"
-              onClick={() => {
-                setOpenPayment(true);
-                onAction?.("newPayment", client);
-              }}
-            >
-              Crear pago
-            </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-gray-100 border-cyan-400/40 hover:bg-cyan-400/10"
+            onClick={() => {
+              setOpenPayment(true);
+              onAction?.("newPayment", client);
+            }}
+          >
+            Crear pago
+          </Button>
 
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-gray-100 hover:bg-zinc-800"
-              onClick={() => onAction?.("viewHistory", client)}
-            >
-              Ver historial
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-gray-100 hover:bg-zinc-800"
+            onClick={() => onAction?.("viewHistory", client)}
+          >
+            Ver historial
+          </Button>
         </div>
       </CardContent>
 
       {/* Diálogos */}
-      <CheckinDialog
-        open={openCheckin}
-        onOpenChange={setOpenCheckin}
-        clientId={client.id}
-        clientName={client.full_name}
-        onSuccess={onRefresh}
-      />
       <NewPaymentDialog
         open={openPayment}
         onOpenChange={setOpenPayment}
         clientId={client.id}
         clientName={client.full_name}
+        onSuccess={onRefresh}
+      />
+      <EditClientDialog
+        open={openEdit}
+        onOpenChange={setOpenEdit}
+        client={client}
         onSuccess={onRefresh}
       />
     </Card>

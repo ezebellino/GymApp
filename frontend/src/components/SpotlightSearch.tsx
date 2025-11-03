@@ -6,19 +6,27 @@ import { Button } from "@/components/ui/button";
 import UserCard from "./UserCard";
 import { searchClients, fetchClientStats } from "@/services/search";
 import type { Client, Role } from "@/types";
+import { useNavigate } from "react-router-dom";
 
 type Props = {
     open: boolean;
     onOpenChange: (next: boolean) => void;
+    onCloseSpotlight?: () => void;
+    onCloseAll?: () => void;
     viewerRole: Role;
 };
 
-export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Props) {
+export default function SpotlightSearch({ open, onOpenChange, viewerRole}: Props) {
     const [query, setQuery] = React.useState("");
     const [results, setResults] = React.useState<Client[]>([]);
     const [loading, setLoading] = React.useState(false);
     const [selected, setSelected] = React.useState<Client | null>(null);
     const [stats, setStats] = React.useState<Record<string, { lastPayment?: any; attendanceCount?: number }>>({});
+    const navigate = useNavigate();
+    const closeAll = () => {
+        setSelected(null);
+        onOpenChange(false);
+    };
 
     // Buscar con debounce simple
     React.useEffect(() => {
@@ -55,90 +63,101 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
         return () => window.removeEventListener("keydown", handleEsc);
     }, [onOpenChange]);
 
-    return (
-        <>
-            {/* Command Palette */}
-            <div className="fixed left-1/2 top-24 z-60 w-full max-w-2xl -translate-x-1/2">
-                <Command className={`rounded-2xl border border-zinc-800 bg-zinc-900/80 backdrop-blur ${open ? "" : "hidden"}`}>
-                    <CommandInput
-                        placeholder="Buscar clientes por nombre / email / teléfono…"
-                        value={query}
-                        onValueChange={setQuery}
-                    />
-                    <CommandList>
-                        {!loading && <CommandEmpty>Sin resultados</CommandEmpty>}
-                        <CommandGroup heading="Clientes">
-                            {results.map((c) => (
-                                <CommandItem
-                                    key={c.id}
-                                    value={c.full_name}
-                                    onSelect={() => setSelected(c)}
-                                >
-                                    <div className="flex items-center justify-between w-full">
-                                        <div className="truncate">
-                                            <div className="font-medium">{c.full_name}</div>
-                                            <div className="text-xs text-zinc-400">
-                                                {c.phone ?? "—"} • {c.email ?? "—"}
-                                            </div>
-                                        </div>
-                                        <div className="text-xs text-zinc-400">
-                                            {stats[c.id]?.attendanceCount ?? 0} asis.
-                                        </div>
-                                    </div>
-                                </CommandItem>
-                            ))}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
-            </div>
-
-            {/* Drawer con la Card */}
-            <Drawer
-                open={!!selected}
-                onOpenChange={(open: boolean) => {
-                    if (!open) setSelected(null);
-                }}
-            >
-                <DrawerContent className="border-zinc-800 bg-zinc-950">
-                    <div className="mx-auto w-full max-w-3xl p-4">
-                        <DrawerHeader>
-                            <DrawerTitle className="text-xl">Ficha del cliente</DrawerTitle>
-                            <DrawerDescription className="text-zinc-400">
-                                Vista {viewerRole === "owner" ? "completa (Owner)" : "para Coach"}.
-                            </DrawerDescription>
-                        </DrawerHeader>
-
-                        {selected && (
-                            <div className="px-4 pb-6">
-                                <UserCard
-                                    viewerRole={viewerRole}
-                                    client={selected}
-                                    stats={stats[selected.id]}
-                                    onAction={(action, client) => {
-                                        if (action === "checkin") {
-                                            // ejemplo rápido (luego usá tu helper de toasts y modales)
-                                            // POST /attendance/checkin { client_id: client.id }
-                                        }
-                                        if (action === "newPayment") {
-                                            // Navegar /payments con client preseleccionado o abrir modal
-                                        }
-                                        if (action === "viewHistory") {
-                                            // Navegar a detalle (si lo agregamos) o abrir modal de tabs pagos/asistencias
-                                        }
-                                    }}
-                                />
-                                <div className="mt-4 flex justify-end">
-                                    <DrawerClose asChild>
-                                        <Button variant="outline" className="border-zinc-700 hover:bg-zinc-800">
-                                            Cerrar
-                                        </Button>
-                                    </DrawerClose>
-                                </div>
-                            </div>
-                        )}
+  return (
+    <>
+      {/* Command Palette */}
+      <div className="fixed left-1/2 top-24 z-60 w-full max-w-2xl -translate-x-1/2">
+        <Command
+          className={`rounded-2xl border border-zinc-800 bg-zinc-900/80 backdrop-blur ${
+            open ? "" : "hidden"
+          }`}
+        >
+          <CommandInput
+            placeholder="Buscar clientes por nombre / email / teléfono…"
+            value={query}
+            onValueChange={setQuery}
+          />
+          <CommandList>
+            {!loading && <CommandEmpty>Sin resultados</CommandEmpty>}
+            <CommandGroup heading="Clientes">
+              {results.map((c) => (
+                <CommandItem
+                  key={c.id}
+                  value={c.full_name}
+                  onSelect={() => setSelected(c)}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="truncate">
+                      <div className="font-medium">{c.full_name}</div>
+                      <div className="text-xs text-zinc-400">
+                        {c.phone ?? "—"} • {c.email ?? "—"}
+                      </div>
                     </div>
-                </DrawerContent>
-            </Drawer>
-        </>
-    );
+                    <div className="text-xs text-zinc-400">
+                      {stats[c.id]?.attendanceCount ?? 0} asis.
+                    </div>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </div>
+
+      {/* Drawer con la Card */}
+      <Drawer
+        open={!!selected}
+        onOpenChange={(open: boolean) => {
+          if (!open) setSelected(null);
+        }}
+      >
+        {/* 👇 altura fija del drawer y scroll en TODO el contenido */}
+        <DrawerContent className="border-zinc-800 bg-zinc-950 h-[92vh] flex flex-col">
+          <div className="mx-auto w-full max-w-4xl flex-1 overflow-y-auto p-4">
+            <DrawerHeader>
+              <DrawerTitle className="text-xl">Ficha del cliente</DrawerTitle>
+              <DrawerDescription className="text-zinc-400">
+                Vista {viewerRole === "owner" ? "completa (Owner)" : "para Coach"}.
+              </DrawerDescription>
+            </DrawerHeader>
+
+            {selected && (
+              <div className="px-4 pb-6">
+                <UserCard
+                  viewerRole={viewerRole}
+                  client={selected}
+                  stats={stats[selected.id]}
+                  onAction={(action, client) => {
+                    if (action === "viewHistory") {
+                      // cerrar todo y navegar con filtro
+                      setSelected(null);
+                      onOpenChange(false);
+                      const params = new URLSearchParams({
+                        client_id: client.id,
+                        q: client.full_name || "",
+                      });
+                      navigate(`/payments?${params.toString()}`);
+                    }
+                    // checkin / newPayment ya abren sus diálogos dentro de la UserCard
+                  }}
+                />
+
+                {/* botón Cerrar siempre al final del scroll */}
+                <div className="mt-4 flex justify-end">
+                  <DrawerClose asChild>
+                    <Button
+                      variant="outline"
+                      className="border-zinc-700 hover:bg-zinc-800 text-gray-100"
+                    >
+                      Cerrar
+                    </Button>
+                  </DrawerClose>
+                </div>
+              </div>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </>
+  );
 }

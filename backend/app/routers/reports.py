@@ -3,8 +3,8 @@ from datetime import date, datetime, timedelta, time
 from sqlalchemy import func
 from typing import Literal, Optional
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-from .. import models
+from sqlalchemy.orm import Session, selectinload
+from .. import models, schemas
 from ..deps import get_db
 from ..schemas import _bucket_expr
 from ..auth import require_role
@@ -100,3 +100,24 @@ def revenue_report(
         .all()
     )
     return [{"bucket": r[0].isoformat(), "total": float(r[1] or 0.0)} for r in rows]
+
+
+@router.get("/attendance/detail", response_model=list[schemas.AttendanceOut])
+def attendance_detail(
+    day: date = Query(..., description="Día en formato YYYY-MM-DD"),
+    db: Session = Depends(get_db),
+):
+    start = datetime.combine(day, datetime.min.time())
+    end = start + timedelta(days=1)
+
+    rows = (
+        db.query(models.Attendance)
+        .options(selectinload(models.Attendance.client))  # para traer el Client
+        .filter(
+            models.Attendance.checkin_at >= start,
+            models.Attendance.checkin_at < end,
+        )
+        .order_by(models.Attendance.checkin_at.asc())
+        .all()
+    )
+    return rows

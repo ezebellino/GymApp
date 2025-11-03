@@ -62,3 +62,21 @@ export const toast = Swal.mixin({
   background: "#0b0b0f",
   color: "#e5e7eb",
 });
+
+export function alertSuccessAutoClose(
+  title: string,
+  text?: string,
+  ms = 900
+) {
+  return Swal.fire({
+    icon: "success",
+    title,
+    text,
+    toast: true,
+    position: "top-end",
+    timer: ms,
+    timerProgressBar: true,
+    showConfirmButton: false,
+  });
+}
+

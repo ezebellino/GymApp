@@ -1,9 +1,11 @@
+// src/pages/Payments.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import api from "@/lib/http";
+import { useLocation } from "react-router-dom";
 
 type PaymentClient = {
   id: string;
@@ -15,7 +17,7 @@ type PaymentClient = {
 type Payment = {
   id: string;
   client_id: string;
-  client?: PaymentClient | null; // 👈 disponible gracias al backend
+  client?: PaymentClient | null;
   amount: number;
   method: "cash" | "transfer" | string | null;
   note?: string | null;
@@ -30,20 +32,26 @@ const nfARS = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0,
 });
 
+const isUUID = (str: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+
 export default function PaymentsPage() {
+  const location = useLocation();
+
+  // UI
+  const [q, setQ] = useState<string>("");      // lo que se escribe en el input
   const [items, setItems] = useState<Payment[]>([]);
   const [total, setTotal] = useState(0);
-  const [q, setQ] = useState("");               // 👈 ahora buscamos por nombre/email/teléfono
   const [limit] = useState(20);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  async function load() {
+  // Carga remota con parámetros explícitos (no lee estado)
+  async function loadWith(paramsIn: { q?: string; client_id?: string; limit?: number; offset?: number }) {
+    setLoading(true);
     try {
-      setLoading(true);
-      const { data, headers } = await api.get<Payment[]>("/payments", {
-        params: { q: q || undefined, limit, offset }, // 👈 usamos q
-      });
+      const base: Record<string, any> = { limit, offset, ...paramsIn };
+      const { data, headers } = await api.get<Payment[]>("/payments", { params: base });
       setItems(data);
       const totalHeader =
         (headers["x-total-count"] as string) ??
@@ -54,8 +62,50 @@ export default function PaymentsPage() {
     }
   }
 
+  // Primer render: leer querystring y cargar inmediatamente
   useEffect(() => {
-    load();
+    const sp = new URLSearchParams(location.search);
+
+    // Aceptamos client_id (snake), clientId (camel) o q (texto)
+    const clientIdQS = sp.get("client_id") || sp.get("clientId") || "";
+    const qQS = sp.get("q") || "";
+
+    // Si viene client_name, lo mostramos en el input para contexto (opcional)
+    const clientNameQS = sp.get("client_name");
+    if (clientNameQS) setQ(clientNameQS);
+    else if (clientIdQS) setQ(clientIdQS);
+    else if (qQS) setQ(qQS);
+
+    // Construimos parámetros y disparamos carga sin depender del state
+    if (clientIdQS) {
+      loadWith({ client_id: clientIdQS, limit, offset: 0 });
+      setOffset(0);
+    } else if (qQS) {
+      loadWith({ q: qQS, limit, offset: 0 });
+      setOffset(0);
+    } else {
+      // carga inicial sin filtros (si querés)
+      loadWith({ limit, offset });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+
+  // Buscar manual (botón)
+  const onSearch = () => {
+    const trimmed = q.trim();
+    setOffset(0);
+    if (!trimmed) return loadWith({ limit, offset: 0 });
+    if (isUUID(trimmed)) return loadWith({ client_id: trimmed, limit, offset: 0 });
+    return loadWith({ q: trimmed, limit, offset: 0 });
+  };
+
+  // Paginación usando el último criterio del input
+  useEffect(() => {
+    if (offset === 0) return; // ya cubierto por onSearch
+    const trimmed = q.trim();
+    if (!trimmed) loadWith({ limit, offset });
+    else if (isUUID(trimmed)) loadWith({ client_id: trimmed, limit, offset });
+    else loadWith({ q: trimmed, limit, offset });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offset]);
 
@@ -75,16 +125,14 @@ export default function PaymentsPage() {
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
             <div className="flex gap-2 w-full sm:max-w-xl">
               <Input
-                placeholder="Buscar por nombre, email o teléfono…"
+                placeholder="Buscar por nombre, email, teléfono o pegar UUID…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && onSearch()}
                 className="bg-zinc-900/70 border-white/10"
               />
               <Button
-                onClick={() => {
-                  setOffset(0);
-                  load();
-                }}
+                onClick={onSearch}
                 disabled={loading}
                 className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30"
                 variant="outline"
@@ -150,10 +198,9 @@ export default function PaymentsPage() {
                   rows.map((p) => (
                     <tr key={p.id} className="border-t border-white/5">
                       <td className="p-3 text-zinc-200">
-                        {new Date(p.created_at).toLocaleString()}
+                        {new Date(p.created_at).toLocaleString("es-AR")}
                       </td>
 
-                      {/* 👇 mostramos nombre completo (y un subtítulo con email/teléfono) */}
                       <td className="p-3 text-zinc-200">
                         {p.client?.full_name ?? "—"}
                         {(p.client?.email || p.client?.phone) && (
@@ -167,9 +214,7 @@ export default function PaymentsPage() {
                         {String(p.period_month).padStart(2, "0")}/{p.period_year}
                       </td>
 
-                      <td className="p-3 text-zinc-100">
-                        {nfARS.format(p.amount)}
-                      </td>
+                      <td className="p-3 text-zinc-100">{nfARS.format(p.amount)}</td>
 
                       <td className="p-3">
                         {p.method ? (

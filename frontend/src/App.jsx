@@ -11,6 +11,7 @@ import Topbar from "./components/Topbar";
 import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
+import NewCoachPage from "./pages/NewCoach";
 import "./index.css";
 
 export default function App() {
@@ -83,6 +84,14 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <Settings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/coaches/new"
+                element={
+                  <ProtectedRoute roles={["owner"]}>
+                    <NewCoachPage />
                   </ProtectedRoute>
                 }
               />

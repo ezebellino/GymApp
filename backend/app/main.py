@@ -6,6 +6,7 @@ from .config import settings
 from .logging_conf import setup_logging
 from .middleware import RequestLogMiddleware
 from .routers import clients, payments, auth, attendance, reports
+from .routers import settings as settings_router
 
 setup_logging(debug=getattr(settings, "DEBUG", False))  # ⬅️ antes de crear/usar loggers
 
@@ -27,7 +28,7 @@ async def integrity_error_handler(request: Request, exc: IntegrityError):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["http://localhost:5173"], # ⬅️ ajustar según necesidad
     allow_credentials=True,
     allow_methods=["*"], 
     allow_headers=["*"],
@@ -43,6 +44,7 @@ app.include_router(clients.router)
 app.include_router(payments.router)
 app.include_router(attendance.router)
 app.include_router(reports.router)
+app.include_router(settings_router.router)
 
 
 @app.get("/healthz", tags=["health"])
