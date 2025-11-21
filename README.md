@@ -122,8 +122,8 @@ Se agregó un healthcheck y un ping externo para minimizar el “cold start”.
 
 ## 👨‍💻 **Autor**
 Ezequiel “Zeqe” Bellino
-GitHub: https://github.com/ezebellino
-LinkedIn: https://www.linkedin.com/in/ezebellino
+- GitHub: https://github.com/ezebellino
+- LinkedIn: https://www.linkedin.com/in/ezebellino
 
 ## Licencia
 Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
