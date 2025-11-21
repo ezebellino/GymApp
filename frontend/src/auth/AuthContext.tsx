@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState, ReactNode, useEffect } from "react";
-import api from "../api/http";
+import api from "@/lib/http";
 import { jwtDecode } from "jwt-decode";
 
 

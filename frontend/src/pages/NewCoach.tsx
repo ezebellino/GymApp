@@ -4,13 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Swal from "sweetalert2";
-// import api from "@/lib/http"; // cuando tengas el endpoint
+import api from "@/lib/http";
+import { useNavigate } from "react-router-dom";
 
 export default function NewCoachPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -21,13 +23,11 @@ export default function NewCoachPage() {
         full_name: fullName.trim(),
         email: email.trim(),
         password,
-        role: "coach",
       };
 
-      console.log("Nuevo coach (stub):", payload);
+      const res = await api.post("/coaches", payload);
 
-      // 👇 cuando tengas endpoint:
-      // await api.post("/coaches", payload);
+      console.log("Nuevo coach creado:", res.data);
 
       await Swal.fire({
         title: "Coach creado",
@@ -40,10 +40,12 @@ export default function NewCoachPage() {
       setFullName("");
       setEmail("");
       setPassword("");
-    } catch (e) {
+      navigate("/coaches");
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || err?.message || "No se pudo crear el coach.";
       await Swal.fire({
         title: "Error",
-        text: "No se pudo crear el coach.",
+        text: String(msg),
         icon: "error",
       });
     } finally {

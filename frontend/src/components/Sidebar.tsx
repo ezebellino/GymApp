@@ -34,11 +34,18 @@ const items: NavItem[] = [
 ];
 
 export default function Sidebar() {
+  const role = (localStorage.getItem("user_role") as string) || "coach";
+  const allowed = items.filter((it) => {
+    // Hide reports for non-owners
+    if (it.to === "/reports" && role !== "owner") return false;
+    return true;
+  });
+
   return (
     <aside className="fixed left-0 top-15 z-40 h-screen w-64 bg-zinc-900/80 border-r border-white/10 backdrop-blur-xl">
       <TooltipProvider delayDuration={80}>
         <nav className="p-4 space-y-4">
-          {items.map(({ to, label, icon: Icon }) => (
+          {allowed.map(({ to, label, icon: Icon }) => (
             <Tooltip key={to}>
               <TooltipTrigger asChild>
                 <NavLink

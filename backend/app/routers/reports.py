@@ -30,7 +30,7 @@ def _end_exclusive(d: date) -> datetime:
 @router.get("/attendance")
 def attendance_report(
     db: Session = Depends(get_db),
-    _user = Depends(require_role(UserRole.owner, UserRole.coach)),
+    _user = Depends(require_role(UserRole.owner)),
     start: date = Query(...),
     end: date = Query(...),
     bucket: Literal["day", "week", "month"] = Query("day"),
@@ -54,6 +54,7 @@ def attendance_report(
 @router.get("/new_clients")
 def new_clients_report(
     db: Session = Depends(get_db),
+    _user = Depends(require_role(UserRole.owner)),
     start: date = Query(...),
     end: date = Query(...),
     bucket: Literal["day", "week", "month"] = Query("week")
@@ -77,6 +78,7 @@ def new_clients_report(
 @router.get("/revenue")
 def revenue_report(
     db: Session = Depends(get_db),
+    _user = Depends(require_role(UserRole.owner)),
     start: date = Query(...),
     end: date = Query(...),
     bucket: Literal["month", "week", "day"] = Query("month"),
@@ -106,6 +108,7 @@ def revenue_report(
 def attendance_detail(
     day: date = Query(..., description="Día en formato YYYY-MM-DD"),
     db: Session = Depends(get_db),
+    _user = Depends(require_role(UserRole.owner)),
 ):
     start = datetime.combine(day, datetime.min.time())
     end = start + timedelta(days=1)

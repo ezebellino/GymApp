@@ -38,6 +38,12 @@ export default function NewPaymentDialog({ open, onOpenChange, clientId, clientN
       });
       onSuccess?.();
       onOpenChange(false);
+      // Emit a global event so dashboards / lists can refresh
+      try {
+        window.dispatchEvent(new CustomEvent("payments:created", { detail: { client_id: clientId } }));
+      } catch (e) {
+        // no-op
+      }
     } finally {
       setLoading(false);
     }

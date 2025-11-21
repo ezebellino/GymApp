@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from .config import settings
 from .logging_conf import setup_logging
 from .middleware import RequestLogMiddleware
-from .routers import clients, payments, auth, attendance, reports
+from .routers import clients, payments, auth, attendance, reports, coaches
 from .routers import settings as settings_router
 
 setup_logging(debug=getattr(settings, "DEBUG", False))  # ⬅️ antes de crear/usar loggers
@@ -44,9 +44,10 @@ app.include_router(clients.router)
 app.include_router(payments.router)
 app.include_router(attendance.router)
 app.include_router(reports.router)
+app.include_router(coaches.router)
 app.include_router(settings_router.router)
 
 
-@app.get("/healthz", tags=["health"])
-def read_healthz():
-    return {"message": "Gym App Backend is running."}
+@app.get("/health", tags=["health"])
+def read_health():
+    return {"message": "La aplicación de Sergio está funcionando correctamente."}

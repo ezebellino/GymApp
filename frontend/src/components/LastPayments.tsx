@@ -12,9 +12,10 @@ type Payment = {
   created_at: string;
 };
 
-export default function LastPayments({ clientId }: { clientId: string }) {
+export default function LastPayments() {
   const [rows, setRows] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
+
 
   useEffect(() => {
     let mounted = true;
@@ -22,7 +23,7 @@ export default function LastPayments({ clientId }: { clientId: string }) {
       setLoading(true);
       try {
         const { data } = await api.get<Payment[]>("/payments", {
-          params: { client_id: clientId, limit: 3, offset: 0 },
+          params: { limit: 5, offset: 0 },
         });
         if (mounted) setRows(data);
       } finally {
@@ -32,8 +33,7 @@ export default function LastPayments({ clientId }: { clientId: string }) {
     return () => {
       mounted = false;
     };
-  }, [clientId]);
-
+  }, []);
   if (loading) return <div className="text-xs text-zinc-400">Cargando…</div>;
   if (!rows.length) return <div className="text-sm text-zinc-400">Sin pagos recientes.</div>;
 

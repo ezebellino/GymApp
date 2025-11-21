@@ -51,6 +51,13 @@ def get_current_user(
     user = db.get(models.User, user_id)
     if not user or not user.is_active:
         raise credentials_exception
+
+    if getattr(user, "email_verified", True) is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email not verified. Please check your inbox.",
+        )
+    
     return user
 
 def require_role(*roles: models.UserRole):
@@ -59,3 +66,13 @@ def require_role(*roles: models.UserRole):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return user
     return _dep
+
+def require_owner(user: models.User = Depends(get_current_user)):
+    if user.role != models.UserRole.owner:
+        raise HTTPException(status_code=403, detail="Solo Sergio puede realizar esta acción")
+    return user
+
+def require_coach_or_owner(user: models.User = Depends(get_current_user)):
+    if user.role not in (models.UserRole.coach, models.UserRole.owner):
+        raise HTTPException(status_code=403, detail="Acceso restringido a coaches y dueños.")
+    return user

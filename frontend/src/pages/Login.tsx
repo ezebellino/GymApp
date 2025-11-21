@@ -31,13 +31,17 @@ export default function Login() {
       });
 
       localStorage.setItem("access_token", data.access_token);
-      const payload = jwtDecode<TokenPayload>(data.access_token);
-      localStorage.setItem("user_name", payload.name ?? payload.email ?? "Usuario");
 
-      if (payload.role === "owner" || payload.role === "coach") {
-        localStorage.setItem("user_role", payload.role);
-      } else {
-        localStorage.setItem("user_role", "coach");
+      // Obtener info del usuario desde la API (fuente de la verdad)
+      try {
+        const { data: me } = await api.get<{ id: string; full_name: string; email: string; role: string; email_verified: boolean }>("/auth/me");
+        localStorage.setItem("user_name", me.full_name ?? me.email ?? "Usuario");
+        localStorage.setItem("user_role", me.role ?? "coach");
+      } catch (err) {
+        // Si falla la llamada a /auth/me, seguimos usando token decodificado como fallback
+        const payload = jwtDecode<TokenPayload>(data.access_token);
+        localStorage.setItem("user_name", payload.name ?? payload.email ?? "Usuario");
+        localStorage.setItem("user_role", payload.role === "owner" || payload.role === "coach" ? payload.role : "coach");
       }
 
       await alertSuccess("¡Bienvenido!", "Inicio de sesión correcto.");

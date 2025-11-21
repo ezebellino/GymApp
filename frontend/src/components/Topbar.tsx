@@ -14,8 +14,24 @@ export default function Topbar() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const storedRole = (localStorage.getItem("user_role") as Role) || "coach";
-    setRole(storedRole);
+    const storedRole = (localStorage.getItem("user_role") as Role) || null;
+    const token = localStorage.getItem("access_token");
+
+    // Try to derive role from localStorage, otherwise decode token if available
+    if (storedRole) {
+      setRole(storedRole);
+    } else if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        const r = (payload.role as Role) || (payload?.user?.role as Role) || "coach";
+        setRole(r);
+        localStorage.setItem("user_role", r);
+      } catch (e) {
+        setRole("coach");
+      }
+    } else {
+      setRole("coach");
+    }
     setIsAuthed(!!localStorage.getItem("access_token"));
 
     const onKey = (e: KeyboardEvent) => {
@@ -50,16 +66,6 @@ export default function Topbar() {
     navigate("/login", { replace: true });
   };
 
-  const handleNewCoach = async () => {
-    // Por ahora stub. Más adelante podés navegar a /coaches/new
-    // navigate("/coaches/new");
-    await Swal.fire({
-      title: "Nuevo coach",
-      text: "Acá vas a poder crear y gestionar coaches. Próximamente ✨",
-      icon: "info",
-      confirmButtonText: "Cerrar",
-    });
-  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950/70 backdrop-blur">

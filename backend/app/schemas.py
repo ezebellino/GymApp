@@ -6,6 +6,9 @@ from sqlalchemy import func
 
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator, field_serializer
 
+
+Role = Literal["owner", "coach"]
+
 # ==================================
 # CONFIG BASE (reutilizable)
 # ==================================
@@ -15,6 +18,29 @@ class BaseSchema(BaseModel):
         ser_json_decimal="float",
         populate_by_name=True
     )
+    
+class UserBase(BaseSchema):
+    full_name: str = Field(min_length=1, max_length=120)
+    email: EmailStr
+    role: Role
+    is_active: bool = True
+    
+class UserCreate(UserBase):
+    role: Role = "coach"
+    password: str = Field(min_length=6, max_length=100)
+    
+    
+class UserUpdate(BaseSchema):
+    full_name: Optional[str] = Field(None, min_length=1, max_length=120)
+    email: Optional[EmailStr] = None
+    role: Optional[Role] = None
+    is_active: Optional[bool] = None
+    password: Optional[str] = Field(None, min_length=6, max_length=100)
+    
+class UserOut(UserBase):
+    id: str
+    email_verified: bool
+
 
 # ==================================
 # CLIENTS

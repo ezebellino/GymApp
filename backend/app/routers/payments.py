@@ -8,6 +8,9 @@ from .. import models, schemas
 from ..deps import get_db
 from ..auth import get_current_user, require_role
 from ..models import UserRole
+import logging
+
+log = logging.getLogger("request")
 
 def _inclusive_end(dt_end: date | datetime) -> datetime:
     """
@@ -79,12 +82,18 @@ def create_payment(
 @router.get("/", response_model=List[schemas.PaymentOut])
 def list_payments(
     response: Response,
+    request: Request,
     db: Session = Depends(get_db),
     client_id: Optional[str] = None,   # sigue disponible
     q: Optional[str] = Query(None, description="nombre, email o teléfono"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
+    # Debug: log incoming query params to diagnose 422 errors
+    try:
+        log.debug("[dbg] list_payments url=%s query=%s", request.url, dict(request.query_params))
+    except Exception:
+        log.debug("[dbg] list_payments unable to read query params")
     query = (
         db.query(models.Payment)
           .join(models.Client)
