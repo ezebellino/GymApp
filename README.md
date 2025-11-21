@@ -1,6 +1,18 @@
 # GymApp - Sistema de Gestión para Gimnasios
 
-GymApp es una aplicación web moderna diseñada para simplificar la gestión diaria de gimnasios. Proporciona herramientas intuitivas para el control de clientes, asistencias, pagos y reportes.
+Aplicación FullStack desarrollada con FastAPI + Supabase + React/Vite, diseñada para la administración integral de gimnasios: clientes, pagos, asistencias, reportes y paneles con roles diferenciados.
+
+
+## 🚀 DEMO ONLINE
+
+- **Frontend (Vercel):**
+  - https://libre-funcional.vercel.app/
+
+  - Backend (Render):
+  - https://gymapp-backend-xe0n.onrender.com
+
+  - Healthcheck:
+  - /health → OK
 
 ## Características Principales
 
@@ -28,121 +40,90 @@ GymApp es una aplicación web moderna diseñada para simplificar la gestión dia
 ## Tecnologías Utilizadas
 
 ### Frontend
-- React + TypeScript
-- Vite
-- Componentes UI modernos y personalizados
-- Sistema de autenticación integrado
-- Diseño responsive
+- React + Vite
+- TypeScript
+- Tailwind + shadcn/ui
+- React Router
+- Estado global + helpers personalizados
+- Alertas modernas (SweetAlert)
+- Animaciones suaves y UI dark-mode profesional
 
 ### Backend
-- Python
-- FastAPI
-- SQLAlchemy
-- Alembic (migraciones)
-- Sistema de autenticación seguro
+- SQLAlchemy 2.0
+- JWT Auth (Owner / Coach)
+- Middlewares de logging
+- Paginación, filtros y reportes
+- Arquitectura modular por routers
+- Healthcheck (/health) para infraestructura cloud
 
-## Requisitos Previos
+### Base de Datos
+- PostgreSQL en Supabase
+- Migración inicial vía dump SQL
+- Índices, relaciones y constraints
+- Roles persistidos en tabla users
 
-### Frontend
-```bash
-# Node.js 16 o superior
-# npm o yarn
-```
+### Deploy
+- Frontend: Vercel
+- Backend: Render (free tier con auto-suspend)
+- DB: Supabase
+- Healthcheck + ping externo para minimizar cold-start
 
-### Backend
-```bash
-# Python 3.8 o superior
-# pip
-# Base de datos PostgreSQL
-```
-
-## Instalación
-
-### Backend
-1. Crear un entorno virtual:
-```bash
-python -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
-```
-
-2. Instalar dependencias:
-```bash
-cd backend
-pip install -r requirements.txt
-```
-
-3. Configurar variables de entorno:
-```bash
-cp .env.example .env
-# Editar .env con tus configuraciones
-```
-
-4. Ejecutar migraciones:
-```bash
-alembic upgrade head
-```
-
-5. Iniciar el servidor:
-```bash
-uvicorn app.main:app --reload
-```
-
-### Frontend
-1. Instalar dependencias:
-```bash
-cd frontend
-npm install
-# o
-yarn install
-```
-
-2. Iniciar el servidor de desarrollo:
-```bash
-npm run dev
-# o
-yarn dev
-```
 
 ## Estructura del Proyecto
 
-### Frontend
-```
-frontend/
-├── src/
-│   ├── api/        # Integraciones con la API
-│   ├── auth/       # Autenticación
-│   ├── components/ # Componentes reutilizables
-│   ├── hooks/      # Custom hooks
-│   ├── lib/        # Utilidades
-│   ├── pages/      # Páginas principales
-│   └── services/   # Servicios
-```
-
-### Backend
-```
 backend/
-├── app/
-│   ├── routers/    # Rutas de la API
-│   ├── models/     # Modelos de datos
-│   └── schemas/    # Esquemas Pydantic
-├── migrations/     # Migraciones Alembic
-└── scripts/       # Scripts de utilidad
+│── app/
+│   ├── routers/
+│   ├── models.py
+│   ├── schemas.py
+│   ├── auth.py
+│   ├── middleware.py
+│   ├── config.py
+│   ├── main.py
+│── requirements.txt
+frontend/
+│── src/
+│   ├── pages/
+│   ├── components/
+│   ├── lib/
+│── vite.config.ts
+
+### Cómo correr el proyecto localmente
+## Backend
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+## Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+- 🔐 **Autenticación (Owner + Coach)**
+  - Owner gestiona todo el sistema
+  - Coach accede a clientes, pagos y asistencias
+  - Token JWT almacenado en localStorage
+  - Refresh por re-login
+
+- 🏥 **Healthcheck**
+  - Usado para Render y pingers externos:
+```bash
+  GET /health
+  {
+    "message": "La aplicación de Sergio está funcionando correctamente."
+  }
 ```
 
-## Características de Seguridad
-- Autenticación JWT
-- Contraseñas hasheadas
-- Protección CORS
-- Validación de datos
-- Auditoría de operaciones críticas
+## 🌐 **Infra / Deploy Notes**
+Render free suspende el contenedor si no recibe tráfico en ~15 minutos.
+Se agregó un healthcheck y un ping externo para minimizar el “cold start”.
 
-## Contribución
-Las contribuciones son bienvenidas. Por favor:
-1. Haz fork del repositorio
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
+## 👨‍💻 **Autor**
+Ezequiel “Zeqe” Bellino
+GitHub: https://github.com/ezebellino
+LinkedIn: https://www.linkedin.com/in/ezebellino
 
 ## Licencia
 Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
