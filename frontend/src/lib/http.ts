@@ -3,7 +3,7 @@ import axios from "axios";
 import { alertError } from "./alerts";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "https://gymapp-backend.onrender.com",
+  baseURL: import.meta.env.VITE_API_URL ?? "https://gymapp-backend-xe0n.onrender.com",
 });
 
 api.interceptors.request.use((config) => {

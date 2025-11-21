@@ -46,8 +46,18 @@ export default function Login() {
 
       await alertSuccess("¡Bienvenido!", "Inicio de sesión correcto.");
       navigate("/", { replace: true });
-    } catch (err) {
-      alertError("Credenciales inválidas", "Verificá email y contraseña.");
+    } catch (err: any) {
+      console.error("Error al hacer login", err);
+
+      // Si usás axios debajo de `api`:
+      if (err.response?.status === 400 || err.response?.status === 401) {
+        alertError("Credenciales inválidas", "Verificá email y contraseña.");
+      } else {
+        alertError(
+          "Error de conexión",
+          "No se pudo contactar al servidor. Intentá de nuevo en unos minutos."
+        );
+      }
     } finally {
       setLoading(false);
     }
