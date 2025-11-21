@@ -70,7 +70,7 @@ Aplicación FullStack desarrollada con FastAPI + Supabase + React/Vite, diseñad
 
 
 ## Estructura del Proyecto
-
+```bash
 backend/
 │── app/
 │   ├── routers/
@@ -87,7 +87,7 @@ frontend/
 │   ├── components/
 │   ├── lib/
 │── vite.config.ts
-
+```
 ### Cómo correr el proyecto localmente
 ## Backend
 ```bash
