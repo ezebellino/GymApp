@@ -28,7 +28,7 @@ async def integrity_error_handler(request: Request, exc: IntegrityError):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"], # ⬅️ ajustar según necesidad
+    allow_origins=settings.CORS_ORIGINS, 
     allow_credentials=True,
     allow_methods=["*"], 
     allow_headers=["*"],

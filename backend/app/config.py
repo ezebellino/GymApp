@@ -2,6 +2,7 @@
 from pathlib import Path
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import List
 
 # Ruta del .env: backend/.env (subimos 1 nivel desde app/)
 ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
@@ -12,6 +13,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 600
     DEBUG: bool = False
+    
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:5173",
+        "https://libre-funcional.vercel.app",
+    ]
 
     # Config Pydantic v2
     model_config = SettingsConfigDict(
