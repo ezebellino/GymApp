@@ -73,7 +73,7 @@ export default function Topbar() {
         {/* Logo izquierda */}
         <div className="flex items-center gap-3">
           <img
-            src="/src/assets/LogoLibreFuncional.png"
+            src="/LogoLibreFuncional.png"
             alt="Libre Funcional"
             className="h-8 w-auto object-contain"
           />
@@ -100,7 +100,7 @@ export default function Topbar() {
               className="border-violet-400/60 text-violet-100 bg-violet-500/10 hover:bg-violet-500/20 text-xs sm:text-sm"
             >
               <UserPlus className="h-4 w-4" />
-             + Nuevo coach
+              + Nuevo coach
             </Button>
           )}
 

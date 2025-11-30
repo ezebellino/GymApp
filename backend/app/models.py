@@ -74,3 +74,10 @@ class Attendance(Base):
     client = relationship("Client", back_populates="attendance")
     
     
+class AppSettings(Base):
+    __tablename__ = "app_settings"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    gym_name = Column(String, nullable=False)
+    currency = Column(String, nullable=False)
+    default_fee = Column(Integer, nullable=False)
+    address = Column(String, nullable=True)
