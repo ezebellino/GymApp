@@ -33,10 +33,10 @@ const items: NavItem[] = [
   { to: "/settings", label: "Ajustes", icon: Settings },
 ];
 
+// src/components/Sidebar.tsx
 export default function Sidebar() {
   const role = (localStorage.getItem("user_role") as string) || "coach";
   const allowed = items.filter((it) => {
-    // Hide reports for non-owners
     if (it.to === "/reports" && role !== "owner") return false;
     return true;
   });
@@ -44,13 +44,16 @@ export default function Sidebar() {
   return (
     <aside
       className="
-        hidden md:flex md:flex-col      /* 🔹 NO se ve en mobile, sí en md+ */
-        fixed left-0 top-16             /* 🔹 debajo del Topbar (h-16 = 4rem) */
+        hidden lg:flex           /* 👈 sólo desde lg en adelante */
+        fixed left-0 top-14      /* debajo del topbar (14 = h-14) */
         z-40
-        h-[calc(100vh-4rem)]            /* 🔹 alto = pantalla menos topbar */
+        h-[calc(100vh-3.5rem)]   /* alto pantalla - topbar */
         w-64
-        bg-zinc-900/80 border-r border-white/10
+        flex-col
+        bg-zinc-900/80
+        border-r border-white/10
         backdrop-blur-xl
+        overflow-y-auto          /* 👈 scroll si la pantalla es baja */
       "
     >
       <TooltipProvider delayDuration={80}>
