@@ -28,8 +28,11 @@ export default function App() {
           {/* Topbar fija arriba */}
           <Topbar />
 
-          {/* Contenido: compensación por sidebar (64) y topbar (16) */}
-          <main className="min-h-screen pl-64 pt-16 px-6 pb-6 bg-linear-to-b from-zinc-950 via-zinc-950 to-zinc-900">
+          {/* Contenido: 
+        - siempre compensa la Topbar con pt-16
+        - solo compensa Sidebar en md+ con md:pl-64
+    */}
+          <main className="min-h-screen pt-16 md:pl-64 px-4 md:px-6 pb-6 bg-linear-to-b from-zinc-950 via-zinc-950 to-zinc-900">
             <Routes>
               <Route
                 path="/"

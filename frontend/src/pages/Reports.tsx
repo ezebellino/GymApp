@@ -286,9 +286,11 @@ export default function ReportsPage() {
           ) : (
             <div className="space-y-6">
               {/* Gráfico de barras */}
-              <div className="h-64 rounded-lg bg-zinc-950/80 border border-white/10 px-2 py-2">
+              <div className="h-80 md:h-72 rounded-lg bg-zinc-950/80 border border-white/10 px-3 py-3">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 10, right: 16, left: 0, bottom: 20 }}>
                     <CartesianGrid
                       strokeDasharray="3 3"
                       stroke="rgba(148,163,184,0.2)"
@@ -324,7 +326,9 @@ export default function ReportsPage() {
               {/* Gráfico de área */}
               <div className="h-64 rounded-lg bg-zinc-950/80 border border-white/10 px-2 py-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
+                  <AreaChart
+                    data={chartData}
+                    margin={{ top: 10, right: 16, left: 0, bottom: 20 }}>
                     <defs>
                       <linearGradient
                         id="attendanceArea"
@@ -345,11 +349,15 @@ export default function ReportsPage() {
                       dataKey="label"
                       stroke="#e5e7eb"
                       tick={{ fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={{ stroke: "rgba(148,163,184,0.7)" }}
                     />
                     <YAxis
                       stroke="#e5e7eb"
                       tick={{ fontSize: 10 }}
                       allowDecimals={false}
+                      tickLine={false}
+                      axisLine={{ stroke: "rgba(148,163,184,0.7)" }}
                     />
                     <Tooltip
                       contentStyle={{

@@ -3,7 +3,7 @@ import api from "@/lib/http";
 import type { Client, Payment, Attendance } from "@/types";
 
 export async function searchClients(q: string): Promise<Client[]> {
-  const { data } = await api.get<Client[]>("/clients", { params: { q, limit: 20, offset: 0 } });
+  const { data } = await api.get<Client[]>("/clients", { params: { q: q, limit: 20, offset: 0 } });
   return data;
 }
 
@@ -18,7 +18,7 @@ export async function fetchClientStats(clientId: string): Promise<{
 
   // Conteo básico de asistencias (si implementaste /attendance?client_id=)
   const { data: attendance } = await api.get<Attendance[]>("/attendance", {
-    params: { client_id: clientId, limit: 1_000, offset: 0 },
+    params: { client_id: clientId, limit: 200, offset: 0 },
   });
 
   return {

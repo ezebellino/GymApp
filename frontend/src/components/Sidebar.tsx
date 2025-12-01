@@ -42,7 +42,17 @@ export default function Sidebar() {
   });
 
   return (
-    <aside className="fixed left-0 top-15 z-40 h-screen w-64 bg-zinc-900/80 border-r border-white/10 backdrop-blur-xl">
+    <aside
+      className="
+        hidden md:flex md:flex-col      /* 🔹 NO se ve en mobile, sí en md+ */
+        fixed left-0 top-16             /* 🔹 debajo del Topbar (h-16 = 4rem) */
+        z-40
+        h-[calc(100vh-4rem)]            /* 🔹 alto = pantalla menos topbar */
+        w-64
+        bg-zinc-900/80 border-r border-white/10
+        backdrop-blur-xl
+      "
+    >
       <TooltipProvider delayDuration={80}>
         <nav className="p-4 space-y-4">
           {allowed.map(({ to, label, icon: Icon }) => (

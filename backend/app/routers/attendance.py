@@ -8,6 +8,7 @@ from ..models import UserRole
 from ..security import optional_bearer
 from sqlalchemy import func, or_
 from datetime import datetime
+from ..utils import now_ar
 
 router = APIRouter(prefix="/attendance", tags=["attendance"], dependencies=[Depends(optional_bearer)])
 
@@ -87,7 +88,7 @@ def checkin(
     a = models.Attendance(
         client_id=client.id,
         coach_id=user.id if user.role == models.UserRole.coach else None,
-        checkin_at=datetime.utcnow(),
+        checkin_at=now_ar().replace(tzinfo=None),
     )
     db.add(a); db.commit(); db.refresh(a)
     return a

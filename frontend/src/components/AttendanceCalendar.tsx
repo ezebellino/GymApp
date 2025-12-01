@@ -26,12 +26,10 @@ export default function AttendanceCalendar({ clientId, monthsBack = 3 }: Props) 
       setErr(null);
       try {
         const { data } = await api.get<AttendanceRow[]>("/attendance", {
-          params: { client_id: clientId, limit: 1000, offset: 0 },
+          params: { client_id: clientId, limit: 200, offset: 0 },
         });
         if (!mounted) return;
-        const ds = data
-          .map((r) => new Date(r.checkin_at))
-          .filter((d) => d >= range.start && d <= range.end);
+        const ds = data.map((r) => new Date(r.checkin_at));
         setDates(ds);
       } catch (e) {
         console.error(e);
@@ -47,14 +45,18 @@ export default function AttendanceCalendar({ clientId, monthsBack = 3 }: Props) 
 
   return (
     <Card className="border-white/10 bg-zinc-950/60 p-3">
-      <div className="text-sm mb-2 text-zinc-300">Asistencias (últimos {monthsBack} meses)</div>
+      <div className="text-sm mb-2 text-zinc-300">
+        Asistencias (últimos {monthsBack} meses)
+      </div>
 
-      <Calendar
-        mode="multiple"
-        selected={dates}
-        disabled
-        className="rounded-md border border-white/10 bg-zinc-900/70 text-zinc-100"
-      />
+      <div className="w-full max-w-xs sm:max-w-sm mx-auto">
+        <Calendar
+          mode="multiple"
+          selected={dates}
+          disabled
+          className="w-full rounded-md border border-white/10 bg-zinc-900/70 text-zinc-100 text-xs"
+        />
+      </div>
 
       {loading && (
         <div className="mt-2 text-xs text-zinc-400 flex items-center gap-2">
@@ -62,9 +64,13 @@ export default function AttendanceCalendar({ clientId, monthsBack = 3 }: Props) 
           Cargando…
         </div>
       )}
-      {!loading && err && <div className="mt-2 text-xs text-red-400">{err}</div>}
+      {!loading && err && (
+        <div className="mt-2 text-xs text-red-400">{err}</div>
+      )}
       {!loading && !err && dates.length === 0 && (
-        <div className="mt-2 text-xs text-zinc-400">Sin asistencias en el período.</div>
+        <div className="mt-2 text-xs text-zinc-400">
+          Sin asistencias en el período.
+        </div>
       )}
     </Card>
   );
