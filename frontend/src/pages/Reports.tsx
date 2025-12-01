@@ -284,9 +284,9 @@ export default function ReportsPage() {
               No hay datos para graficar.
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="md:space-y-0 md:grid md:grid-cols-2 md:gap-4 space-y-6">
               {/* Gráfico de barras */}
-              <div className="h-80 md:h-72 rounded-lg bg-zinc-950/80 border border-white/10 px-3 py-3">
+              <div className="h-56 md:h-64 rounded-lg bg-zinc-950/80 border border-white/10 px-2 py-2">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={chartData}

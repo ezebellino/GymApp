@@ -29,7 +29,11 @@ export default function AttendanceCalendar({ clientId, monthsBack = 3 }: Props) 
           params: { client_id: clientId, limit: 200, offset: 0 },
         });
         if (!mounted) return;
-        const ds = data.map((r) => new Date(r.checkin_at));
+
+        const ds = data
+          .map((r) => new Date(r.checkin_at))
+          .filter((d) => d >= range.start && d <= range.end);
+
         setDates(ds);
       } catch (e) {
         console.error(e);
@@ -49,14 +53,19 @@ export default function AttendanceCalendar({ clientId, monthsBack = 3 }: Props) 
         Asistencias (últimos {monthsBack} meses)
       </div>
 
-      <div className="w-full max-w-xs sm:max-w-sm mx-auto">
-        <Calendar
-          mode="multiple"
-          selected={dates}
-          disabled
-          className="w-full rounded-md border border-white/10 bg-zinc-900/70 text-zinc-100 text-xs"
-        />
-      </div>
+      <Calendar
+        mode="multiple"
+        selected={dates}
+        disabled
+        // ancho amigable para mobile + dark theme
+        className="w-full max-w-xs mx-auto rounded-md border border-white/10 bg-zinc-900/70 text-zinc-100"
+        // 👉 marcamos los días con asistencia
+        modifiers={{ attended: dates }}
+        modifiersClassNames={{
+          attended:
+            "bg-white text-black font-bold text-xs hover:bg-amber-400 focus:bg-amber-400",
+        }}
+      />
 
       {loading && (
         <div className="mt-2 text-xs text-zinc-400 flex items-center gap-2">

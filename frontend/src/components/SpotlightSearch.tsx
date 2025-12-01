@@ -1,7 +1,21 @@
 // src/components/SpotlightSearch.tsx
 import * as React from "react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from "@/components/ui/drawer";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerClose,
+} from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import UserCard from "./UserCard";
 import { searchClients, fetchClientStats } from "@/services/search";
@@ -9,68 +23,73 @@ import type { Client, Role } from "@/types";
 import { useNavigate } from "react-router-dom";
 
 type Props = {
-    open: boolean;
-    onOpenChange: (next: boolean) => void;
-    onCloseSpotlight?: () => void;
-    onCloseAll?: () => void;
-    viewerRole: Role;
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  onCloseSpotlight?: () => void;
+  onCloseAll?: () => void;
+  viewerRole: Role;
 };
 
-export default function SpotlightSearch({ open, onOpenChange, viewerRole}: Props) {
-    const [query, setQuery] = React.useState("");
-    const [results, setResults] = React.useState<Client[]>([]);
-    const [loading, setLoading] = React.useState(false);
-    const [selected, setSelected] = React.useState<Client | null>(null);
-    const [stats, setStats] = React.useState<Record<string, { lastPayment?: any; attendanceCount?: number }>>({});
-    const navigate = useNavigate();
-    const closeAll = () => {
-        setSelected(null);
-        onOpenChange(false);
+export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Props) {
+  const [query, setQuery] = React.useState("");
+  const [results, setResults] = React.useState<Client[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [selected, setSelected] = React.useState<Client | null>(null);
+  const [stats, setStats] = React.useState<
+    Record<string, { lastPayment?: any; attendanceCount?: number }>
+  >({});
+  const navigate = useNavigate();
+
+  // 👇 función centralizada para cerrar TODO
+  const closeAll = React.useCallback(() => {
+    setSelected(null);
+    setQuery("");
+    setResults([]);
+    onOpenChange(false);
+  }, [onOpenChange]);
+
+  // Buscar con debounce simple
+  React.useEffect(() => {
+    const t = setTimeout(async () => {
+      if (!query.trim()) {
+        setResults([]);
+        return;
+      }
+      setLoading(true);
+      try {
+        const data = await searchClients(query.trim());
+        setResults(data);
+        // precarga de stats
+        const top = data.slice(0, 5);
+        const entries = await Promise.all(
+          top.map(async (c) => [c.id, await fetchClientStats(c.id)] as const)
+        );
+        const map: typeof stats = {};
+        entries.forEach(([id, pack]) => (map[id] = pack));
+        setStats((prev) => ({ ...prev, ...map }));
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Cerrar con ESC
+  React.useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeAll();
     };
-
-    // Buscar con debounce simple
-    React.useEffect(() => {
-        const t = setTimeout(async () => {
-            if (!query.trim()) {
-                setResults([]);
-                return;
-            }
-            setLoading(true);
-            try {
-                const data = await searchClients(query.trim());
-                setResults(data);
-                // precarga de stats
-                const top = data.slice(0, 5);
-                const entries = await Promise.all(
-                    top.map(async (c) => [c.id, await fetchClientStats(c.id)] as const)
-                );
-                const map: typeof stats = {};
-                entries.forEach(([id, pack]) => (map[id] = pack));
-                setStats((prev) => ({ ...prev, ...map }));
-            } finally {
-                setLoading(false);
-            }
-        }, 300);
-        return () => clearTimeout(t);
-    }, [query]);
-
-    // 👇 Nuevo: cerrar con ESC
-    React.useEffect(() => {
-        const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onOpenChange(false);
-        };
-        window.addEventListener("keydown", handleEsc);
-        return () => window.removeEventListener("keydown", handleEsc);
-    }, [onOpenChange]);
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [closeAll]);
 
   return (
     <>
       {/* Command Palette */}
       <div className="fixed left-1/2 top-24 z-60 w-full max-w-2xl -translate-x-1/2">
         <Command
-          className={`rounded-2xl border border-zinc-800 bg-zinc-900/80 backdrop-blur ${
-            open ? "" : "hidden"
-          }`}
+          className={`rounded-2xl border border-zinc-800 bg-zinc-900/80 backdrop-blur ${open ? "" : "hidden"
+            }`}
         >
           <CommandInput
             placeholder="Buscar clientes por nombre / email / teléfono…"
@@ -84,7 +103,12 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole}: Props
                 <CommandItem
                   key={c.id}
                   value={c.full_name}
-                  onSelect={() => setSelected(c)}
+                  onSelect={() => {
+                    // 1) seleccionamos cliente para abrir el Drawer
+                    setSelected(c);
+                    // 2) cerramos el spotlight inmediatamente
+                    onOpenChange(false);
+                  }}
                 >
                   <div className="flex items-center justify-between w-full">
                     <div className="truncate">
@@ -107,11 +131,13 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole}: Props
       {/* Drawer con la Card */}
       <Drawer
         open={!!selected}
-        onOpenChange={(open: boolean) => {
-          if (!open) setSelected(null);
+        onOpenChange={(isOpen: boolean) => {
+          if (!isOpen) {
+            // si el usuario cierra el drawer, limpiamos todo
+            closeAll();
+          }
         }}
       >
-        {/* 👇 altura fija del drawer y scroll en TODO el contenido */}
         <DrawerContent className="border-zinc-800 bg-zinc-950 h-[92vh] flex flex-col">
           <div className="mx-auto w-full max-w-4xl flex-1 overflow-y-auto p-4">
             <DrawerHeader>
@@ -129,25 +155,24 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole}: Props
                   stats={stats[selected.id]}
                   onAction={(action, client) => {
                     if (action === "viewHistory") {
-                      // cerrar todo y navegar con filtro
-                      setSelected(null);
-                      onOpenChange(false);
+                      // navegar al historial y cerrar todo
+                      closeAll();
                       const params = new URLSearchParams({
                         client_id: client.id,
                         q: client.full_name || "",
                       });
                       navigate(`/payments?${params.toString()}`);
                     }
-                    // checkin / newPayment ya abren sus diálogos dentro de la UserCard
+                    // checkin / newPayment se manejan dentro de la UserCard
                   }}
                 />
 
-                {/* botón Cerrar siempre al final del scroll */}
                 <div className="mt-4 flex justify-end">
                   <DrawerClose asChild>
                     <Button
                       variant="outline"
                       className="border-zinc-700 hover:bg-zinc-800 text-gray-100"
+                      onClick={closeAll} // por si acaso, también aquí
                     >
                       Cerrar
                     </Button>

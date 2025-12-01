@@ -32,7 +32,15 @@ export default function App() {
         - siempre compensa la Topbar con pt-16
         - solo compensa Sidebar en md+ con md:pl-64
     */}
-          <main className="min-h-screen pt-16 md:pl-64 px-4 md:px-6 pb-6 bg-linear-to-b from-zinc-950 via-zinc-950 to-zinc-900">
+          <main
+            className="
+              min-h-screen
+              pt-14                 /* espacio para el topbar */
+              px-4 pb-6
+              lg:pl-64              /* 👈 sólo desde lg compensamos sidebar */
+              bg-linear-to-b from-zinc-950 via-zinc-950 to-zinc-900
+            "
+          >
             <Routes>
               <Route
                 path="/"
