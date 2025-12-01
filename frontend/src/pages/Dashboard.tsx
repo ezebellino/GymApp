@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import type { Role } from "@/types";
+import { searchClients } from '@/services/search'
+import type { Client } from '@/types'
 
 // ===== Tipos =====n
 type PaymentsKpiResp = { amount_sum?: number };
@@ -65,6 +67,9 @@ export default function Dashboard() {
   const [q, setQ] = useState("");
   const [clientId, setClientId] = useState("");
   const [submittingCheckin, setSubmittingCheckin] = useState(false);
+  const [clientResults, setClientResults] = useState<Client[]>([]);
+  const [searchingClients, setSearchingClients] = useState(false);
+
 
   // New client form
   const [newName, setNewName] = useState("");
@@ -190,6 +195,29 @@ export default function Dashboard() {
     };
   }, []);
 
+  // Búsqueda incremental para quick check-in (igual idea que SpotlightSearch)
+  useEffect(() => {
+    const term = q.trim();
+    if (!term) {
+      setClientResults([]);
+      return;
+    }
+
+    const t = setTimeout(async () => {
+      try {
+        setSearchingClients(true);
+        const data = await searchClients(term);
+        setClientResults(data);
+      } catch (err) {
+        console.error("Error buscando clientes para quick check-in", err);
+      } finally {
+        setSearchingClients(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(t);
+  }, [q]);
+
   // Quick check-in
   async function doQuickCheckin(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
@@ -272,7 +300,7 @@ export default function Dashboard() {
       <div className="mb-8 text-center">
         <h1 className="text-2xl md:text-3xl font-semibold tracking-wide">
           <span className="bg-linear-to-r from-fuchsia-500 to-cyan-400 bg-clip-text text-transparent">
-            Bienvenido{role === "owner" ? ", Owner" : role === "coach" ? ", Coach" : ""} {userName}
+            Bienvenido {userName}
           </span>
         </h1>
         <p className="mt-1 text-sm text-zinc-400">Panel general · {new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" })}</p>
@@ -311,21 +339,80 @@ export default function Dashboard() {
           <h2 className="text-sm font-semibold mb-3 text-zinc-200">Check-in rápido</h2>
           <form className="space-y-3" onSubmit={doQuickCheckin}>
             <div>
-              <label className="text-xs text-zinc-400">Buscar por nombre/email/teléfono <span className="text-zinc-500">(usa “q”)</span></label>
-              <Input className="mt-1 bg-zinc-900/70 border-white/10" placeholder="Ej: Maria, 11 5555 5555 o contacto@..." value={q} onChange={(e) => setQ(e.target.value)} />
+              <label className="text-xs text-zinc-400">
+                Buscar por nombre/email/teléfono
+              </label>
+              <Input
+                className="mt-1 bg-zinc-900/70 border-white/10"
+                placeholder="Ej: María, 11 5555 5555 o contacto@..."
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setClientId(""); // si vuelvo a escribir, limpio el id seleccionado
+                }}
+              />
+
+              {/* Estado de búsqueda */}
+              {searchingClients && q.trim() && (
+                <p className="mt-1 text-xs text-zinc-400">Buscando clientes…</p>
+              )}
+
+              {/* Lista de sugerencias */}
+              {!searchingClients && clientResults.length > 0 && q.trim() && (
+                <div className="mt-2 max-h-56 overflow-y-auto rounded-2xl border border-white/10 bg-zinc-950/90">
+                  {clientResults.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setClientId(c.id);
+                        setQ(c.full_name ?? "");
+                        setClientResults([]);
+                      }}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-white/5 flex justify-between gap-3"
+                    >
+                      <div className="truncate">
+                        <div className="font-medium">{c.full_name}</div>
+                        <div className="text-xs text-zinc-400">
+                          {c.phone ?? "Sin teléfono"} · {c.email ?? "Sin email"}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Sin resultados */}
+              {!searchingClients && clientResults.length === 0 && q.trim() && (
+                <p className="mt-1 text-xs text-zinc-500">
+                  No se encontraron clientes para “{q.trim()}”.
+                </p>
+              )}
             </div>
+
             <div>
               <label className="text-xs text-zinc-400">O bien por UUID exacto</label>
-              <Input className="mt-1 bg-zinc-900/70 border-white/10 font-mono" placeholder="265bc49d-3845-4063-97fd-06d1c96a21d9" value={clientId} onChange={(e) => setClientId(e.target.value)} />
+              <Input
+                className="mt-1 bg-zinc-900/70 border-white/10 font-mono"
+                placeholder="265bc49d-3845-4063-97fd-06d1c96a21d9"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+              />
             </div>
+
             <div className="flex items-center gap-2">
-              <Button type="submit" disabled={submittingCheckin || (!q && !clientId)} className="rounded-2xl px-3 py-2 text-sm font-medium border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20">
+              <Button
+                type="submit"
+                disabled={submittingCheckin || (!q && !clientId)}
+                className="rounded-2xl px-3 py-2 text-sm font-medium border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20"
+              >
                 <CheckCircle2 size={16} className="mr-2" /> Check-in
               </Button>
               <span className="text-xs text-zinc-400">Crea asistencia para hoy</span>
             </div>
           </form>
         </section>
+
 
         {/* Recent Payments */}
         <section id="payments" className="lg:col-span-2 rounded-3xl border border-white/10 overflow-hidden">

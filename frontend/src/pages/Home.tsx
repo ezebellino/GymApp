@@ -22,12 +22,12 @@ export default function Home() {
     return "¡Buenas noches!";
   };
 
-  const roleLabel =
-    role === "owner"
-      ? "Dueño"
-      : role === "coach"
-      ? "Coach"
-      : "Usuario";
+  // const roleLabel =
+  //   role === "owner"
+  //     ? "Dueño"
+  //     : role === "coach"
+  //       ? "Coach"
+  //       : "Usuario";      /* si en algun momento se agrega el role al nombre del usuario, descomento roleLabel*/ 
 
   return (
     <div className="relative flex flex-col items-center justify-center h-[calc(100vh-6rem)] px-4 overflow-hidden">
@@ -55,7 +55,7 @@ export default function Home() {
             </motion.div>
 
             <h1 className="text-3xl font-semibold mb-2 bg-linear-to-r from-violet-500 to-cyan-400 bg-clip-text text-transparent">
-              {getGreeting()}, {roleLabel} {name}!
+              {getGreeting()}, {name}!
             </h1>
             <p className="text-zinc-400">
               Bienvenido al sistema de gestión de{" "}

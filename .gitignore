@@ -51,6 +51,7 @@ logs/
 # Ignora todos los .env* menos los .example
 .env
 .env.*
+.env.local
 !.env.example
 !.env.*.example
 
