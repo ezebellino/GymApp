@@ -1,5 +1,5 @@
 // src/pages/Login.tsx
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/http";
 import { Button } from "@/components/ui/button";
@@ -13,16 +13,15 @@ type TokenPayload = { name?: string; email?: string; sub?: string; role?: string
 
 /**
  * Hace login contra /auth/token con timeout y un reintento
- * adicional en caso de timeout (típico cold start de Render).
+ * adicional en caso de timeout (típico cold start del backend).
  */
 async function requestTokenWithRetry(body: URLSearchParams) {
   try {
     return await api.post<TokenResp>("/auth/token", body, {
-      timeout: 8000, // 8 segundos
+      timeout: 8000,
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
   } catch (err: any) {
-    // Render despertando → reintento
     const msg = err?.message ?? "";
     if (err.code === "ECONNABORTED" || msg.includes("timeout")) {
       console.warn("Servidor despertando, reintentando login...");
@@ -38,11 +37,28 @@ async function requestTokenWithRetry(body: URLSearchParams) {
 }
 
 export default function Login() {
-  const [email, setEmail] = useState("owner@librefuncional.com");
-  const [password, setPassword] = useState("Cambiar123");
+  // ✅ sin credenciales precargadas
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
+
+  // contador amigable mientras el backend “despierta”
+  const [elapsed, setElapsed] = useState(0);
+
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading) {
+      setElapsed(0);
+      return;
+    }
+    const id = setInterval(() => {
+      setElapsed((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [loading]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -83,8 +99,6 @@ export default function Login() {
       navigate("/", { replace: true });
     } catch (err: any) {
       console.error("Error al hacer login", err);
-
-      // Si usás axios en `api`, esto diferencia error de credenciales vs error de red
       const status = err?.response?.status;
       if (status === 400 || status === 401) {
         alertError("Credenciales inválidas", "Verificá email y contraseña.");
@@ -100,20 +114,22 @@ export default function Login() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-zinc-950">
+    <div className="relative min-h-screen flex items-center justify-center bg-zinc-950 px-4">
       {/* Glow de fondo */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-24 -left-24 h-80 w-80 rounded-full blur-3xl opacity-20 bg-violet-600"></div>
-        <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full blur-3xl opacity-20 bg-cyan-500"></div>
+        <div className="absolute -top-24 -left-24 h-80 w-80 rounded-full blur-3xl opacity-20 bg-violet-600" />
+        <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full blur-3xl opacity-20 bg-cyan-500" />
       </div>
 
       <form
         onSubmit={onSubmit}
-        className="relative w-full max-w-sm space-y-6 rounded-2xl border border-white/10 bg-zinc-900/70 p-8 shadow-2xl backdrop-blur-md"
+        className="relative w-full max-w-sm space-y-6 rounded-2xl border border-white/10 bg-zinc-900/70 p-6 sm:p-8 shadow-2xl backdrop-blur-md"
       >
-        <div className="space-y-1">
+        <div className="space-y-1 text-center sm:text-left">
           <h1 className="text-2xl font-semibold tracking-tight">Ingresar</h1>
-          <p className="text-sm text-zinc-400">Accedé al panel de LibreFuncional</p>
+          <p className="text-sm text-zinc-400">
+            Accedé al panel de LibreFuncional
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -123,6 +139,7 @@ export default function Login() {
             onChange={(e) => setEmail(e.target.value)}
             type="email"
             required
+            placeholder="ej: owner@librefuncional.com"
             className="bg-zinc-900/70 border-white/10 focus-visible:ring-cyan-500"
           />
         </div>
@@ -135,6 +152,7 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               type={showPwd ? "text" : "password"}
               required
+              placeholder="Tu contraseña"
               className="bg-zinc-900/70 border-white/10 pr-10 focus-visible:ring-violet-500"
             />
             <button
@@ -156,6 +174,21 @@ export default function Login() {
           <LogIn className="h-4 w-4" />
           {loading ? "Ingresando..." : "Entrar"}
         </Button>
+
+        {/* Mensaje / contador para cold start */}
+        {loading && (
+          <p className="text-xs text-center text-zinc-400">
+            Conectando con el servidor… {elapsed}s
+            {elapsed >= 5 && " (puede tardar unos segundos si es la primera vez)"}
+          </p>
+        )}
+
+        {!loading && (
+          <p className="text-[11px] text-center text-zinc-500 leading-snug">
+            Si la app tarda en responder unos segundos al iniciar sesión, es normal:
+            el servidor se “despierta” automáticamente en el plan gratuito.
+          </p>
+        )}
 
         <p className="text-xs text-center text-zinc-500">
           © {new Date().getFullYear()} LibreFuncional
