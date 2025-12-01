@@ -80,7 +80,7 @@ export default function Topbar() {
         </div>
 
         {/* Centro: Spotlight trigger */}
-        <div className="flex-1 flex justify-center">
+        <div className="flex-1 hidden md:flex justify-center">
           <Button
             variant="outline"
             className="border-zinc-700 bg-zinc-900 hover:bg-zinc-800 w-72 text-sm"

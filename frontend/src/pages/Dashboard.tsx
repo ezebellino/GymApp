@@ -29,19 +29,39 @@ type PaymentRow = {
 type NewClientPayload = { full_name: string; email: string | null; phone: string | null };
 
 // ===== Helpers =====
-const nfARS = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
+const nfARS = new Intl.NumberFormat("es-AR", {
+  style: "currency",
+  currency: "ARS",
+  maximumFractionDigits: 0,
+});
 const pad = (n: number) => String(n).padStart(2, "0");
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const d2 = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+// helpers UTC-friendly
+const todayUTC = () => new Date().toISOString().slice(0, 10);
+
+const d2 = (d: Date) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+// Hoy y mañana en LOCAL
+const todayAndTomorrow = () => {
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  return {
+    start: d2(today),
+    end: d2(tomorrow),
+  };
+};
 
 const monthBounds = (d = new Date()) => {
   const start = new Date(d.getFullYear(), d.getMonth(), 1);
   const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
   return {
-    start: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
-    end: `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`,
+    start: d2(start),
+    end: d2(end),
   };
 };
+
 
 export default function Dashboard() {
   const [userName, setUserName] = useState<string>("Usuario");
@@ -94,20 +114,21 @@ export default function Dashboard() {
         setClientsTotal(totalHeader ? Number(totalHeader) : 0);
 
         // Revenue this month
-        const { start, end } = monthBounds();
-        const kpisResp = await api.get<PaymentsKpiResp>("/payments/reports/kpis", { params: { start, end } });
+        const { start: startMonth, end: endMonth } = monthBounds();
+        const kpisResp = await api.get<PaymentsKpiResp>("/payments/reports/kpis", { params: { start: startMonth, end: endMonth } });
         if (!mounted) return;
         setRevenueMonth(kpisResp.data?.amount_sum ?? 0);
 
-        // Check-ins today (end = tomorrow for inclusive range)
-        const today = todayISO();
-        const tomorrowDt = new Date();
-        tomorrowDt.setDate(tomorrowDt.getDate() + 1);
-        const tomorrow = `${tomorrowDt.getFullYear()}-${pad(tomorrowDt.getMonth() + 1)}-${pad(tomorrowDt.getDate())}`;
-        const resp = await api.get("/attendance", { params: { start: today, end: tomorrow, limit: 1, offset: 0 } });
+        // Check-ins hoy (usando fecha local)
+        const { start: startToday, end: endToday } = todayAndTomorrow();
+        const resp = await api.get("/attendance", {
+          params: { start: startToday, end: endToday, limit: 1, offset: 0 },
+        });
         if (!mounted) return;
-        const totalHeaderAttendance = (resp.headers["x-total-count"] ?? resp.headers["X-Total-Count"]) as string | undefined;
+        const totalHeaderAttendance = (resp.headers["x-total-count"] ??
+          resp.headers["X-Total-Count"]) as string | undefined;
         setCheckinsToday(totalHeaderAttendance ? Number(totalHeaderAttendance) : 0);
+
 
         // 1) Pagos recientes (tabla)
         setLoadingPayments(true);
@@ -140,15 +161,17 @@ export default function Dashboard() {
           const since = new Date();
           since.setDate(since.getDate() - 29);
           const payments30 = await api.get<PaymentRow[]>("/payments", {
-            params: { limit: 1000, offset: 0 }, // sin start/end: backend no los usa
+            params: { limit: 200, offset: 0 }, // sin start/end: backend no los usa
           });
 
           if (!mounted) return;
+          // dentro del try de "Serie de 30 días"
           const map = new Map<string, number>();
           for (const p of payments30.data ?? []) {
-            const key = d2(new Date(p.created_at));
+            const key = d2(new Date(p.created_at)); // agrupo por día local
             map.set(key, (map.get(key) ?? 0) + (p.amount || 0));
           }
+
           const out: { date: string; amount: number }[] = [];
           for (let i = 0; i < 30; i++) {
             const dt = new Date(since);
@@ -157,6 +180,7 @@ export default function Dashboard() {
             out.push({ date: key.slice(5), amount: map.get(key) ?? 0 });
           }
           setSeries(out);
+
         } catch (err) {
           console.error("Error construyendo serie de pagos 30 días", err);
         }
@@ -176,8 +200,8 @@ export default function Dashboard() {
         if (!mounted) return;
         setPayments(p.data || []);
 
-        const { start, end } = monthBounds();
-        const kpisResp = await api.get<PaymentsKpiResp>("/payments/reports/kpis", { params: { start, end } });
+        const { start: startMonth, end: endMonth } = monthBounds();
+        const kpisResp = await api.get<PaymentsKpiResp>("/payments/reports/kpis", { params: { start: startMonth, end: endMonth } });
         setRevenueMonth(kpisResp.data?.amount_sum ?? 0);
       } catch (err) {
         console.error(err);
@@ -230,14 +254,24 @@ export default function Dashboard() {
 
       await api.post("/attendance/checkin", body);
 
-      // refresh check-ins count
-      const today = todayISO();
-      const tomorrowDt = new Date();
-      tomorrowDt.setDate(tomorrowDt.getDate() + 1);
-      const tomorrow = `${tomorrowDt.getFullYear()}-${pad(tomorrowDt.getMonth() + 1)}-${pad(tomorrowDt.getDate())}`;
-      const resp2 = await api.get("/attendance", { params: { start: today, end: tomorrow, limit: 1, offset: 0 } });
-      const totalHeader2 = (resp2.headers["x-total-count"] ?? resp2.headers["X-Total-Count"]) as string | undefined;
-      setCheckinsToday(totalHeader2 ? Number(totalHeader2) : 0);
+      // 1) Actualización optimista inmediata
+      setCheckinsToday((prev) => prev + 1);
+
+      // 2) Refresco con datos reales (por si el backend cuenta distinto)
+      try {
+        const { start, end } = todayAndTomorrow();
+        const resp2 = await api.get("/attendance", {
+          params: { start, end, limit: 1, offset: 0 },
+        });
+        const totalHeader2 = (resp2.headers["x-total-count"] ??
+          resp2.headers["X-Total-Count"]) as string | undefined;
+        if (totalHeader2 != null) {
+          setCheckinsToday(Number(totalHeader2));
+        }
+      } catch (refreshErr) {
+        console.error("Error refrescando check-ins", refreshErr);
+        // si falla, nos quedamos con el valor optimista
+      }
 
       setQ("");
       setClientId("");
@@ -263,16 +297,17 @@ export default function Dashboard() {
 
       // refresh check-ins too (best-effort)
       try {
-        const today = todayISO();
-        const tomorrowDt = new Date();
-        tomorrowDt.setDate(tomorrowDt.getDate() + 1);
-        const tomorrow = `${tomorrowDt.getFullYear()}-${pad(tomorrowDt.getMonth() + 1)}-${pad(tomorrowDt.getDate())}`;
-        const resp2 = await api.get("/attendance", { params: { start: today, end: tomorrow, limit: 1, offset: 0 } });
-        const totalHeader2 = (resp2.headers["x-total-count"] ?? resp2.headers["X-Total-Count"]) as string | undefined;
+        const { start, end } = todayAndTomorrow();
+        const resp2 = await api.get("/attendance", {
+          params: { start, end, limit: 1, offset: 0 },
+        });
+        const totalHeader2 = (resp2.headers["x-total-count"] ??
+          resp2.headers["X-Total-Count"]) as string | undefined;
         setCheckinsToday(totalHeader2 ? Number(totalHeader2) : 0);
       } catch (e) {
         // ignore
       }
+
 
       setNewClientOpen(false);
       setNewName("");
@@ -295,7 +330,7 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       {/* HERO */}
       <div className="mb-8 text-center">
         <h1 className="text-2xl md:text-3xl font-semibold tracking-wide">
@@ -305,11 +340,11 @@ export default function Dashboard() {
         </h1>
         <p className="mt-1 text-sm text-zinc-400">Panel general · {new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" })}</p>
 
-        <div className="mt-5 flex items-center justify-center gap-3">
-          <Button variant="outline" className="border-white/10 hover:bg-white/10" onClick={() => setSearchOpen(true)}>
+        <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Button variant="outline" className="w-full sm:w-auto border-white/10 hover:bg-white/10" onClick={() => setSearchOpen(true)}>
             <Search className="h-4 w-4 mr-2" /> Buscar (Ctrl/⌘+K)
           </Button>
-          <Button className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30" variant="outline" onClick={() => setNewClientOpen(true)}>
+          <Button className="w-full sm:w-auto bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30" variant="outline" onClick={() => setNewClientOpen(true)}>
             <Plus className="h-4 w-4 mr-2" /> Nuevo cliente
           </Button>
         </div>
@@ -335,8 +370,16 @@ export default function Dashboard() {
       {/* Two-column: Quick Check-in + Recent Payments */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quick Check-in */}
-        <section id="attendance" className="lg:col-span-1 rounded-3xl border border-white/10 p-5 bg-white/5">
-          <h2 className="text-sm font-semibold mb-3 text-zinc-200">Check-in rápido</h2>
+        <section id="attendance" className="rounded-3xl border border-white/10 p-5 bg-white/5">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-sm font-semibold text-zinc-200">Check-in rápido   </h2>
+            <p className="text-xs text-zinc-400">
+              Hoy:&nbsp;
+              <span className="font-semibold text-emerald-300">
+                {checkinsToday}
+              </span>
+            </p>
+          </div>
           <form className="space-y-3" onSubmit={doQuickCheckin}>
             <div>
               <label className="text-xs text-zinc-400">
