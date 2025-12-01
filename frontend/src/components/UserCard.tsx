@@ -37,7 +37,7 @@ export default function UserCard({
   return (
     <Card className="border-white/10 bg-zinc-900/70 backdrop-blur-sm shadow-[0_0_20px_rgba(0,255,255,0.08)]">
       <CardHeader className="sm:pb-3 pb-2">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <CardTitle className="text-xl text-zinc-100">
               <span className="bg-linear-to-r from-fuchsia-500 to-cyan-400 bg-clip-text text-transparent">
@@ -55,10 +55,14 @@ export default function UserCard({
             </div>
           </div>
 
-          <div className="text-right text-sm">
-            <div className="text-zinc-300">📱 {client.phone || "—"}</div>
+          <div className="text-sm sm:text-right sm:min-w-[170px] space-y-0.5 break-all">
+            <div className="text-zinc-300 break-all">
+              📱 {client.phone || "—"}
+            </div>
             {viewerRole === "owner" && (
-              <div className="mt-0.5 text-zinc-400">✉️ {client.email ?? "—"}</div>
+              <div className="mt-0.5 text-zinc-400 break-all">
+                ✉️ {client.email ?? "—"}
+              </div>
             )}
           </div>
         </div>

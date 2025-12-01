@@ -125,8 +125,7 @@ export default function Dashboard() {
           params: { start: startToday, end: endToday, limit: 1, offset: 0 },
         });
         if (!mounted) return;
-        const totalHeaderAttendance = (resp.headers["x-total-count"] ??
-          resp.headers["X-Total-Count"]) as string | undefined;
+        const totalHeaderAttendance = (resp.headers["x-total-count"] ?? resp.headers["X-Total-Count"]) as string | undefined;
         setCheckinsToday(totalHeaderAttendance ? Number(totalHeaderAttendance) : 0);
 
 
@@ -320,11 +319,23 @@ export default function Dashboard() {
     }
   }
 
-  const kpis = useMemo(
+  type Kpi = {
+    label: string;
+    value: string;
+    icon: typeof Users;
+    hideOnMobile?: boolean;
+  };
+
+  const kpis: Kpi[] = useMemo(
     () => [
       { label: "Clientes", value: clientsTotal.toLocaleString("es-AR"), icon: Users },
       { label: "Ingresos (mes)", value: nfARS.format(revenueMonth), icon: CreditCard },
-      { label: "Check-ins (hoy)", value: checkinsToday.toLocaleString("es-AR"), icon: CalendarCheck2 },
+      {
+        label: "Check-ins (hoy)",
+        value: checkinsToday.toLocaleString("es-AR"),
+        icon: CalendarCheck2,
+        hideOnMobile: true,
+      },
     ],
     [clientsTotal, revenueMonth, checkinsToday]
   );
@@ -353,7 +364,11 @@ export default function Dashboard() {
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {kpis.map((k) => (
-          <div key={k.label} className="rounded-3xl p-4 border border-white/10 bg-linear-to-tr from-white/5 to-transparent">
+          <div key={k.label}
+            className={
+              "rounded-3xl p-4 border border-white/10 bg-linear-to-tr from-white/5 to-transparent" +
+              (k.hideOnMobile ? " hidden sm:block" : "")
+            }>
             <div className="flex items-center gap-3">
               <div className="rounded-2xl p-2 bg-linear-to-tr from-fuchsia-500/30 via-cyan-400/20 to-emerald-400/20">
                 <k.icon size={18} />
