@@ -1,79 +1,89 @@
-# GymApp - Sistema de Gestion para Gimnasios
+# GymApp - Sistema de Gestión para Gimnasios
 
-Aplicacion full stack desarrollada con FastAPI, Supabase y React/Vite, pensada para la administracion integral de gimnasios: clientes, pagos, asistencias, reportes y paneles con roles diferenciados.
+Aplicación full stack desarrollada con FastAPI, Supabase y React/Vite para la operación diaria de un gimnasio. El proyecto hoy cubre clientes, pagos, asistencias, reportes, configuración del negocio y un primer módulo de rutinas por grupos musculares.
 
 ## Demo online
 
-- Frontend (Vercel): https://libre-funcional.vercel.app/
-- Backend (Render): https://gymapp-backend-xe0n.onrender.com
+- Frontend: https://libre-funcional.vercel.app/
+- Backend: https://gymapp-backend-xe0n.onrender.com
 - Healthcheck: `GET /health`
 
-## Caracteristicas principales
+## Qué resuelve hoy
 
-- Gestion de clientes
-- Control de asistencia
-- Sistema de pagos
-- Reportes operativos
-- Autenticacion con roles `Dueño` y `Coach`
+- Gestión de clientes con alta, edición, estado y ficha operativa
+- Registro y seguimiento de pagos
+- Check-ins y calendario de asistencias
+- Reportes de ingresos, asistencia y altas
+- Configuración operativa del gimnasio
+- Roles `Dueño` y `Coach`
+- Rutinas por grupos musculares con carga de repeticiones y kilos
 
-### Gestion de clientes
+## Módulos principales
 
-- Registro y administracion de informacion de clientes
-- Fichas detalladas de usuarios
-- Busqueda rapida con Spotlight Search
+### Clientes
 
-### Control de asistencia
+- Alta y edición de clientes
+- Spotlight Search para búsqueda rápida
+- Ficha con pagos recientes y calendario de asistencias
 
-- Registro de entradas y salidas
-- Calendario de asistencia
-- Historico de visitas
+### Pagos
 
-### Sistema de pagos
+- Registro de pagos por período
+- Métodos `cash` y `transfer`
+- Seguimiento de cobros pendientes
 
-- Registro de pagos
-- Diferentes metodos de pago
-- Historial de transacciones
-- Seguimiento de pagos pendientes
+### Asistencias
+
+- Check-in por cliente
+- Historial de asistencias
+- Calendario visual por cliente
 
 ### Reportes
 
-- Estadisticas de asistencia
-- Informes de pagos
-- Analisis de tendencias
+- KPIs de ingresos
+- Asistencia por rango
+- Altas de clientes
+- Detalle diario de check-ins
 
-## Tecnologias utilizadas
+### Ajustes
+
+- Identidad del gimnasio
+- Datos de contacto
+- Medios de pago
+- Mensaje operativo para recepción
+
+### Rutinas
+
+- Día 1: Pecho y Bíceps
+- Día 2: Espalda y Tríceps
+- Día 3: Hombros
+- Día 4: Piernas
+- Plantilla global de ejercicios por día
+- Selección de ejercicios activos por parte de owner/coach
+- Registro de series, repeticiones, carga en kg y nota por cliente
+
+## Stack técnico
 
 ### Frontend
 
 - React + Vite
 - TypeScript
-- Tailwind + shadcn/ui
+- Tailwind CSS
+- shadcn/ui
 - React Router
-- Helpers y estado global personalizados
-- Alertas con SweetAlert
+- SweetAlert2
 
 ### Backend
 
 - FastAPI
-- SQLAlchemy 2.0
-- JWT Auth (`Dueño` / `Coach`)
-- Middlewares de logging
-- Paginacion, filtros y reportes
-- Arquitectura modular por routers
+- SQLAlchemy
+- Alembic
+- JWT Auth
+- Routers modulares
 
 ### Base de datos
 
 - PostgreSQL en Supabase
-- Migracion inicial via dump SQL
-- Indices, relaciones y constraints
-- Roles persistidos en la tabla `users`
-
-### Deploy
-
-- Frontend: Vercel
-- Backend: Render
-- Base de datos: Supabase
-- Healthcheck y ping externo para reducir cold starts
 
 ## Estructura del proyecto
 
@@ -86,26 +96,31 @@ backend/
 |   |-- main.py
 |   |-- middleware.py
 |   |-- models.py
+|   |-- routine_catalog.py
 |   |-- schemas.py
 |-- migrations/
 |-- requirements.txt
+
 frontend/
 |-- public/
 |-- src/
 |   |-- components/
 |   |-- lib/
 |   |-- pages/
+|   |-- types.ts
 |-- package.json
 |-- vite.config.js
+|-- vercel.json
 ```
 
-## Como correr el proyecto localmente
+## Desarrollo local
 
 ### Backend
 
 ```bash
 cd backend
 pip install -r requirements.txt
+python -m alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
@@ -117,34 +132,64 @@ npm install
 npm run dev
 ```
 
-## Autenticacion
+## Usuario inicial
 
-- `Dueño` gestiona todo el sistema
-- `Coach` accede a clientes, pagos y asistencias
-- El token JWT se almacena en `localStorage`
-- La sesion se renueva mediante nuevo login
+Si necesitás crear el usuario owner:
 
-## Healthcheck
-
-Usado por Render y servicios externos para verificar disponibilidad:
-
-```json
-{
-  "message": "La aplicacion de Sergio esta funcionando correctamente."
-}
+```bash
+cd backend
+python scripts/create_owner.py
 ```
 
-## Infra y deploy
+Credenciales por defecto:
 
-Render en free tier puede suspender el contenedor si no recibe trafico durante algunos minutos. Por eso el proyecto incluye un healthcheck y un ping externo para reducir el tiempo de reactivacion.
+- Email: `owner@librefuncional.com`
+- Password: `Cambiar123`
+
+## Deploy y sincronización
+
+### Frontend
+
+- Desplegado en Vercel
+- Si hay cambios de UI, alcanza con redeploy del frontend
+
+### Backend
+
+- Desplegado en Render
+- Si cambian modelos, routers o lógica de negocio, hacé redeploy del backend
+
+### Base de datos
+
+- PostgreSQL en Supabase
+- Si agregás migraciones nuevas, corré:
+
+```bash
+cd backend
+python -m alembic upgrade head
+```
+
+## Flujo recomendado cuando cambia backend
+
+1. `git pull` o deploy del último commit
+2. `python -m alembic upgrade head`
+3. Redeploy de Render
+4. Redeploy de Vercel si el frontend también cambió
+
+## Estado actual del proyecto
+
+El sistema ya está listo para demo funcional. La siguiente etapa natural del roadmap es profundizar el módulo de rutinas:
+
+- gráficos de progreso por ejercicio
+- más contexto dentro de la ficha del cliente
+- presets por objetivo o nivel
 
 ## Autor
 
-Ezequiel "Zeqe" Bellino
+Ezequiel Bellino
 
 - GitHub: https://github.com/ezebellino
 - LinkedIn: https://www.linkedin.com/in/ezebellino
 
 ## Licencia
 
-Este proyecto esta bajo la licencia MIT.
+MIT
