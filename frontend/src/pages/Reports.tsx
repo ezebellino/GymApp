@@ -171,7 +171,7 @@ export default function ReportsPage() {
       });
       setDetailRows(data);
     } catch (error) {
-      console.error("Error cargando detalle del dia", error);
+      console.error("Error cargando detalle del día", error);
       await alertError(
         "No se pudo cargar el detalle",
         "Intenta nuevamente dentro de unos segundos."
@@ -242,7 +242,7 @@ export default function ReportsPage() {
             Analitica del negocio
           </div>
           <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-            Lee la operacion del gimnasio en un solo tablero de reportes.
+            Leé la operación del gimnasio en un solo tablero de reportes.
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
             Cruza asistencia, ingresos y altas nuevas para entender mejor el
@@ -528,11 +528,11 @@ export default function ReportsPage() {
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-2xl border-amber-200/10 bg-zinc-900/95 text-zinc-100">
           <DialogHeader>
-            <DialogTitle>Detalle del dia</DialogTitle>
+            <DialogTitle>Detalle del día</DialogTitle>
             <DialogDescription className="text-zinc-400">
               {detailDay
                 ? `Clientes que hicieron check-in el ${detailDay.slice(0, 10)}.`
-                : "Selecciona un dia desde la tabla."}
+                : "Seleccioná un día desde la tabla."}
             </DialogDescription>
           </DialogHeader>
 
@@ -540,7 +540,7 @@ export default function ReportsPage() {
             <div className="py-8 text-center text-zinc-400">Cargando detalle...</div>
           ) : detailRows.length === 0 ? (
             <div className="py-8 text-center text-zinc-400">
-              No hubo asistencias registradas ese dia.
+              No hubo asistencias registradas ese día.
             </div>
           ) : (
             <div className="warm-scrollbar max-h-[420px] overflow-y-auto rounded-xl border border-white/10">
@@ -626,7 +626,7 @@ export default function ReportsPage() {
 
             <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-4">
               <h3 className="mb-3 text-sm font-medium text-zinc-100">
-                Ingresos por periodo
+                Ingresos por período
               </h3>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">

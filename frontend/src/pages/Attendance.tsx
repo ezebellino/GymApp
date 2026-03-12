@@ -138,7 +138,7 @@ export default function AttendancePage() {
       <section className="grid gap-4 lg:grid-cols-[1.45fr_0.95fr]">
         <div className="rounded-[28px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.11))] p-6 shadow-[0_20px_80px_-40px_rgba(249,115,22,0.42)]">
           <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
-            Operacion diaria
+            Operación diaria
           </div>
           <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
             Controla la asistencia del gimnasio con una vista mas clara.
@@ -151,7 +151,7 @@ export default function AttendancePage() {
 
         <div className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-6 backdrop-blur-xl">
           <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-            Contexto rapido
+            Contexto rápido
           </p>
           <div className="mt-4 space-y-4">
             <div>
@@ -160,7 +160,7 @@ export default function AttendancePage() {
             </div>
             <div className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.05),rgba(249,115,22,0.12))] p-4 text-sm text-amber-50">
               Esta vista te ayuda a validar ingresos, detectar picos de actividad y
-              buscar rapido a quien ya asistio.
+              buscar rápido a quien ya asistió.
             </div>
           </div>
         </div>
@@ -187,7 +187,7 @@ export default function AttendancePage() {
         />
         <StatCard
           title="Estado"
-          value={loading ? "Actualizando" : "Al dia"}
+          value={loading ? "Actualizando" : "Al día"}
           hint="Consulta de asistencias"
           icon={UserRoundCheck}
         />
@@ -199,7 +199,7 @@ export default function AttendancePage() {
             <div>
               <CardTitle className="text-zinc-100">Listado de check-ins</CardTitle>
               <p className="mt-2 text-sm leading-6 text-zinc-400">
-                Consulta ingresos por nombre, email o telefono y revisa rapido
+                Consultá ingresos por nombre, email o teléfono y revisá rápido
                 quien entreno hoy.
               </p>
             </div>
@@ -207,7 +207,7 @@ export default function AttendancePage() {
               <div className="relative w-full sm:min-w-[320px]">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                 <Input
-                  placeholder="Buscar por nombre, email o telefono"
+                  placeholder="Buscar por nombre, email o teléfono"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   className="border-amber-200/10 bg-zinc-900/70 pl-9 text-zinc-100"

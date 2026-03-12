@@ -390,7 +390,7 @@ export default function Dashboard() {
       {
         label: "Ingresos del mes",
         value: nfARS.format(revenueMonth),
-        hint: "Facturacion acumulada del periodo actual",
+        hint: "Facturación acumulada del período actual",
         icon: CreditCard,
       },
       {
@@ -406,7 +406,7 @@ export default function Dashboard() {
   const quickActions = [
     {
       title: "Buscar cliente",
-      description: "Accede rapido a pagos o historial desde el buscador global.",
+      description: "Accedé rápido a pagos o historial desde el buscador global.",
       icon: Search,
       onClick: () => setSearchOpen(true),
     },
@@ -418,7 +418,7 @@ export default function Dashboard() {
     },
     {
       title: "Ver pagos",
-      description: "Revisa movimientos, filtros y periodos de cobro.",
+      description: "Revisá movimientos, filtros y períodos de cobro.",
       icon: Wallet,
       onClick: () => navigate("/payments"),
     },
@@ -441,9 +441,9 @@ export default function Dashboard() {
     if (checkinsToday === 0) {
       alerts.push({
         tone: "neutral",
-        title: "Todavia no hay check-ins hoy",
+        title: "Todavía no hay check-ins hoy",
         description:
-          "Puede ser un buen momento para validar ingresos o revisar la operacion de la jornada.",
+          "Puede ser un buen momento para validar ingresos o revisar la operación de la jornada.",
         cta: "Ver asistencias",
         onClick: () => navigate("/attendance"),
       });
@@ -465,7 +465,7 @@ export default function Dashboard() {
         tone: "neutral",
         title: "Todo bajo control",
         description:
-          "No aparecen alertas prioritarias. Puedes enfocarte en altas, seguimiento y operacion diaria.",
+          "No aparecen alertas prioritarias. Podés enfocarte en altas, seguimiento y operación diaria.",
         cta: "Ir a clientes",
         onClick: () => navigate("/clients"),
       });
@@ -509,7 +509,7 @@ export default function Dashboard() {
 
         <div className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-6 backdrop-blur-xl">
           <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-            Estado de sesion
+            Estado de sesión
           </p>
           <div className="mt-4 space-y-4">
             <div>
@@ -569,7 +569,7 @@ export default function Dashboard() {
               Alertas de negocio
             </h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Prioridades para atender la operacion diaria del gimnasio.
+              Prioridades para atender la operación diaria del gimnasio.
             </p>
           </div>
         </div>
@@ -637,10 +637,10 @@ export default function Dashboard() {
         <section className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-5 lg:col-span-1">
           <div className="mb-4">
             <h2 className="text-base font-semibold text-zinc-100">
-              Check-in rapido
+              Check-in rápido
             </h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Busca por nombre, email o telefono. Si ya tienes el UUID, pegalo
+              Buscá por nombre, email o teléfono. Si ya tenés el UUID, pegalo
               directamente.
             </p>
           </div>
@@ -678,7 +678,7 @@ export default function Dashboard() {
                       <div className="truncate">
                         <div className="font-medium">{client.full_name}</div>
                         <div className="text-xs text-zinc-400">
-                          {client.phone ?? "Sin telefono"} - {client.email ?? "Sin email"}
+                          {client.phone ?? "Sin teléfono"} - {client.email ?? "Sin email"}
                         </div>
                       </div>
                     </button>
@@ -727,7 +727,7 @@ export default function Dashboard() {
                   Pagos recientes
                 </h2>
                 <p className="mt-1 text-sm text-zinc-400">
-                  Ultimos movimientos registrados en el sistema.
+                  Últimos movimientos registrados en el sistema.
                 </p>
               </div>
               <Button
@@ -764,7 +764,7 @@ export default function Dashboard() {
                 {!loadingPayments && payments.length === 0 ? (
                   <tr>
                     <td className="px-5 py-8 text-center text-zinc-400" colSpan={6}>
-                      Todavia no hay movimientos recientes.
+                      Todavía no hay movimientos recientes.
                     </td>
                   </tr>
                 ) : null}

@@ -90,7 +90,7 @@ export default function Sidebar() {
                 Atajos
               </p>
               <p className="mt-1 text-sm text-zinc-300">
-                Acciones de operacion diaria
+                Acciones de operación diaria
               </p>
             </div>
 
@@ -130,8 +130,8 @@ export default function Sidebar() {
               Vista {roleLabel(role)}
             </p>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
-              Usa el dashboard como centro de control y vuelve aqui para moverte
-              rapido entre clientes, pagos y reportes.
+              Usá el dashboard como centro de control y volvés acá para moverte
+              rápido entre clientes, pagos y reportes.
             </p>
           </section>
         </div>

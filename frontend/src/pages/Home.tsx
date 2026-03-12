@@ -16,7 +16,7 @@ export default function Home() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Buenos dias";
+    if (hour < 12) return "Buenos días";
     if (hour < 19) return "Buenas tardes";
     return "Buenas noches";
   };

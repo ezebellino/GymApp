@@ -138,7 +138,7 @@ export default function Clients() {
             Revisa tu base de clientes con mas contexto y menos friccion.
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-            Busca por nombre, email o telefono y detecta rapido el estado de cada
+            Buscá por nombre, email o teléfono y detectá rápido el estado de cada
             cliente desde una vista mas clara.
           </p>
         </div>
@@ -200,7 +200,7 @@ export default function Clients() {
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                 <Input
-                  placeholder="Nombre, email o telefono"
+                  placeholder="Nombre, email o teléfono"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   className="border-amber-200/10 bg-zinc-950/60 pl-10 focus-visible:ring-amber-400/35"

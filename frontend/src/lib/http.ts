@@ -15,7 +15,7 @@ api.interceptors.response.use(
   (r) => r,
   async (error) => {
     if (error?.response?.status === 401) {
-      await alertError("Sesion expirada", "Volve a iniciar sesion.");
+      await alertError("Sesión expirada", "Volvé a iniciar sesión.");
       localStorage.removeItem("access_token");
       window.location.href = "/login";
     }

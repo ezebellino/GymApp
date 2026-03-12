@@ -154,8 +154,8 @@ export default function PaymentsPage() {
             Analiza movimientos y encuentra cobros con mas rapidez.
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-            Filtra por cliente, email, telefono o UUID y mantente enfocado en los
-            movimientos relevantes del periodo.
+            Filtrá por cliente, email, teléfono o UUID y mantenete enfocado en los
+            movimientos relevantes del período.
           </p>
         </div>
 
@@ -206,7 +206,7 @@ export default function PaymentsPage() {
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                 <Input
-                  placeholder="Nombre, email, telefono o UUID"
+                  placeholder="Nombre, email, teléfono o UUID"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && onSearch()}

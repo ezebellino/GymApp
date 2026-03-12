@@ -142,7 +142,7 @@ export default function Topbar() {
               onClick={() => navigate("/login")}
               className="border-amber-200/10 text-amber-50 hover:bg-white/[0.06]"
             >
-              Iniciar sesion
+              Iniciar sesión
             </Button>
           )}
         </div>

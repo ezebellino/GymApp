@@ -265,7 +265,7 @@ export default function NewCoachPage() {
 
           <Card className="rounded-[30px] border-amber-200/10 bg-white/[0.035] backdrop-blur-xl">
             <CardHeader className="border-b border-amber-200/10 pb-4">
-              <CardTitle className="text-zinc-100">Checklist rapido</CardTitle>
+              <CardTitle className="text-zinc-100">Checklist rápido</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pt-6 text-sm text-zinc-400">
               <p>

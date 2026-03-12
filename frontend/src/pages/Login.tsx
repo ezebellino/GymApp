@@ -91,14 +91,14 @@ export default function Login() {
         );
       }
 
-      await alertSuccess("Bienvenido", "Inicio de sesion correcto.");
+      await alertSuccess("Bienvenido", "Inicio de sesión correcto.");
       navigate("/", { replace: true });
     } catch (err: any) {
       console.error("Error al hacer login", err);
       const status = err?.response?.status;
 
       if (status === 400 || status === 401) {
-        await alertError("Credenciales invalidas", "Verifica email y contrasena.");
+        await alertError("Credenciales inválidas", "Verificá email y contraseña.");
       } else {
         await alertError(
           "Error de conexion",
@@ -127,13 +127,13 @@ export default function Login() {
               Gestiona clientes, pagos y asistencias desde un solo panel.
             </h1>
             <p className="mt-5 max-w-lg text-base leading-7 text-zinc-400">
-              Una experiencia mas clara para operar el gimnasio con rapidez,
+              Una experiencia más clara para operar el gimnasio con rapidez,
               control y seguimiento diario.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               <div className="rounded-3xl border border-amber-200/10 bg-white/[0.035] p-5">
-                <p className="text-sm font-medium text-zinc-100">Operacion diaria</p>
+                <p className="text-sm font-medium text-zinc-100">Operación diaria</p>
                 <p className="mt-2 text-sm leading-6 text-zinc-400">
                   Consulta el dashboard, registra check-ins y accede a acciones
                   rapidas sin perder contexto.
@@ -189,14 +189,14 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   type={showPwd ? "text" : "password"}
                   required
-                  placeholder="Tu contrasena"
+                  placeholder="Tu contraseña"
                   className="h-12 border-amber-200/10 bg-zinc-900/70 pr-10 focus-visible:ring-orange-400"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPwd((current) => !current)}
                   className="absolute inset-y-0 right-2 grid place-items-center text-zinc-400 hover:text-zinc-200"
-                  aria-label={showPwd ? "Ocultar contrasena" : "Mostrar contrasena"}
+                  aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
                   {showPwd ? (
                     <EyeOff className="h-4 w-4" />

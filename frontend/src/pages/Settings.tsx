@@ -184,11 +184,11 @@ export default function SettingsPage() {
             Ajustes del negocio
           </div>
           <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-            Convierte la configuracion en una herramienta de operacion real.
+            Convertí la configuración en una herramienta de operación real.
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-            Aqui defines la informacion que el equipo necesita para cobrar, atender
-            consultas y sostener una rutina diaria mas ordenada.
+            Acá definís la información que el equipo necesita para cobrar, atender
+            consultas y sostener una rutina diaria más ordenada.
           </p>
         </div>
 
@@ -211,8 +211,8 @@ export default function SettingsPage() {
             </div>
             <div className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.05),rgba(249,115,22,0.12))] p-4 text-sm text-amber-50">
               {canEdit
-                ? `Hoy tienes configurado ${paymentMethodsSummary} y ${settings.late_fee_grace_days} dias de tolerancia para cobranzas.`
-                : "Puedes consultar la configuracion vigente del gimnasio, sus medios de cobro y el mensaje operativo actual."}
+                ? `Hoy tenés configurado ${paymentMethodsSummary} y ${settings.late_fee_grace_days} días de tolerancia para cobranzas.`
+                : "Podés consultar la configuración vigente del gimnasio, sus medios de cobro y el mensaje operativo actual."}
             </div>
           </div>
         </div>
@@ -231,7 +231,7 @@ export default function SettingsPage() {
         />
         <InfoCard
           title="Mensaje interno"
-          description="Deja un texto base para recepcion o seguimiento diario, util al recibir nuevos clientes o responder consultas."
+          description="Dejá un texto base para recepción o seguimiento diario, útil al recibir nuevos clientes o responder consultas."
           icon={MessageSquareText}
         />
       </section>
@@ -451,7 +451,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex items-start gap-3">
                     <Phone className="mt-0.5 h-4 w-4 text-amber-200" />
-                    <span>{settings.contact_phone || "Sin telefono principal"}</span>
+                    <span>{settings.contact_phone || "Sin teléfono principal"}</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <Clock3 className="mt-0.5 h-4 w-4 text-amber-200" />
@@ -487,7 +487,7 @@ export default function SettingsPage() {
                   <p>
                     Tolerancia:{" "}
                     <span className="font-medium text-zinc-100">
-                      {settings.late_fee_grace_days} dias
+                      {settings.late_fee_grace_days} días
                     </span>
                   </p>
                 </div>
@@ -508,7 +508,7 @@ export default function SettingsPage() {
 
           <Card className="rounded-[28px] border-amber-200/10 bg-white/[0.035] backdrop-blur-xl">
             <CardHeader className="border-b border-amber-200/10 pb-4">
-              <CardTitle className="text-zinc-100">Resumen rapido</CardTitle>
+              <CardTitle className="text-zinc-100">Resumen rápido</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pt-6 text-sm text-zinc-400">
               <p>
