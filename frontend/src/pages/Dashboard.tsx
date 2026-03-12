@@ -71,6 +71,8 @@ const nfARS = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0,
 });
 
+const CLIENTS_SAMPLE_LIMIT = 200;
+
 const pad = (value: number) => String(value).padStart(2, "0");
 
 const d2 = (date: Date) =>
@@ -170,7 +172,7 @@ export default function Dashboard() {
 
   async function loadDashboard() {
     const clientsResp = await api.get<ClientMini[]>("/clients", {
-      params: { limit: 500, offset: 0 },
+      params: { limit: CLIENTS_SAMPLE_LIMIT, offset: 0 },
     });
     const totalHeader = (clientsResp.headers["x-total-count"] ??
       clientsResp.headers["X-Total-Count"]) as string | undefined;
