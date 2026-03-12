@@ -157,7 +157,7 @@ export default function NewCoachPage() {
                 type="button"
                 variant="outline"
                 onClick={() => navigate("/dashboard")}
-                className="border-amber-200/10 text-zinc-100 hover:bg-white/[0.08]"
+                className="border-amber-200/10 text-zinc-100 hover:bg-white/8"
               >
                 Cancelar
               </Button>

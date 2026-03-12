@@ -154,7 +154,7 @@ export default function Login() {
 
         <form
           onSubmit={onSubmit}
-          className="relative w-full rounded-[32px] border border-amber-200/10 bg-zinc-900/75 p-8 shadow-[0_30px_90px_-45px_rgba(249,115,22,0.45)] backdrop-blur-xl sm:p-10"
+          className="relative w-full rounded-4xl border border-amber-200/10 bg-zinc-900/75 p-8 shadow-[0_30px_90px_-45px_rgba(249,115,22,0.45)] backdrop-blur-xl sm:p-10"
         >
           <div className="space-y-2">
             <p className="text-sm uppercase tracking-[0.24em] text-zinc-500">
