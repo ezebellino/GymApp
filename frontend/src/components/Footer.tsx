@@ -1,12 +1,24 @@
 import { useEffect, useState } from "react";
-import type { Role } from "@/types";
-
-type AppSettings = {
-  gym_name?: string;
-  address?: string | null;
-};
+import type { AppSettings, Role } from "@/types";
 
 const SETTINGS_KEY = "app_settings";
+
+const DEFAULT_SETTINGS: AppSettings = {
+  gym_name: "Libre Funcional",
+  currency: "ARS",
+  default_fee: 24000,
+  address: "",
+  contact_email: "",
+  contact_phone: "",
+  whatsapp_phone: "",
+  business_hours: "",
+  payment_alias: "",
+  payment_notes: "",
+  late_fee_grace_days: 5,
+  allow_cash: true,
+  allow_transfer: true,
+  onboarding_message: "",
+};
 
 function roleLabel(role: Role | "guest") {
   if (role === "owner") return "Dueño";
@@ -16,34 +28,39 @@ function roleLabel(role: Role | "guest") {
 
 export default function Footer() {
   const [role, setRole] = useState<Role | "guest">("guest");
-  const [gymName, setGymName] = useState("Libre Funcional");
-  const [address, setAddress] = useState<string>("");
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [online, setOnline] = useState(true);
 
   useEffect(() => {
+    const syncSettings = () => {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) {
+        setSettings(DEFAULT_SETTINGS);
+        return;
+      }
+
+      try {
+        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
+      } catch {
+        setSettings(DEFAULT_SETTINGS);
+      }
+    };
+
     setRole((localStorage.getItem("user_role") as Role) || "guest");
     setOnline(window.navigator.onLine);
-
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as AppSettings;
-        setGymName(parsed.gym_name || "Libre Funcional");
-        setAddress(parsed.address || "");
-      } catch {
-        setGymName("Libre Funcional");
-      }
-    }
+    syncSettings();
 
     const handleOnline = () => setOnline(true);
     const handleOffline = () => setOnline(false);
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+    window.addEventListener("app-settings:updated", syncSettings);
 
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("app-settings:updated", syncSettings);
     };
   }, []);
 
@@ -51,15 +68,15 @@ export default function Footer() {
     <footer className="mt-8 border-t border-amber-200/10 bg-[#0e0c0b]/70 px-6 py-4 text-xs text-zinc-400 backdrop-blur-xl">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="font-medium text-zinc-200">{gymName}</span>
+          <span className="font-medium text-zinc-200">{settings.gym_name}</span>
           <span>{roleLabel(role)}</span>
           <span>{online ? "Sistema online" : "Sin conexion"}</span>
-          {address ? <span>{address}</span> : null}
+          {settings.address ? <span>{settings.address}</span> : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span>Operacion diaria</span>
-          <span>Clientes, pagos y asistencias unificados</span>
+          {settings.contact_phone ? <span>{settings.contact_phone}</span> : null}
+          {settings.business_hours ? <span>{settings.business_hours}</span> : null}
         </div>
       </div>
     </footer>

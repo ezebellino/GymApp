@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Literal, Annotated
 from uuid import UUID
+
 from sqlalchemy import func
 
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator, field_serializer
@@ -9,42 +10,40 @@ from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator, fi
 
 Role = Literal["owner", "coach"]
 
-# ==================================
-# CONFIG BASE (reutilizable)
-# ==================================
+
 class BaseSchema(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
         ser_json_decimal="float",
-        populate_by_name=True
+        populate_by_name=True,
     )
-    
+
+
 class UserBase(BaseSchema):
     full_name: str = Field(min_length=1, max_length=120)
     email: EmailStr
     role: Role
     is_active: bool = True
-    
+
+
 class UserCreate(UserBase):
     role: Role = "coach"
     password: str = Field(min_length=6, max_length=100)
-    
-    
+
+
 class UserUpdate(BaseSchema):
     full_name: Optional[str] = Field(None, min_length=1, max_length=120)
     email: Optional[EmailStr] = None
     role: Optional[Role] = None
     is_active: Optional[bool] = None
     password: Optional[str] = Field(None, min_length=6, max_length=100)
-    
+
+
 class UserOut(UserBase):
     id: str
     email_verified: bool
 
 
-# ==================================
-# CLIENTS
-# ==================================
 class ClientBase(BaseSchema):
     full_name: Annotated[str, Field(min_length=1, max_length=120)]
     email: Optional[EmailStr] = None
@@ -53,13 +52,13 @@ class ClientBase(BaseSchema):
 
     @field_validator("full_name")
     @classmethod
-    def strip_name(cls, v: str) -> str:
-        return v.strip()
+    def strip_name(cls, value: str) -> str:
+        return value.strip()
 
     @field_validator("phone")
     @classmethod
-    def strip_phone(cls, v: Optional[str]) -> Optional[str]:
-        return v.strip() if v else v
+    def strip_phone(cls, value: Optional[str]) -> Optional[str]:
+        return value.strip() if value else value
 
 
 class ClientCreate(ClientBase):
@@ -74,8 +73,8 @@ class ClientUpdate(BaseSchema):
 
     @field_validator("full_name")
     @classmethod
-    def strip_name_opt(cls, v: Optional[str]) -> Optional[str]:
-        return v.strip() if v else v
+    def strip_name_opt(cls, value: Optional[str]) -> Optional[str]:
+        return value.strip() if value else value
 
 
 class ClientOut(ClientBase):
@@ -83,17 +82,18 @@ class ClientOut(ClientBase):
     join_date: datetime
 
 
-# ==================================
-# PAYMENTS
-# ==================================
 PaymentMethod = Literal["cash", "transfer"]
 
+
 class PaymentBase(BaseSchema):
-    client_id: Annotated[str, Field(min_length=36, max_length=36)]  # uuid en formato string
-    amount: Annotated[float,Field(ge=0)]
-    method: PaymentMethod 
-    method_channel: Optional[str] = Field(default=None, max_length=30, description=
-                                          "Sub-canal para transfer: mercadopago, cuentadni, personalpay, etc.")
+    client_id: Annotated[str, Field(min_length=36, max_length=36)]
+    amount: Annotated[float, Field(ge=0)]
+    method: PaymentMethod
+    method_channel: Optional[str] = Field(
+        default=None,
+        max_length=30,
+        description="Sub-canal para transfer: mercadopago, cuentadni, personalpay, etc.",
+    )
     note: Optional[str] = Field(None, max_length=500)
     period_month: Annotated[int, Field(ge=1, le=12)]
     period_year: Annotated[int, Field(ge=2020, le=2100)]
@@ -106,15 +106,12 @@ class PaymentCreate(PaymentBase):
 class PaymentOut(PaymentBase):
     id: UUID
     created_at: datetime
-    client: Optional[ClientOut] = None  # para evitar ciclo infinito en serialización
-    
+    client: Optional[ClientOut] = None
+
     class Config:
         from_attributes = True
 
 
-# ==================================
-# STATUS
-# ==================================
 class ClientStatus(BaseSchema):
     client_id: str
     full_name: str
@@ -123,67 +120,114 @@ class ClientStatus(BaseSchema):
     last_payment_year: Optional[int] = None
 
 
-# ==================================
-# ATTENDANCE
-# ==================================
 class AttendanceBase(BaseSchema):
-    client_id: Annotated[str, Field(min_length=36, max_length=36)]  # uuid en formato string
+    client_id: Annotated[str, Field(min_length=36, max_length=36)]
+
+
 class AttendanceCheckinIn(BaseSchema):
     client_id: Optional[Annotated[str, Field(min_length=36, max_length=36)]] = None
-    q: Optional[str] = Field(None, max_length=120, description="nombre, email o teléfono")
+    q: Optional[str] = Field(None, max_length=120, description="nombre, email o telefono")
+
+
 class AttendanceOut(AttendanceBase):
     id: UUID
     checkin_at: datetime
     client: ClientOut
+
     class Config:
         from_attributes = True
-        
-# ==================================
-# REPORTS
+
+
 class AttendanceReportItem(BaseSchema):
-    bucket: str  # ISO date string
+    bucket: str
     count: int
+
+
 class NewClientsReportItem(BaseSchema):
-    bucket: str  # ISO date string
+    bucket: str
     count: int
+
+
 class RevenueReportItem(BaseSchema):
-    bucket: str  # ISO date string
+    bucket: str
     total: float
-    
-    
-# ==================================
-# SETTINGS
+
 
 class SettingsBase(BaseSchema):
     gym_name: Annotated[str, Field(min_length=1, max_length=100)]
     currency: Annotated[str, Field(min_length=1, max_length=10)]
     default_fee: Annotated[Decimal, Field(ge=0)]
     address: Optional[Annotated[str, Field(max_length=200)]] = None
+    contact_email: Optional[EmailStr] = None
+    contact_phone: Optional[Annotated[str, Field(max_length=30)]] = None
+    whatsapp_phone: Optional[Annotated[str, Field(max_length=30)]] = None
+    business_hours: Optional[Annotated[str, Field(max_length=160)]] = None
+    payment_alias: Optional[Annotated[str, Field(max_length=120)]] = None
+    payment_notes: Optional[Annotated[str, Field(max_length=280)]] = None
+    late_fee_grace_days: Annotated[int, Field(ge=0, le=60)] = 5
+    allow_cash: bool = True
+    allow_transfer: bool = True
+    onboarding_message: Optional[Annotated[str, Field(max_length=280)]] = None
 
-    # Si preferís que salga siempre como número en el JSON
-    @field_serializer('default_fee')
-    def serialize_decimal(self, v: Decimal, _info):
-        return float(v)
+    @field_validator(
+        "gym_name",
+        "currency",
+        "address",
+        "contact_phone",
+        "whatsapp_phone",
+        "business_hours",
+        "payment_alias",
+        "payment_notes",
+        "onboarding_message",
+        mode="before",
+    )
+    @classmethod
+    def strip_strings(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
+    @field_validator("contact_email", mode="before")
+    @classmethod
+    def normalize_contact_email(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
+    @field_serializer("default_fee")
+    def serialize_decimal(self, value: Decimal, _info):
+        return float(value)
+
 
 class Settings(SettingsBase):
-    """Modelo completo para PUT."""
     pass
 
+
 class SettingsUpdate(BaseSchema):
-    """Modelo parcial para PATCH."""
     gym_name: Optional[Annotated[str, Field(min_length=1, max_length=100)]] = None
     currency: Optional[Annotated[str, Field(min_length=1, max_length=10)]] = None
     default_fee: Optional[Annotated[Decimal, Field(ge=0)]] = None
     address: Optional[Annotated[str, Field(max_length=200)]] = None
+    contact_email: Optional[EmailStr] = None
+    contact_phone: Optional[Annotated[str, Field(max_length=30)]] = None
+    whatsapp_phone: Optional[Annotated[str, Field(max_length=30)]] = None
+    business_hours: Optional[Annotated[str, Field(max_length=160)]] = None
+    payment_alias: Optional[Annotated[str, Field(max_length=120)]] = None
+    payment_notes: Optional[Annotated[str, Field(max_length=280)]] = None
+    late_fee_grace_days: Optional[Annotated[int, Field(ge=0, le=60)]] = None
+    allow_cash: Optional[bool] = None
+    allow_transfer: Optional[bool] = None
+    onboarding_message: Optional[Annotated[str, Field(max_length=280)]] = None
+
 
 class SettingsOut(SettingsBase):
-    """Modelo de salida para respuestas."""
-    pass   
-# ==================================
-# UTILITIES
+    pass
+
+
 def _bucket_expr(column, bucket: Literal["day", "week", "month"]):
-    # Ajustar a zona horaria si es necesario
-    with_tz = func.timezone("UTC", column)  # Cambiar "UTC" por la zona horaria deseada
+    with_tz = func.timezone("UTC", column)
 
     if bucket == "day":
         return func.date_trunc("day", with_tz)

@@ -26,3 +26,20 @@ export type Attendance = {
   coach_id?: string | null;
   checkin_at: string; // ISO
 };
+
+export type AppSettings = {
+  gym_name: string;
+  currency: string;
+  default_fee: number;
+  address: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  whatsapp_phone: string | null;
+  business_hours: string | null;
+  payment_alias: string | null;
+  payment_notes: string | null;
+  late_fee_grace_days: number;
+  allow_cash: boolean;
+  allow_transfer: boolean;
+  onboarding_message: string | null;
+};
