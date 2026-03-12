@@ -1,129 +1,150 @@
-# GymApp - Sistema de Gestión para Gimnasios
+# GymApp - Sistema de Gestion para Gimnasios
 
-Aplicación FullStack desarrollada con FastAPI + Supabase + React/Vite, diseñada para la administración integral de gimnasios: clientes, pagos, asistencias, reportes y paneles con roles diferenciados.
+Aplicacion full stack desarrollada con FastAPI, Supabase y React/Vite, pensada para la administracion integral de gimnasios: clientes, pagos, asistencias, reportes y paneles con roles diferenciados.
 
+## Demo online
 
-## 🚀 DEMO ONLINE
+- Frontend (Vercel): https://libre-funcional.vercel.app/
+- Backend (Render): https://gymapp-backend-xe0n.onrender.com
+- Healthcheck: `GET /health`
 
-- **Frontend (Vercel):**
-  - https://libre-funcional.vercel.app/
+## Caracteristicas principales
 
-  - Backend (Render):
-  - https://gymapp-backend-xe0n.onrender.com
+- Gestion de clientes
+- Control de asistencia
+- Sistema de pagos
+- Reportes operativos
+- Autenticacion con roles `Dueño` y `Coach`
 
-  - Healthcheck:
-  - /health → OK
+### Gestion de clientes
 
-## Características Principales
+- Registro y administracion de informacion de clientes
+- Fichas detalladas de usuarios
+- Busqueda rapida con Spotlight Search
 
-- 👥 **Gestión de Clientes**
-  - Registro y administración de información de clientes
-  - Fichas detalladas de usuarios
-  - Búsqueda rápida con Spotlight Search
+### Control de asistencia
 
-- 📅 **Control de Asistencia**
-  - Registro de entradas y salidas
-  - Calendario de asistencia
-  - Histórico de visitas
+- Registro de entradas y salidas
+- Calendario de asistencia
+- Historico de visitas
 
-- 💰 **Sistema de Pagos**
-  - Registro de pagos
-  - Diferentes métodos de pago
-  - Historial de transacciones
-  - Seguimiento de pagos pendientes
+### Sistema de pagos
 
-- 📊 **Reportes**
-  - Estadísticas de asistencia
-  - Informes de pagos
-  - Análisis de tendencias
+- Registro de pagos
+- Diferentes metodos de pago
+- Historial de transacciones
+- Seguimiento de pagos pendientes
 
-## Tecnologías Utilizadas
+### Reportes
+
+- Estadisticas de asistencia
+- Informes de pagos
+- Analisis de tendencias
+
+## Tecnologias utilizadas
 
 ### Frontend
+
 - React + Vite
 - TypeScript
 - Tailwind + shadcn/ui
 - React Router
-- Estado global + helpers personalizados
-- Alertas modernas (SweetAlert)
-- Animaciones suaves y UI dark-mode profesional
+- Helpers y estado global personalizados
+- Alertas con SweetAlert
 
 ### Backend
-- SQLAlchemy 2.0
-- JWT Auth (Owner / Coach)
-- Middlewares de logging
-- Paginación, filtros y reportes
-- Arquitectura modular por routers
-- Healthcheck (/health) para infraestructura cloud
 
-### Base de Datos
+- FastAPI
+- SQLAlchemy 2.0
+- JWT Auth (`Dueño` / `Coach`)
+- Middlewares de logging
+- Paginacion, filtros y reportes
+- Arquitectura modular por routers
+
+### Base de datos
+
 - PostgreSQL en Supabase
-- Migración inicial vía dump SQL
-- Índices, relaciones y constraints
-- Roles persistidos en tabla users
+- Migracion inicial via dump SQL
+- Indices, relaciones y constraints
+- Roles persistidos en la tabla `users`
 
 ### Deploy
+
 - Frontend: Vercel
-- Backend: Render (free tier con auto-suspend)
-- DB: Supabase
-- Healthcheck + ping externo para minimizar cold-start
+- Backend: Render
+- Base de datos: Supabase
+- Healthcheck y ping externo para reducir cold starts
 
+## Estructura del proyecto
 
-## Estructura del Proyecto
-```bash
+```text
 backend/
-│── app/
-│   ├── routers/
-│   ├── models.py
-│   ├── schemas.py
-│   ├── auth.py
-│   ├── middleware.py
-│   ├── config.py
-│   ├── main.py
-│── requirements.txt
+|-- app/
+|   |-- routers/
+|   |-- auth.py
+|   |-- config.py
+|   |-- main.py
+|   |-- middleware.py
+|   |-- models.py
+|   |-- schemas.py
+|-- migrations/
+|-- requirements.txt
 frontend/
-│── src/
-│   ├── pages/
-│   ├── components/
-│   ├── lib/
-│── vite.config.ts
+|-- public/
+|-- src/
+|   |-- components/
+|   |-- lib/
+|   |-- pages/
+|-- package.json
+|-- vite.config.js
 ```
-### Cómo correr el proyecto localmente
-## Backend
+
+## Como correr el proyecto localmente
+
+### Backend
+
 ```bash
 cd backend
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
-## Frontend
+
+### Frontend
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-- 🔐 **Autenticación (Owner + Coach)**
-  - Owner gestiona todo el sistema
-  - Coach accede a clientes, pagos y asistencias
-  - Token JWT almacenado en localStorage
-  - Refresh por re-login
 
-- 🏥 **Healthcheck**
-  - Usado para Render y pingers externos:
-```bash
-  GET /health
-  {
-    "message": "La aplicación de Sergio está funcionando correctamente."
-  }
+## Autenticacion
+
+- `Dueño` gestiona todo el sistema
+- `Coach` accede a clientes, pagos y asistencias
+- El token JWT se almacena en `localStorage`
+- La sesion se renueva mediante nuevo login
+
+## Healthcheck
+
+Usado por Render y servicios externos para verificar disponibilidad:
+
+```json
+{
+  "message": "La aplicacion de Sergio esta funcionando correctamente."
+}
 ```
 
-## 🌐 **Infra / Deploy Notes**
-Render free suspende el contenedor si no recibe tráfico en ~15 minutos.
-Se agregó un healthcheck y un ping externo para minimizar el “cold start”.
+## Infra y deploy
 
-## 👨‍💻 **Autor**
-Ezequiel “Zeqe” Bellino
+Render en free tier puede suspender el contenedor si no recibe trafico durante algunos minutos. Por eso el proyecto incluye un healthcheck y un ping externo para reducir el tiempo de reactivacion.
+
+## Autor
+
+Ezequiel "Zeqe" Bellino
+
 - GitHub: https://github.com/ezebellino
 - LinkedIn: https://www.linkedin.com/in/ezebellino
 
 ## Licencia
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
+
+Este proyecto esta bajo la licencia MIT.

@@ -1,4 +1,3 @@
-// src/App.jsx
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Clients from "./pages/Clients";
 import Payments from "./pages/Payments";
@@ -8,6 +7,7 @@ import Settings from "./pages/Settings";
 import Sidebar from "./components/Sidebar";
 import Login from "./pages/Login";
 import Topbar from "./components/Topbar";
+import Footer from "./components/Footer";
 import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
@@ -19,28 +19,13 @@ export default function App() {
   const isAuthRoute = location.pathname.startsWith("/login");
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      {/* LAYOUT PRIVADO */}
+    <div className="min-h-screen bg-[#0b0b0b] text-zinc-100">
       {!isAuthRoute && (
         <>
-          {/* Sidebar fija a la izquierda */}
           <Sidebar />
-          {/* Topbar fija arriba */}
           <Topbar />
 
-          {/* Contenido: 
-        - siempre compensa la Topbar con pt-16
-        - solo compensa Sidebar en md+ con md:pl-64
-    */}
-          <main
-            className="
-              min-h-screen
-              pt-14                 /* espacio para el topbar */
-              px-4 pb-6
-              lg:pl-64              /* 👈 sólo desde lg compensamos sidebar */
-              bg-linear-to-b from-zinc-950 via-zinc-950 to-zinc-900
-            "
-          >
+          <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(250,204,21,0.08),transparent_20%),linear-gradient(180deg,#0b0b0b_0%,#12100d_54%,#1b140e_100%)] px-4 pb-6 pt-14 lg:pl-64">
             <Routes>
               <Route
                 path="/"
@@ -106,17 +91,17 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
+            <Footer />
           </main>
         </>
       )}
 
-      {/* LAYOUT AUTH (sin sidebar/topbar) */}
       {isAuthRoute && (
-        <main className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <main className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(250,204,21,0.08),transparent_22%),linear-gradient(180deg,#0b0b0b_0%,#12100d_54%,#1b140e_100%)]">
           <Routes>
             <Route path="/login" element={<Login />} />
-            {/* fallback: si entra a cualquier otra, mandalo a /login */}
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </main>

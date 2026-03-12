@@ -1,22 +1,23 @@
-// src/components/Sidebar.tsx
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Users,
-  CreditCard,
-  CalendarCheck2,
   BarChart3,
+  CalendarCheck2,
+  CreditCard,
+  LayoutDashboard,
+  Plus,
+  Search,
   Settings,
+  Users,
+  Wallet,
 } from "lucide-react";
 import { FC } from "react";
-
-// shadcn/ui tooltip
 import {
   Tooltip,
+  TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-  TooltipContent,
 } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 
 type NavItem = {
   to: string;
@@ -33,31 +34,22 @@ const items: NavItem[] = [
   { to: "/settings", label: "Ajustes", icon: Settings },
 ];
 
-// src/components/Sidebar.tsx
+function roleLabel(role: string) {
+  return role === "owner" ? "Dueño" : "Coach";
+}
+
 export default function Sidebar() {
+  const navigate = useNavigate();
   const role = (localStorage.getItem("user_role") as string) || "coach";
-  const allowed = items.filter((it) => {
-    if (it.to === "/reports" && role !== "owner") return false;
+  const allowed = items.filter((item) => {
+    if (item.to === "/reports" && role !== "owner") return false;
     return true;
   });
 
   return (
-    <aside
-      className="
-        hidden lg:flex           /* 👈 sólo desde lg en adelante */
-        fixed left-0 top-14      /* debajo del topbar (14 = h-14) */
-        z-40
-        h-[calc(100vh-3.5rem)]   /* alto pantalla - topbar */
-        w-64
-        flex-col
-        bg-zinc-900/80
-        border-r border-white/10
-        backdrop-blur-xl
-        overflow-y-auto          /* 👈 scroll si la pantalla es baja */
-      "
-    >
+    <aside className="fixed left-0 top-14 z-40 hidden h-[calc(100vh-3.5rem)] w-64 flex-col overflow-y-auto border-r border-amber-200/10 bg-[#0d0b0a]/84 backdrop-blur-xl lg:flex">
       <TooltipProvider delayDuration={80}>
-        <nav className="p-4 space-y-4">
+        <nav className="space-y-4 p-4">
           {allowed.map(({ to, label, icon: Icon }) => (
             <Tooltip key={to}>
               <TooltipTrigger asChild>
@@ -65,32 +57,84 @@ export default function Sidebar() {
                   to={to}
                   className={({ isActive }) =>
                     [
-                      "group flex items-center gap-10 px-3 py-2 rounded-xl select-none",
-                      "border transition-all duration-200",
-                      "bg-zinc-900/40 border-white/5",
-                      "hover:border-fuchsia-500/40 hover:bg-fuchsia-500/10",
-                      "hover:shadow-[0_0_20px_2px_rgba(255,0,255,0.08)]",
+                      "group flex select-none items-center gap-10 rounded-xl border px-3 py-2 transition-all duration-200",
+                      "border-white/5 bg-white/[0.03]",
+                      "hover:border-amber-300/20 hover:bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.04),rgba(249,115,22,0.12))]",
+                      "hover:shadow-[0_0_24px_-10px_rgba(249,115,22,0.5)]",
                       isActive
-                        ? "border-fuchsia-500/40 bg-fuchsia-500/10 shadow-[0_0_24px_4px_rgba(255,0,255,0.12)]"
+                        ? "border-amber-300/25 bg-[linear-gradient(90deg,rgba(250,204,21,0.16),rgba(255,247,237,0.07),rgba(249,115,22,0.16))] shadow-[0_0_28px_-12px_rgba(249,115,22,0.55)]"
                         : "",
                     ].join(" ")
                   }
                 >
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800/60 ring-1 ring-inset ring-white/5 group-hover:ring-fuchsia-500/40">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] ring-1 ring-inset ring-white/5 group-hover:ring-amber-300/25">
                     <Icon size={18} />
                   </span>
-                  <span className="text-sm font-medium">{label}</span>
+                  <span className="text-sm font-medium text-zinc-100">{label}</span>
                 </NavLink>
               </TooltipTrigger>
               <TooltipContent
                 side="right"
-                className="bg-zinc-900 text-zinc-100 border border-white/10"
+                className="border border-amber-200/10 bg-[#161210] text-zinc-100"
               >
                 {label}
               </TooltipContent>
             </Tooltip>
           ))}
         </nav>
+
+        <div className="space-y-4 px-4 pb-6">
+          <section className="rounded-2xl border border-amber-200/10 bg-white/[0.035] p-4">
+            <div className="mb-3">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
+                Atajos
+              </p>
+              <p className="mt-1 text-sm text-zinc-300">
+                Acciones de operacion diaria
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                onClick={() => navigate("/dashboard")}
+                className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
+              >
+                <Search className="h-4 w-4" />
+                Buscador global
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/clients")}
+                className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
+              >
+                <Plus className="h-4 w-4" />
+                Gestionar clientes
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/payments")}
+                className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
+              >
+                <Wallet className="h-4 w-4" />
+                Revisar cobros
+              </Button>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(180deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03),rgba(249,115,22,0.12))] p-4">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-600">
+              Contexto
+            </p>
+            <p className="mt-2 text-base font-semibold text-zinc-100">
+              Vista {roleLabel(role)}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-zinc-300">
+              Usa el dashboard como centro de control y vuelve aqui para moverte
+              rapido entre clientes, pagos y reportes.
+            </p>
+          </section>
+        </div>
       </TooltipProvider>
     </aside>
   );

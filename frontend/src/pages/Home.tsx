@@ -1,4 +1,3 @@
-// src/pages/Home.tsx
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
@@ -17,62 +16,57 @@ export default function Home() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "¡Buenos días!";
-    if (hour < 19) return "¡Buenas tardes!";
-    return "¡Buenas noches!";
+    if (hour < 12) return "Buenos dias";
+    if (hour < 19) return "Buenas tardes";
+    return "Buenas noches";
   };
 
-  // const roleLabel =
-  //   role === "owner"
-  //     ? "Dueño"
-  //     : role === "coach"
-  //       ? "Coach"
-  //       : "Usuario";      /* si en algun momento se agrega el role al nombre del usuario, descomento roleLabel*/ 
+  const roleLabel =
+    role === "owner" ? "Dueño" : role === "coach" ? "Coach" : "Usuario";
 
   return (
-    <div className="relative flex flex-col items-center justify-center h-[calc(100vh-6rem)] px-4 overflow-hidden">
-      {/* Fondo animado con gradientes suaves */}
-      <div className="absolute inset-0 -z-10 bg-linear-to-b from-zinc-950 via-zinc-900 to-zinc-950">
-        <div className="absolute -top-40 -left-40 h-96 w-96 bg-violet-600/20 blur-3xl rounded-full animate-pulse" />
-        <div className="absolute -bottom-40 -right-40 h-96 w-96 bg-cyan-500/20 blur-3xl rounded-full animate-pulse" />
+    <div className="relative flex h-[calc(100vh-6rem)] flex-col items-center justify-center overflow-hidden px-4">
+      <div className="absolute inset-0 -z-10 bg-linear-to-b from-[#0b0b0b] via-[#120f0c] to-[#1b140e]">
+        <div className="absolute -left-40 -top-40 h-96 w-96 animate-pulse rounded-full bg-amber-300/15 blur-3xl" />
+        <div className="absolute -bottom-40 -right-40 h-96 w-96 animate-pulse rounded-full bg-orange-500/15 blur-3xl" />
       </div>
 
-      {/* Card principal */}
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <Card className="border border-white/10 bg-zinc-900/70 backdrop-blur-lg shadow-2xl p-6 text-center max-w-md">
+        <Card className="max-w-md border border-white/10 bg-zinc-900/70 p-6 text-center shadow-2xl backdrop-blur-lg">
           <CardContent>
             <motion.div
               initial={{ rotate: -15, opacity: 0 }}
               animate={{ rotate: 0, opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.6 }}
-              className="flex justify-center mb-4"
+              className="mb-4 flex justify-center"
             >
-              <Dumbbell className="h-12 w-12 text-cyan-400 drop-shadow-[0_0_12px_rgba(6,182,212,0.5)]" />
+              <Dumbbell className="h-12 w-12 text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.45)]" />
             </motion.div>
 
-            <h1 className="text-3xl font-semibold mb-2 bg-linear-to-r from-violet-500 to-cyan-400 bg-clip-text text-transparent">
-              {getGreeting()}, {name}!
+            <h1 className="warm-accent-text mb-2 text-3xl font-semibold">
+              {getGreeting()}, {roleLabel} {name}
             </h1>
             <p className="text-zinc-400">
-              Bienvenido al sistema de gestión de{" "}
-              <span className="text-amber-300 font-medium">Libre Funcional</span>.
+              Bienvenido al sistema de gestion de{" "}
+              <span className="font-medium text-amber-300">Libre Funcional</span>.
             </p>
 
-            <p className="text-zinc-500 text-sm mt-3">
-              Usá el menú lateral para acceder a clientes, asistencias, pagos y reportes.
+            <p className="mt-3 text-sm text-zinc-500">
+              Usa el menu lateral para acceder a clientes, asistencias, pagos y
+              reportes.
             </p>
 
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 1.2, duration: 0.8 }}
-              className="flex justify-center mt-4"
+              className="mt-4 flex justify-center"
             >
-              <Sparkles className="h-6 w-6 text-amber-300 animate-pulse" />
+              <Sparkles className="h-6 w-6 animate-pulse text-amber-300" />
             </motion.div>
           </CardContent>
         </Card>

@@ -143,7 +143,7 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
             <DrawerHeader>
               <DrawerTitle className="text-xl">Ficha del cliente</DrawerTitle>
               <DrawerDescription className="text-zinc-400">
-                Vista {viewerRole === "owner" ? "completa (Owner)" : "para Coach"}.
+                Vista {viewerRole === "owner" ? "completa (Dueño)" : "para Coach"}.
               </DrawerDescription>
             </DrawerHeader>
 

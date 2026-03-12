@@ -1,20 +1,21 @@
-// src/pages/Login.tsx
 import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
+import { Eye, EyeOff, LogIn } from "lucide-react";
 import api from "@/lib/http";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { jwtDecode } from "jwt-decode";
-import { Eye, EyeOff, LogIn } from "lucide-react";
 import { alertError, alertSuccess } from "@/lib/alerts";
 
 type TokenResp = { access_token: string; token_type: string };
-type TokenPayload = { name?: string; email?: string; sub?: string; role?: string; exp: number };
+type TokenPayload = {
+  name?: string;
+  email?: string;
+  sub?: string;
+  role?: string;
+  exp: number;
+};
 
-/**
- * Hace login contra /auth/token con timeout y un reintento
- * adicional en caso de timeout (típico cold start del backend).
- */
 async function requestTokenWithRetry(body: URLSearchParams) {
   try {
     return await api.post<TokenResp>("/auth/token", body, {
@@ -22,11 +23,9 @@ async function requestTokenWithRetry(body: URLSearchParams) {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
   } catch (err: any) {
-    const msg = err?.message ?? "";
-    if (err.code === "ECONNABORTED" || msg.includes("timeout")) {
-      console.warn("Servidor despertando, reintentando login...");
-      await new Promise((res) => setTimeout(res, 2000));
-
+    const message = err?.message ?? "";
+    if (err.code === "ECONNABORTED" || message.includes("timeout")) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       return api.post<TokenResp>("/auth/token", body, {
         timeout: 8000,
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -37,14 +36,10 @@ async function requestTokenWithRetry(body: URLSearchParams) {
 }
 
 export default function Login() {
-  // ✅ sin credenciales precargadas
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
-
-  // contador amigable mientras el backend “despierta”
   const [elapsed, setElapsed] = useState(0);
 
   const navigate = useNavigate();
@@ -54,9 +49,11 @@ export default function Login() {
       setElapsed(0);
       return;
     }
+
     const id = setInterval(() => {
-      setElapsed((s) => s + 1);
+      setElapsed((current) => current + 1);
     }, 1000);
+
     return () => clearInterval(id);
   }, [loading]);
 
@@ -70,10 +67,8 @@ export default function Login() {
       body.append("password", password);
 
       const { data } = await requestTokenWithRetry(body);
-
       localStorage.setItem("access_token", data.access_token);
 
-      // Intentar traer el usuario desde /auth/me (fuente de la verdad)
       try {
         const { data: me } = await api.get<{
           id: string;
@@ -85,27 +80,29 @@ export default function Login() {
 
         localStorage.setItem("user_name", me.full_name ?? me.email ?? "Usuario");
         localStorage.setItem("user_role", me.role ?? "coach");
-      } catch (err) {
-        // Fallback: decodificar el token local
+      } catch {
         const payload = jwtDecode<TokenPayload>(data.access_token);
         localStorage.setItem("user_name", payload.name ?? payload.email ?? "Usuario");
         localStorage.setItem(
           "user_role",
-          payload.role === "owner" || payload.role === "coach" ? payload.role : "coach"
+          payload.role === "owner" || payload.role === "coach"
+            ? payload.role
+            : "coach"
         );
       }
 
-      await alertSuccess("¡Bienvenido!", "Inicio de sesión correcto.");
+      await alertSuccess("Bienvenido", "Inicio de sesion correcto.");
       navigate("/", { replace: true });
     } catch (err: any) {
       console.error("Error al hacer login", err);
       const status = err?.response?.status;
+
       if (status === 400 || status === 401) {
-        alertError("Credenciales inválidas", "Verificá email y contraseña.");
+        await alertError("Credenciales invalidas", "Verifica email y contrasena.");
       } else {
-        alertError(
-          "Error de conexión",
-          "No se pudo contactar al servidor. Intentá de nuevo en unos minutos."
+        await alertError(
+          "Error de conexion",
+          "No se pudo contactar al servidor. Intenta de nuevo en unos minutos."
         );
       }
     } finally {
@@ -114,86 +111,129 @@ export default function Login() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-zinc-950 px-4">
-      {/* Glow de fondo */}
+    <div className="relative min-h-screen overflow-hidden bg-[#0b0b0b]">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-24 -left-24 h-80 w-80 rounded-full blur-3xl opacity-20 bg-violet-600" />
-        <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full blur-3xl opacity-20 bg-cyan-500" />
+        <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-amber-300/15 blur-3xl" />
+        <div className="absolute -right-20 bottom-10 h-80 w-80 rounded-full bg-orange-500/12 blur-3xl" />
       </div>
 
-      <form
-        onSubmit={onSubmit}
-        className="relative w-full max-w-sm space-y-6 rounded-2xl border border-white/10 bg-zinc-900/70 p-6 sm:p-8 shadow-2xl backdrop-blur-md"
-      >
-        <div className="space-y-1 text-center sm:text-left">
-          <h1 className="text-2xl font-semibold tracking-tight">Ingresar</h1>
-          <p className="text-sm text-zinc-400">
-            Accedé al panel de LibreFuncional
-          </p>
-        </div>
+      <div className="relative mx-auto grid min-h-screen max-w-6xl items-center gap-8 px-6 py-12 lg:grid-cols-[1.08fr_0.92fr]">
+        <section className="hidden lg:block">
+          <div className="max-w-xl">
+            <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
+              Libre Funcional
+            </div>
+            <h1 className="warm-accent-text mt-5 text-5xl font-semibold tracking-tight">
+              Gestiona clientes, pagos y asistencias desde un solo panel.
+            </h1>
+            <p className="mt-5 max-w-lg text-base leading-7 text-zinc-400">
+              Una experiencia mas clara para operar el gimnasio con rapidez,
+              control y seguimiento diario.
+            </p>
 
-        <div className="space-y-2">
-          <label className="text-sm text-zinc-300">Email</label>
-          <Input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            required
-            placeholder="ej: owner@librefuncional.com"
-            className="bg-zinc-900/70 border-white/10 focus-visible:ring-cyan-500"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm text-zinc-300">Password</label>
-          <div className="relative">
-            <Input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type={showPwd ? "text" : "password"}
-              required
-              placeholder="Tu contraseña"
-              className="bg-zinc-900/70 border-white/10 pr-10 focus-visible:ring-violet-500"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPwd((s) => !s)}
-              className="absolute inset-y-0 right-2 grid place-items-center text-zinc-400 hover:text-zinc-200"
-              aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
-            >
-              {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-3xl border border-amber-200/10 bg-white/[0.035] p-5">
+                <p className="text-sm font-medium text-zinc-100">Operacion diaria</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  Consulta el dashboard, registra check-ins y accede a acciones
+                  rapidas sin perder contexto.
+                </p>
+              </div>
+              <div className="rounded-3xl border border-amber-200/10 bg-white/[0.035] p-5">
+                <p className="text-sm font-medium text-zinc-100">
+                  Seguimiento centralizado
+                </p>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  Revisa pagos, estados y clientes con una interfaz consistente
+                  y facil de usar.
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <Button
-          className="w-full gap-2 bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400"
-          disabled={loading}
-          type="submit"
+        <form
+          onSubmit={onSubmit}
+          className="relative w-full rounded-[32px] border border-amber-200/10 bg-zinc-900/75 p-8 shadow-[0_30px_90px_-45px_rgba(249,115,22,0.45)] backdrop-blur-xl sm:p-10"
         >
-          <LogIn className="h-4 w-4" />
-          {loading ? "Ingresando..." : "Entrar"}
-        </Button>
+          <div className="space-y-2">
+            <p className="text-sm uppercase tracking-[0.24em] text-zinc-500">
+              Acceso seguro
+            </p>
+            <h2 className="text-3xl font-semibold tracking-tight text-zinc-50">
+              Ingresar al panel
+            </h2>
+            <p className="text-sm leading-6 text-zinc-400">
+              Usa tus credenciales para entrar al sistema.
+            </p>
+          </div>
 
-        {/* Mensaje / contador para cold start */}
-        {loading && (
-          <p className="text-xs text-center text-zinc-400">
-            Conectando con el servidor… {elapsed}s
-            {elapsed >= 5 && " (puede tardar unos segundos si es la primera vez)"}
+          <div className="mt-8 space-y-5">
+            <div className="space-y-2">
+              <label className="text-sm text-zinc-300">Email</label>
+              <Input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                required
+                placeholder="owner@librefuncional.com"
+                className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:ring-amber-400"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm text-zinc-300">Contrasena</label>
+              <div className="relative">
+                <Input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  type={showPwd ? "text" : "password"}
+                  required
+                  placeholder="Tu contrasena"
+                  className="h-12 border-amber-200/10 bg-zinc-900/70 pr-10 focus-visible:ring-orange-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd((current) => !current)}
+                  className="absolute inset-y-0 right-2 grid place-items-center text-zinc-400 hover:text-zinc-200"
+                  aria-label={showPwd ? "Ocultar contrasena" : "Mostrar contrasena"}
+                >
+                  {showPwd ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            className="mt-8 h-12 w-full gap-2 border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
+            disabled={loading}
+            type="submit"
+          >
+            <LogIn className="h-4 w-4" />
+            {loading ? "Ingresando..." : "Entrar"}
+          </Button>
+
+          {loading ? (
+            <p className="mt-4 text-center text-xs text-zinc-400">
+              Conectando con el servidor... {elapsed}s
+              {elapsed >= 5 ? " Puede tardar unos segundos si es el primer uso." : ""}
+            </p>
+          ) : (
+            <p className="mt-4 text-center text-xs leading-6 text-zinc-500">
+              Si el acceso tarda unos segundos, es normal: el backend puede estar
+              reactivandose automaticamente.
+            </p>
+          )}
+
+          <p className="mt-6 text-center text-xs text-zinc-500">
+            {new Date().getFullYear()} Libre Funcional
           </p>
-        )}
-
-        {!loading && (
-          <p className="text-[11px] text-center text-zinc-500 leading-snug">
-            Si la app tarda en responder unos segundos al iniciar sesión, es normal:
-            el servidor se “despierta” automáticamente en el plan gratuito.
-          </p>
-        )}
-
-        <p className="text-xs text-center text-zinc-500">
-          © {new Date().getFullYear()} LibreFuncional
-        </p>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

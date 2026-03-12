@@ -1,8 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* ====== Variables y estilos base ====== */
 @layer base {
+  :root {
+    --background: oklch(0.16 0.01 70);
+    --foreground: oklch(0.96 0.01 80);
+  }
 
   html,
   body,
@@ -11,27 +14,56 @@
   }
 
   body {
-    background-color: #020617;
-    /* zinc-950 */
-    color: #e5e7eb;
-    /* zinc-200 aprox */
+    background:
+      radial-gradient(circle at top left, rgba(251, 191, 36, 0.1), transparent 30%),
+      radial-gradient(circle at top right, rgba(249, 115, 22, 0.08), transparent 32%),
+      linear-gradient(180deg, #090909 0%, #111111 52%, #17120d 100%);
+    color: var(--foreground);
     font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+
+  .dark {
+    --background: oklch(0.16 0.01 70);
+    --foreground: oklch(0.96 0.01 80);
+  }
 }
 
-
-/* ====== Utilidades personalizadas ====== */
 @layer utilities {
-  .card {
-    @apply bg-white dark:bg-zinc-800 rounded-xl shadow-md p-6 transition-all duration-300;
+  .surface-panel {
+    @apply border border-white/10 bg-zinc-950/65 backdrop-blur-xl;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.03),
+      0 24px 70px -42px rgba(249, 115, 22, 0.32);
   }
 
-  .title {
-    @apply text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100;
+  .warm-glow {
+    box-shadow: 0 18px 60px -34px rgba(251, 191, 36, 0.35);
   }
 
-  .btn-primary {
-    @apply px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md;
+  .warm-border {
+    border-image: linear-gradient(
+        90deg,
+        rgba(250, 204, 21, 0.5),
+        rgba(255, 255, 255, 0.35),
+        rgba(249, 115, 22, 0.45)
+      )
+      1;
+  }
+
+  .warm-accent-text {
+    background-image: linear-gradient(90deg, #facc15 0%, #fff7ed 48%, #f97316 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .warm-accent-bg {
+    background-image: linear-gradient(
+      90deg,
+      rgba(250, 204, 21, 0.22),
+      rgba(255, 255, 255, 0.08),
+      rgba(249, 115, 22, 0.22)
+    );
   }
 }

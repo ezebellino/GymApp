@@ -40,7 +40,7 @@ export default function NewCoachPage() {
       setFullName("");
       setEmail("");
       setPassword("");
-      navigate("/coaches");
+      navigate("/dashboard", { replace: true });
     } catch (err: any) {
       const msg = err?.response?.data?.detail || err?.message || "No se pudo crear el coach.";
       await Swal.fire({
@@ -55,7 +55,7 @@ export default function NewCoachPage() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
-      <Card className="w-full max-w-md border-white/10 bg-zinc-950/70 backdrop-blur-md">
+      <Card className="w-full max-w-md border-amber-200/10 bg-zinc-950/70 backdrop-blur-md">
         <CardHeader>
           <CardTitle className="text-center text-amber-400">
             Registrar nuevo coach
@@ -98,7 +98,7 @@ export default function NewCoachPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-linear-to-r from-fuchsia-500 to-cyan-400 text-black font-medium hover:opacity-90"
+              className="w-full border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-90"
             >
               {loading ? "Creando…" : "Crear coach"}
             </Button>

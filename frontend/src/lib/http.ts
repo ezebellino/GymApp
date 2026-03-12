@@ -1,4 +1,3 @@
-// src/lib/http.ts
 import axios from "axios";
 import { alertError } from "./alerts";
 
@@ -16,7 +15,7 @@ api.interceptors.response.use(
   (r) => r,
   async (error) => {
     if (error?.response?.status === 401) {
-      await alertError("Sesión expirada", "Volvé a iniciar sesión.");
+      await alertError("Sesion expirada", "Volve a iniciar sesion.");
       localStorage.removeItem("access_token");
       window.location.href = "/login";
     }

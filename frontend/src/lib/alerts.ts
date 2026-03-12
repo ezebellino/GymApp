@@ -1,4 +1,3 @@
-// src/lib/alerts.ts
 import Swal from "sweetalert2";
 
 export const alertSuccess = async (title: string, text?: string) => {
@@ -52,7 +51,7 @@ export const confirmAction = async (title: string, text?: string) => {
   });
 };
 
-// Toast rápido (arriba a la derecha)
+// Toast rapido en la esquina superior derecha.
 export const toast = Swal.mixin({
   toast: true,
   position: "top-end",
@@ -79,4 +78,3 @@ export function alertSuccessAutoClose(
     showConfirmButton: false,
   });
 }
-

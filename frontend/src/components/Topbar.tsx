@@ -1,29 +1,27 @@
-// src/components/Topbar.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
-import { Button } from "@/components/ui/button";
 import {
-  LogOut,
-  UserPlus,
-  Menu,
-  X,
-  LayoutDashboard,
-  Users,
-  CreditCard,
-  CalendarCheck2,
-  Settings,
   BarChart3,
+  CalendarCheck2,
+  CreditCard,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Settings,
+  UserPlus,
+  Users,
+  X,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import SpotlightSearch from "./SpotlightSearch";
 import type { Role } from "@/types";
 
 export default function Topbar() {
-  const [open, setOpen] = useState(false); // Spotlight
+  const [open, setOpen] = useState(false);
   const [role, setRole] = useState<Role>("coach");
   const [isAuthed, setIsAuthed] = useState<boolean>(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // menú hamburguesa
-
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,12 +33,10 @@ export default function Topbar() {
     } else if (token) {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
-        const r =
-          (payload.role as Role) ||
-          (payload?.user?.role as Role) ||
-          "coach";
-        setRole(r);
-        localStorage.setItem("user_role", r);
+        const nextRole =
+          (payload.role as Role) || (payload?.user?.role as Role) || "coach";
+        setRole(nextRole);
+        localStorage.setItem("user_role", nextRole);
       } catch {
         setRole("coach");
       }
@@ -57,13 +53,10 @@ export default function Topbar() {
         setOpen((v) => !v);
       }
     };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-  const handleLogin = () => {
-    navigate("/login");
-  };
 
   const handleLogout = async () => {
     localStorage.removeItem("access_token");
@@ -72,8 +65,8 @@ export default function Topbar() {
     setMobileMenuOpen(false);
 
     await Swal.fire({
-      title: "Sesión cerrada",
-      text: "Serás redirigido al login.",
+      title: "Sesion cerrada",
+      text: "Seras redirigido al login.",
       icon: "success",
       timer: 1400,
       showConfirmButton: false,
@@ -83,16 +76,14 @@ export default function Topbar() {
     navigate("/login", { replace: true });
   };
 
-  // helper para navegar desde el menú mobile
   const go = (path: string) => {
     navigate(path);
     setMobileMenuOpen(false);
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950/70 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-amber-200/10 bg-[#0d0c0b]/80 backdrop-blur-xl">
       <div className="mx-auto flex h-14 items-center justify-between px-4">
-        {/* Logo izquierda */}
         <div className="flex items-center gap-3">
           <img
             src="/LogoLibreFuncional.png"
@@ -101,61 +92,56 @@ export default function Topbar() {
           />
         </div>
 
-        {/* Centro: Spotlight trigger SOLO desktop */}
-        <div className="hidden md:flex flex-1 justify-center">
+        <div className="hidden flex-1 justify-center md:flex">
           <Button
             variant="outline"
-            className="border-zinc-700 bg-zinc-900 hover:bg-zinc-800 w-72 text-sm"
+            className="w-72 border-amber-200/10 bg-white/[0.03] text-amber-50 hover:border-amber-300/20 hover:bg-white/[0.06]"
             onClick={() => setOpen(true)}
           >
-            Buscar cliente (Ctrl/⌘+K)
+            Buscar cliente (Ctrl/Cmd + K)
           </Button>
         </div>
 
-        {/* Derecha: botones SOLO desktop */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden items-center gap-3 md:flex">
           {isAuthed && role === "owner" && (
             <Button
               variant="outline"
               onClick={() => navigate("/coaches/new")}
-              className="border-violet-400/60 text-violet-100 bg-violet-500/10 hover:bg-violet-500/20 text-xs sm:text-sm"
+              className="border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] text-amber-50 hover:bg-[linear-gradient(90deg,rgba(250,204,21,0.18),rgba(255,247,237,0.08),rgba(249,115,22,0.18))]"
             >
               <UserPlus className="h-4 w-4" />
-              + Nuevo coach
+              Nuevo coach
             </Button>
           )}
 
           {isAuthed ? (
             <Button
               onClick={handleLogout}
-              className="group relative overflow-hidden bg-linear-to-r from-fuchsia-500 to-cyan-400 text-black font-medium shadow-md hover:opacity-95"
+              className="group relative overflow-hidden border border-amber-300/20 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black shadow-[0_18px_45px_-28px_rgba(249,115,22,0.55)] hover:opacity-95"
             >
               <span className="relative z-10 flex items-center gap-2">
                 <LogOut size={16} />
                 Logout
               </span>
-              <span
-                className="pointer-events-none absolute inset-0 -translate-x-full skew-x-12 bg-white/40 transition-transform duration-700 ease-out group-hover:translate-x-full"
-              />
+              <span className="pointer-events-none absolute inset-0 -translate-x-full skew-x-12 bg-white/40 transition-transform duration-700 ease-out group-hover:translate-x-full" />
             </Button>
           ) : (
             <Button
               variant="outline"
-              onClick={handleLogin}
-              className="border-zinc-700 hover:bg-zinc-800"
+              onClick={() => navigate("/login")}
+              className="border-amber-200/10 text-amber-50 hover:bg-white/[0.06]"
             >
-              Iniciar sesión
+              Iniciar sesion
             </Button>
           )}
         </div>
 
-        {/* Mobile: solo botón hamburguesa */}
         <div className="flex items-center gap-2 md:hidden">
           {isAuthed ? (
             <Button
               variant="outline"
               size="icon"
-              className="border-zinc-700 bg-zinc-900/80"
+              className="border-amber-200/10 bg-white/[0.04] text-zinc-100"
               onClick={() => setMobileMenuOpen((v) => !v)}
             >
               {mobileMenuOpen ? (
@@ -168,8 +154,8 @@ export default function Topbar() {
             <Button
               variant="outline"
               size="sm"
-              className="border-zinc-700 text-xs"
-              onClick={handleLogin}
+              className="border-amber-200/10 text-xs text-zinc-100"
+              onClick={() => navigate("/login")}
             >
               Login
             </Button>
@@ -177,90 +163,85 @@ export default function Topbar() {
         </div>
       </div>
 
-      {/* Menú desplegable mobile = mini sidebar */}
       {mobileMenuOpen && isAuthed && (
-        <div className="md:hidden border-t border-zinc-800 bg-zinc-950/95 px-4 pb-3 pt-2 space-y-3">
+        <div className="space-y-3 border-t border-amber-200/10 bg-[#120f0d]/95 px-4 pb-3 pt-2 md:hidden">
           <div className="space-y-2">
             <Button
               variant="outline"
-              className="w-full justify-start border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+              className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
               onClick={() => go("/dashboard")}
             >
-              <LayoutDashboard className="h-4 w-4 mr-2" />
+              <LayoutDashboard className="mr-2 h-4 w-4" />
               Dashboard
             </Button>
             <Button
               variant="outline"
-              className="w-full justify-start border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+              className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
               onClick={() => go("/clients")}
             >
-              <Users className="h-4 w-4 mr-2" />
+              <Users className="mr-2 h-4 w-4" />
               Clientes
             </Button>
             <Button
               variant="outline"
-              className="w-full justify-start border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+              className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
               onClick={() => go("/payments")}
             >
-              <CreditCard className="h-4 w-4 mr-2" />
+              <CreditCard className="mr-2 h-4 w-4" />
               Pagos
             </Button>
             <Button
               variant="outline"
-              className="w-full justify-start border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+              className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
               onClick={() => go("/attendance")}
             >
-              <CalendarCheck2 className="h-4 w-4 mr-2" />
+              <CalendarCheck2 className="mr-2 h-4 w-4" />
               Asistencias
             </Button>
             <Button
               variant="outline"
-              className="w-full justify-start border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+              className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
               onClick={() => go("/settings")}
             >
-              <Settings className="h-4 w-4 mr-2" />
+              <Settings className="mr-2 h-4 w-4" />
               Ajustes
             </Button>
-
-            {/* Reportes solo owner */}
             {role === "owner" && (
               <Button
                 variant="outline"
-                className="w-full justify-start border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+                className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
                 onClick={() => go("/reports")}
               >
-                <BarChart3 className="h-4 w-4 mr-2" />
+                <BarChart3 className="mr-2 h-4 w-4" />
                 Reportes
               </Button>
             )}
           </div>
 
-          {/* Acciones especiales */}
           {role === "owner" && (
             <Button
               variant="outline"
-              className="w-full justify-start border-violet-400/60 bg-violet-500/10 hover:bg-violet-500/20 text-sm text-violet-100"
+              className="w-full justify-start border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] text-sm text-amber-50 hover:opacity-95"
               onClick={() => {
                 setMobileMenuOpen(false);
                 navigate("/coaches/new");
               }}
             >
-              <UserPlus className="h-4 w-4 mr-2" />
-              + Nuevo coach
+              <UserPlus className="mr-2 h-4 w-4" />
+              Nuevo coach
             </Button>
           )}
 
           <Button
-            className="w-full justify-start bg-linear-to-r from-fuchsia-500 to-cyan-400 text-black text-sm"
+            className="w-full justify-start border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] text-sm text-black hover:opacity-95"
             onClick={handleLogout}
           >
-            <LogOut className="h-4 w-4 mr-2" />
+            <LogOut className="mr-2 h-4 w-4" />
             Logout
           </Button>
         </div>
       )}
 
-      {/* Spotlight global (se sigue pudiendo abrir con Ctrl/⌘+K) */}
       <SpotlightSearch open={open} onOpenChange={setOpen} viewerRole={role} />
     </header>
   );
