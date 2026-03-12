@@ -1,9 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import {
+  Activity,
+  CalendarDays,
+  Clock3,
+  Search,
+  UserRoundCheck,
+  Users,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/http";
-import { useDebounce } from "@/hooks/useDebounce"; // si no lo tenés aquí, importá desde donde lo tengas
+import { useDebounce } from "@/hooks/useDebounce";
+import Pagination from "@/components/Pagination";
+import { alertError } from "@/lib/alerts";
 
 type ClientLite = {
   id: string;
@@ -16,19 +26,54 @@ type AttendanceRow = {
   id: string;
   client_id: string;
   coach_id: string | null;
-  checkin_at: string; // ISO
-  client?: ClientLite; // viene en AttendanceOut (schemas) -> ClientOut
+  checkin_at: string;
+  client?: ClientLite;
 };
 
-function shortId(id?: string) {
-  if (!id) return "—";
-  return id.length > 10 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id;
+type StatCardProps = {
+  title: string;
+  value: string;
+  hint: string;
+  icon: typeof Users;
+};
+
+function shortId(id?: string | null) {
+  if (!id) return "-";
+  return id.length > 12 ? `${id.slice(0, 8)}...${id.slice(-4)}` : id;
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function endOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+}
+
+function StatCard({ title, value, hint, icon: Icon }: StatCardProps) {
+  return (
+    <div className="rounded-[24px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.07),rgba(255,255,255,0.02)_48%,rgba(249,115,22,0.08))] p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+            {title}
+          </p>
+          <p className="mt-2 text-2xl font-semibold text-zinc-50">{value}</p>
+          <p className="mt-1 text-sm text-zinc-400">{hint}</p>
+        </div>
+        <div className="rounded-2xl bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(255,247,237,0.08),rgba(249,115,22,0.22))] p-3 text-amber-50">
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function AttendancePage() {
   const [items, setItems] = useState<AttendanceRow[]>([]);
-  const [limit] = useState(50);
+  const [limit, setLimit] = useState(20);
   const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
   const debouncedQ = useDebounce(q, 350);
   const [loading, setLoading] = useState(false);
@@ -36,152 +81,217 @@ export default function AttendancePage() {
   async function load() {
     setLoading(true);
     try {
-      // GET /attendance?q=&limit=&offset=
-      const { data } = await api.get<AttendanceRow[]>("/attendance", {
+      const response = await api.get<AttendanceRow[]>("/attendance", {
         params: { q: debouncedQ || undefined, limit, offset },
       });
-      setItems(data);
+      const totalHeader = (response.headers["x-total-count"] ??
+        response.headers["X-Total-Count"]) as string | undefined;
+      setItems(response.data);
+      setTotal(totalHeader ? Number(totalHeader) : response.data.length);
+    } catch (error) {
+      console.error("Error cargando asistencias", error);
+      await alertError(
+        "No se pudieron cargar las asistencias",
+        "Intenta nuevamente en unos segundos."
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  // Reiniciá al cambiar búsqueda
   useEffect(() => {
     setOffset(0);
-  }, [debouncedQ]);
+  }, [debouncedQ, limit]);
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offset, debouncedQ]);
+  }, [offset, debouncedQ, limit]);
 
-  const rows = useMemo(() => items, [items]);
+  const today = useMemo(() => {
+    const now = new Date();
+    const start = startOfDay(now);
+    const end = endOfDay(now);
+    return items.filter((item) => {
+      const checkin = new Date(item.checkin_at);
+      return checkin >= start && checkin < end;
+    }).length;
+  }, [items]);
 
-  // Heurística simple de paginado si tu endpoint no devuelve total:
-  const hasMore = rows.length >= limit;
+  const uniqueClients = useMemo(() => {
+    const ids = new Set(items.map((item) => item.client_id));
+    return ids.size;
+  }, [items]);
+
+  const latestCheckin = useMemo(() => {
+    if (items.length === 0) return "Sin movimientos recientes";
+    return new Date(items[0].checkin_at).toLocaleString("es-AR", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, [items]);
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Asistencias</h1>
+    <div className="space-y-8">
+      <section className="grid gap-4 lg:grid-cols-[1.45fr_0.95fr]">
+        <div className="rounded-[28px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.11))] p-6 shadow-[0_20px_80px_-40px_rgba(249,115,22,0.42)]">
+          <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
+            Operacion diaria
+          </div>
+          <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+            Controla la asistencia del gimnasio con una vista mas clara.
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
+            Busca check-ins por cliente, revisa el movimiento reciente y detecta
+            rapidamente como viene la jornada.
+          </p>
+        </div>
 
-      <Card className="border-white/10 bg-zinc-950/60 backdrop-blur-md">
-        <CardHeader>
-          <CardTitle className="text-zinc-100">Listado de check-ins</CardTitle>
-        </CardHeader>
+        <div className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-6 backdrop-blur-xl">
+          <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+            Contexto rapido
+          </p>
+          <div className="mt-4 space-y-4">
+            <div>
+              <p className="text-sm text-zinc-400">Ultimo check-in visible</p>
+              <p className="text-lg font-semibold text-zinc-100">{latestCheckin}</p>
+            </div>
+            <div className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.05),rgba(249,115,22,0.12))] p-4 text-sm text-amber-50">
+              Esta vista te ayuda a validar ingresos, detectar picos de actividad y
+              buscar rapido a quien ya asistio.
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <CardContent className="space-y-4">
-          {/* Filtros */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-            <div className="flex gap-2 w-full sm:max-w-xl">
-              <Input
-                placeholder="Buscar por nombre, email o teléfono…"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                className="bg-zinc-900/70 border-white/10"
-              />
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Check-ins visibles"
+          value={total.toLocaleString("es-AR")}
+          hint="Total segun el filtro actual"
+          icon={Activity}
+        />
+        <StatCard
+          title="Registrados hoy"
+          value={today.toLocaleString("es-AR")}
+          hint="Dentro de la pagina actual"
+          icon={CalendarDays}
+        />
+        <StatCard
+          title="Clientes unicos"
+          value={uniqueClients.toLocaleString("es-AR")}
+          hint="Sin repetir clientes visibles"
+          icon={Users}
+        />
+        <StatCard
+          title="Estado"
+          value={loading ? "Actualizando" : "Al dia"}
+          hint="Consulta de asistencias"
+          icon={UserRoundCheck}
+        />
+      </section>
+
+      <Card className="rounded-[28px] border-amber-200/10 bg-zinc-900/60 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_30px_-10px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+        <CardHeader className="border-b border-amber-200/10 pb-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <CardTitle className="text-zinc-100">Listado de check-ins</CardTitle>
+              <p className="mt-2 text-sm leading-6 text-zinc-400">
+                Consulta ingresos por nombre, email o telefono y revisa rapido
+                quien entreno hoy.
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+              <div className="relative w-full sm:min-w-[320px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  placeholder="Buscar por nombre, email o telefono"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  className="border-amber-200/10 bg-zinc-900/70 pl-9 text-zinc-100"
+                />
+              </div>
               <Button
                 onClick={() => load()}
                 disabled={loading}
-                className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30"
                 variant="outline"
+                className="border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] text-amber-50 hover:opacity-95"
               >
-                {loading ? "Buscando…" : "Buscar"}
-              </Button>
-            </div>
-
-            {/* Paginación */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                disabled={offset === 0 || loading}
-                onClick={() => setOffset(Math.max(0, offset - limit))}
-                className="border-white/10 hover:bg-white/10"
-              >
-                ← Anterior
-              </Button>
-              <Button
-                variant="outline"
-                disabled={!hasMore || loading}
-                onClick={() => setOffset(offset + limit)}
-                className="border-white/10 hover:bg-white/10"
-              >
-                Siguiente →
+                {loading ? "Actualizando..." : "Actualizar"}
               </Button>
             </div>
           </div>
+        </CardHeader>
 
-          {/* Tabla */}
-          <div className="rounded-xl border border-white/10 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-zinc-900/70">
-                <tr className="text-zinc-300">
-                  <th className="text-left p-3">Fecha</th>
-                  <th className="text-left p-3">Cliente</th>
-                  <th className="text-left p-3">Contacto</th>
-                  <th className="text-left p-3">Coach</th>
-                </tr>
-              </thead>
-              <tbody className="bg-zinc-950/40">
-                {loading && (
+        <CardContent className="space-y-5 pt-6">
+          <div className="overflow-hidden rounded-2xl border border-amber-200/10">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-[linear-gradient(90deg,rgba(250,204,21,0.08),rgba(255,247,237,0.04),rgba(249,115,22,0.1))] text-left text-zinc-300">
                   <tr>
-                    <td colSpan={4} className="p-6 text-center">
-                      <div className="inline-flex items-center gap-2 text-zinc-400">
-                        <span className="h-4 w-4 rounded-full border-2 border-zinc-500 border-t-transparent animate-spin" />
-                        Cargando…
-                      </div>
-                    </td>
+                    <th className="px-4 py-3">Fecha</th>
+                    <th className="px-4 py-3">Cliente</th>
+                    <th className="px-4 py-3">Contacto</th>
+                    <th className="px-4 py-3">Coach</th>
                   </tr>
-                )}
-
-                {!loading && rows.length === 0 && (
-                  <tr>
-                    <td className="p-6 text-center text-zinc-400" colSpan={4}>
-                      Sin resultados.
-                    </td>
-                  </tr>
-                )}
-
-                {!loading &&
-                  rows.map((a) => (
-                    <tr key={a.id} className="border-t border-white/5">
-                      <td className="p-3 text-zinc-200">
-                        {new Date(a.checkin_at).toLocaleString()}
-                      </td>
-                      <td className="p-3 text-zinc-200">
-                        {a.client?.full_name ?? shortId(a.client_id)}
-                      </td>
-                      <td className="p-3 text-zinc-300">
-                        {a.client?.phone || a.client?.email || "—"}
-                      </td>
-                      <td className="p-3 text-zinc-300">
-                        {a.coach_id ? shortId(a.coach_id) : <span className="text-zinc-500">—</span>}
+                </thead>
+                <tbody className="bg-zinc-950/30">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-10 text-center text-zinc-400">
+                        <div className="inline-flex items-center gap-2">
+                          <Clock3 className="h-4 w-4" />
+                          Cargando asistencias...
+                        </div>
                       </td>
                     </tr>
-                  ))}
-              </tbody>
-            </table>
+                  ) : null}
+
+                  {!loading && items.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-10 text-center text-zinc-400">
+                        No hay asistencias para el filtro actual.
+                      </td>
+                    </tr>
+                  ) : null}
+
+                  {!loading
+                    ? items.map((item, index) => (
+                        <tr
+                          key={item.id}
+                          className={`border-t border-white/5 ${index % 2 ? "bg-white/[0.03]" : ""}`}
+                        >
+                          <td className="px-4 py-3 text-zinc-200">
+                            {new Date(item.checkin_at).toLocaleString("es-AR")}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-100">
+                            {item.client?.full_name ?? shortId(item.client_id)}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-300">
+                            {item.client?.phone || item.client?.email || "-"}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-300">
+                            {item.coach_id ? shortId(item.coach_id) : "-"}
+                          </td>
+                        </tr>
+                      ))
+                    : null}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* Footer paginación */}
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              disabled={offset === 0 || loading}
-              onClick={() => setOffset(Math.max(0, offset - limit))}
-              className="border-white/10 hover:bg-white/10"
-            >
-              ← Anterior
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!hasMore || loading}
-              onClick={() => setOffset(offset + limit)}
-              className="border-white/10 hover:bg-white/10"
-            >
-              Siguiente →
-            </Button>
-          </div>
+          <Pagination
+            total={total}
+            limit={limit}
+            offset={offset}
+            onChange={({ limit: nextLimit, offset: nextOffset }) => {
+              setLimit(nextLimit);
+              setOffset(nextOffset);
+            }}
+          />
         </CardContent>
       </Card>
     </div>
