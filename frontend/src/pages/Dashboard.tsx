@@ -95,6 +95,11 @@ const currentPeriod = () => {
   };
 };
 
+const isSameMonth = (value: string, month: number, year: number) => {
+  const date = new Date(value);
+  return date.getMonth() + 1 === month && date.getFullYear() === year;
+};
+
 const todayAndTomorrow = () => {
   const today = new Date();
   const tomorrow = new Date();
@@ -171,33 +176,64 @@ export default function Dashboard() {
   }
 
   async function loadDashboard() {
-    const clientsResp = await api.get<ClientMini[]>("/clients", {
-      params: { limit: CLIENTS_SAMPLE_LIMIT, offset: 0 },
-    });
-    const totalHeader = (clientsResp.headers["x-total-count"] ??
-      clientsResp.headers["X-Total-Count"]) as string | undefined;
-    const clients = clientsResp.data || [];
+    const { month, year } = currentPeriod();
+    const { start, end } = monthBounds();
+
+    const [clientsResp, paymentsResp, revenueResp, attendanceResp] =
+      await Promise.allSettled([
+        api.get<ClientMini[]>("/clients", {
+          params: { limit: CLIENTS_SAMPLE_LIMIT, offset: 0 },
+        }),
+        api.get<PaymentRow[]>("/payments", {
+          params: { limit: 200, offset: 0 },
+        }),
+        api.get<PaymentsKpiResp>("/payments/reports/kpis", {
+          params: { start, end },
+        }),
+        api.get("/attendance", {
+          params: { start: todayAndTomorrow().start, end: todayAndTomorrow().end, limit: 1, offset: 0 },
+        }),
+      ]);
+
+    if (clientsResp.status !== "fulfilled") {
+      throw clientsResp.reason;
+    }
+
+    const totalHeader = (clientsResp.value.headers["x-total-count"] ??
+      clientsResp.value.headers["X-Total-Count"]) as string | undefined;
+    const clients = clientsResp.value.data || [];
 
     setClientsTotal(totalHeader ? Number(totalHeader) : clients.length);
     setActiveClients(clients.filter((client) => client.is_active !== false).length);
 
-    const { start, end } = monthBounds();
-    const kpisResp = await api.get<PaymentsKpiResp>("/payments/reports/kpis", {
-      params: { start, end },
-    });
-    setRevenueMonth(kpisResp.data?.amount_sum ?? 0);
-
-    await refreshCheckinsToday();
+    if (attendanceResp.status === "fulfilled") {
+      const attendanceHeader = (attendanceResp.value.headers["x-total-count"] ??
+        attendanceResp.value.headers["X-Total-Count"]) as string | undefined;
+      setCheckinsToday(attendanceHeader ? Number(attendanceHeader) : 0);
+    } else {
+      await refreshCheckinsToday();
+    }
 
     setLoadingPayments(true);
     try {
-      const paymentsResp = await api.get<PaymentRow[]>("/payments", {
-        params: { limit: 200, offset: 0 },
-      });
-      const allPayments = paymentsResp.data || [];
+      if (paymentsResp.status !== "fulfilled") {
+        throw paymentsResp.reason;
+      }
+
+      const allPayments = paymentsResp.value.data || [];
       setPayments(allPayments.slice(0, 5));
 
-      const { month, year } = currentPeriod();
+      const revenueFromPayments = allPayments
+        .filter((payment) => isSameMonth(payment.created_at, month, year))
+        .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+
+      if (revenueResp.status === "fulfilled") {
+        setRevenueMonth(revenueResp.value.data?.amount_sum ?? revenueFromPayments);
+      } else {
+        console.warn("No se pudieron cargar KPIs de pagos; usando fallback local.", revenueResp.reason);
+        setRevenueMonth(revenueFromPayments);
+      }
+
       const paidClientIds = new Set(
         allPayments
           .filter(
