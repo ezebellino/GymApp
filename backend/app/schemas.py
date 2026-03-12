@@ -227,7 +227,7 @@ class SettingsOut(SettingsBase):
 
 
 def _bucket_expr(column, bucket: Literal["day", "week", "month"]):
-    with_tz = func.timezone("UTC", column)
+    with_tz = func.timezone("America/Argentina/Buenos_Aires", func.timezone("UTC", column))
 
     if bucket == "day":
         return func.date_trunc("day", with_tz)

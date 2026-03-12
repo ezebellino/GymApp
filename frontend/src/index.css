@@ -66,4 +66,30 @@
       rgba(249, 115, 22, 0.22)
     );
   }
+
+  .warm-scrollbar {
+    scrollbar-color: rgba(251, 191, 36, 0.5) rgba(255, 255, 255, 0.05);
+    scrollbar-width: thin;
+  }
+
+  .warm-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .warm-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 9999px;
+  }
+
+  .warm-scrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      180deg,
+      rgba(250, 204, 21, 0.8),
+      rgba(255, 247, 237, 0.7),
+      rgba(249, 115, 22, 0.75)
+    );
+    border: 2px solid rgba(12, 11, 10, 0.72);
+    border-radius: 9999px;
+  }
 }

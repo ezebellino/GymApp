@@ -64,9 +64,17 @@ const nfARS = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0,
 });
 
+function parseBucket(bucket: string) {
+  const direct = new Date(bucket);
+  if (!Number.isNaN(direct.getTime())) return direct;
+
+  const fallback = new Date(bucket.includes("T") ? bucket : `${bucket}T00:00:00`);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
 function toLabel(bucket: string, mode: "day" | "week" | "month") {
-  const date = new Date(bucket);
-  if (Number.isNaN(date.getTime())) return bucket;
+  const date = parseBucket(bucket);
+  if (!date) return bucket;
 
   if (mode === "month") {
     return date.toLocaleDateString("es-AR", {
@@ -535,7 +543,7 @@ export default function ReportsPage() {
               No hubo asistencias registradas ese dia.
             </div>
           ) : (
-            <div className="max-h-[420px] overflow-y-auto rounded-xl border border-white/10">
+            <div className="warm-scrollbar max-h-[420px] overflow-y-auto rounded-xl border border-white/10">
               <table className="w-full text-sm">
                 <thead className="bg-white/[0.03] text-left text-zinc-400">
                   <tr>

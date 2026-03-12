@@ -10,7 +10,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { FC } from "react";
+import type { FC } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -47,7 +47,7 @@ export default function Sidebar() {
   });
 
   return (
-    <aside className="fixed left-0 top-14 z-40 hidden h-[calc(100vh-3.5rem)] w-64 flex-col overflow-y-auto border-r border-amber-200/10 bg-[#0d0b0a]/84 backdrop-blur-xl lg:flex">
+    <aside className="warm-scrollbar fixed left-0 top-14 z-40 hidden h-[calc(100vh-3.5rem)] w-64 flex-col overflow-y-auto border-r border-amber-200/10 bg-[#0d0b0a]/84 backdrop-blur-xl lg:flex">
       <TooltipProvider delayDuration={80}>
         <nav className="space-y-4 p-4">
           {allowed.map(({ to, label, icon: Icon }) => (
