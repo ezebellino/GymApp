@@ -36,6 +36,7 @@ class Client(Base):
     
     payments = relationship("Payment", back_populates="client")
     attendance = relationship("Attendance", back_populates="client", cascade="all, delete-orphan")
+    workout_logs = relationship("WorkoutLog", back_populates="client", cascade="all, delete-orphan")
     
     __table_args__ = (
     Index("ix_clients_full_name", "full_name"),
@@ -72,8 +73,71 @@ class Attendance(Base):
     coach_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     
     client = relationship("Client", back_populates="attendance")
-    
-    
+
+
+class TrainingDay(Base):
+    __tablename__ = "training_days"
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    muscle_groups = Column(String, nullable=False)
+    day_order = Column(Integer, nullable=False, unique=True)
+
+    exercises = relationship(
+        "TrainingDayExercise",
+        back_populates="day",
+        cascade="all, delete-orphan",
+        order_by="TrainingDayExercise.sort_order",
+    )
+    logs = relationship("WorkoutLog", back_populates="day", cascade="all, delete-orphan")
+
+
+class Exercise(Base):
+    __tablename__ = "exercises"
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    muscle_group = Column(String, nullable=False, index=True)
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    day_links = relationship("TrainingDayExercise", back_populates="exercise", cascade="all, delete-orphan")
+    logs = relationship("WorkoutLog", back_populates="exercise", cascade="all, delete-orphan")
+
+
+class TrainingDayExercise(Base):
+    __tablename__ = "training_day_exercises"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    day_id = Column(String, ForeignKey("training_days.id", ondelete="CASCADE"), nullable=False, index=True)
+    exercise_id = Column(String, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False, index=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=False)
+    assigned_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    day = relationship("TrainingDay", back_populates="exercises")
+    exercise = relationship("Exercise", back_populates="day_links")
+
+    __table_args__ = (
+        UniqueConstraint("day_id", "exercise_id", name="uq_training_day_exercise"),
+    )
+
+
+class WorkoutLog(Base):
+    __tablename__ = "workout_logs"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    client_id = Column(String, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    day_id = Column(String, ForeignKey("training_days.id", ondelete="CASCADE"), nullable=False, index=True)
+    exercise_id = Column(String, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False, index=True)
+    sets_count = Column(Integer, nullable=True)
+    reps = Column(Integer, nullable=True)
+    weight_kg = Column(Float, nullable=False, default=0)
+    note = Column(String, nullable=True)
+    performed_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    client = relationship("Client", back_populates="workout_logs")
+    day = relationship("TrainingDay", back_populates="logs")
+    exercise = relationship("Exercise", back_populates="logs")
+
+
 class AppSettings(Base):
     __tablename__ = "app_settings"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

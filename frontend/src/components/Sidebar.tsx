@@ -3,6 +3,7 @@ import {
   BarChart3,
   CalendarCheck2,
   CreditCard,
+  Dumbbell,
   LayoutDashboard,
   Plus,
   Search,
@@ -30,6 +31,7 @@ const items: NavItem[] = [
   { to: "/clients", label: "Clientes", icon: Users },
   { to: "/payments", label: "Pagos", icon: CreditCard },
   { to: "/attendance", label: "Asistencias", icon: CalendarCheck2 },
+  { to: "/routines", label: "Rutinas", icon: Dumbbell },
   { to: "/reports", label: "Reportes", icon: BarChart3 },
   { to: "/settings", label: "Ajustes", icon: Settings },
 ];

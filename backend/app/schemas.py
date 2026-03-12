@@ -153,6 +153,80 @@ class RevenueReportItem(BaseSchema):
     total: float
 
 
+class RoutineExerciseOption(BaseSchema):
+    exercise_id: str
+    name: str
+    muscle_group: str
+    description: Optional[str] = None
+    is_active: bool
+    sort_order: int
+
+
+class RoutineDayOut(BaseSchema):
+    id: str
+    name: str
+    muscle_groups: list[str]
+    day_order: int
+    exercises: list[RoutineExerciseOption]
+
+
+class RoutineCatalogExercise(BaseSchema):
+    id: str
+    name: str
+    muscle_group: str
+    description: Optional[str] = None
+
+
+class RoutineCatalogGroup(BaseSchema):
+    muscle_group: str
+    exercises: list[RoutineCatalogExercise]
+
+
+class RoutineDaySelectionUpdate(BaseSchema):
+    exercise_ids: list[str] = Field(default_factory=list)
+
+
+class WorkoutLogCreate(BaseSchema):
+    day_id: str
+    exercise_id: str
+    sets_count: Optional[Annotated[int, Field(ge=1, le=20)]] = None
+    reps: Optional[Annotated[int, Field(ge=1, le=200)]] = None
+    weight_kg: Annotated[float, Field(ge=0, le=500)] = 0
+    note: Optional[Annotated[str, Field(max_length=220)]] = None
+
+    @field_validator("note", mode="before")
+    @classmethod
+    def normalize_note(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
+
+class WorkoutLogOut(BaseSchema):
+    id: str
+    client_id: str
+    day_id: str
+    day_name: str
+    exercise_id: str
+    exercise_name: str
+    muscle_group: str
+    sets_count: Optional[int] = None
+    reps: Optional[int] = None
+    weight_kg: float
+    note: Optional[str] = None
+    performed_at: datetime
+
+
+class RoutineDayProgress(BaseSchema):
+    day_id: str
+    day_name: str
+    muscle_groups: list[str]
+    active_exercise_count: int
+    log_count: int
+    last_performed_at: Optional[datetime] = None
+
+
 class SettingsBase(BaseSchema):
     gym_name: Annotated[str, Field(min_length=1, max_length=100)]
     currency: Annotated[str, Field(min_length=1, max_length=10)]

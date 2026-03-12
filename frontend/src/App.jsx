@@ -11,6 +11,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Clients = lazy(() => import("./pages/Clients"));
 const Payments = lazy(() => import("./pages/Payments"));
 const Attendance = lazy(() => import("./pages/Attendance"));
+const Routines = lazy(() => import("./pages/Routines"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Login = lazy(() => import("./pages/Login"));
@@ -77,6 +78,14 @@ export default function App() {
                   element={
                     <ProtectedRoute>
                       <Attendance />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/routines"
+                  element={
+                    <ProtectedRoute>
+                      <Routines />
                     </ProtectedRoute>
                   }
                 />

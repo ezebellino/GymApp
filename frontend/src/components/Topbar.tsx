@@ -5,6 +5,7 @@ import {
   BarChart3,
   CalendarCheck2,
   CreditCard,
+  Dumbbell,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -208,6 +209,14 @@ export default function Topbar() {
             >
               <CalendarCheck2 className="mr-2 h-4 w-4" />
               Asistencias
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+              onClick={() => go("/routines")}
+            >
+              <Dumbbell className="mr-2 h-4 w-4" />
+              Rutinas
             </Button>
             <Button
               variant="outline"

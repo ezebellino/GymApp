@@ -43,3 +43,54 @@ export type AppSettings = {
   allow_transfer: boolean;
   onboarding_message: string | null;
 };
+
+export type RoutineExerciseOption = {
+  exercise_id: string;
+  name: string;
+  muscle_group: string;
+  description?: string | null;
+  is_active: boolean;
+  sort_order: number;
+};
+
+export type RoutineDay = {
+  id: string;
+  name: string;
+  muscle_groups: string[];
+  day_order: number;
+  exercises: RoutineExerciseOption[];
+};
+
+export type RoutineCatalogGroup = {
+  muscle_group: string;
+  exercises: Array<{
+    id: string;
+    name: string;
+    muscle_group: string;
+    description?: string | null;
+  }>;
+};
+
+export type RoutineDayProgress = {
+  day_id: string;
+  day_name: string;
+  muscle_groups: string[];
+  active_exercise_count: number;
+  log_count: number;
+  last_performed_at?: string | null;
+};
+
+export type WorkoutLog = {
+  id: string;
+  client_id: string;
+  day_id: string;
+  day_name: string;
+  exercise_id: string;
+  exercise_name: string;
+  muscle_group: string;
+  sets_count?: number | null;
+  reps?: number | null;
+  weight_kg: number;
+  note?: string | null;
+  performed_at: string;
+};
