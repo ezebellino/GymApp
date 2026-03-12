@@ -287,6 +287,12 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    const openSpotlight = () => setSearchOpen(true);
+    window.addEventListener("app:open-spotlight", openSpotlight);
+    return () => window.removeEventListener("app:open-spotlight", openSpotlight);
+  }, []);
+
+  useEffect(() => {
     const term = q.trim();
     if (!term) {
       setClientResults([]);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import {
   BarChart3,
@@ -14,15 +14,26 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import SpotlightSearch from "./SpotlightSearch";
 import type { Role } from "@/types";
 
 export default function Topbar() {
-  const [open, setOpen] = useState(false);
   const [role, setRole] = useState<Role>("coach");
   const [isAuthed, setIsAuthed] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const openGlobalSearch = () => {
+    const trigger = () => window.dispatchEvent(new Event("app:open-spotlight"));
+
+    if (location.pathname !== "/dashboard") {
+      navigate("/dashboard");
+      window.setTimeout(trigger, 120);
+      return;
+    }
+
+    trigger();
+  };
 
   useEffect(() => {
     const storedRole = (localStorage.getItem("user_role") as Role) || null;
@@ -50,13 +61,13 @@ export default function Topbar() {
       const mod = navigator.platform.includes("Mac") ? e.metaKey : e.ctrlKey;
       if (mod && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((v) => !v);
+        openGlobalSearch();
       }
     };
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     localStorage.removeItem("access_token");
@@ -96,7 +107,7 @@ export default function Topbar() {
           <Button
             variant="outline"
             className="w-72 border-amber-200/10 bg-white/[0.03] text-amber-50 hover:border-amber-300/20 hover:bg-white/[0.06]"
-            onClick={() => setOpen(true)}
+            onClick={openGlobalSearch}
           >
             Buscar cliente (Ctrl/Cmd + K)
           </Button>
@@ -241,8 +252,6 @@ export default function Topbar() {
           </Button>
         </div>
       )}
-
-      <SpotlightSearch open={open} onOpenChange={setOpen} viewerRole={role} />
     </header>
   );
 }
