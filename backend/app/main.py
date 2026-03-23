@@ -50,4 +50,4 @@ app.include_router(settings_router.router)
 
 @app.get("/health", tags=["health"])
 def read_health():
-    return {"message": "La aplicación de Sergio está funcionando correctamente."}
+    return {"message": "La aplicación está corriendo."}

@@ -9,7 +9,6 @@ import {
   Search,
   Settings,
   Users,
-  Wallet,
 } from "lucide-react";
 import type { FC } from "react";
 import {
@@ -27,11 +26,11 @@ type NavItem = {
 };
 
 const items: NavItem[] = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/clients", label: "Clientes", icon: Users },
-  { to: "/payments", label: "Pagos", icon: CreditCard },
-  { to: "/attendance", label: "Asistencias", icon: CalendarCheck2 },
   { to: "/routines", label: "Rutinas", icon: Dumbbell },
+  { to: "/clients", label: "Clientes", icon: Users },
+  { to: "/attendance", label: "Asistencias", icon: CalendarCheck2 },
+  { to: "/dashboard", label: "Seguimiento", icon: LayoutDashboard },
+  { to: "/payments", label: "Pagos", icon: CreditCard },
   { to: "/reports", label: "Reportes", icon: BarChart3 },
   { to: "/settings", label: "Ajustes", icon: Settings },
 ];
@@ -115,11 +114,11 @@ export default function Sidebar() {
             <div className="space-y-2">
               <Button
                 variant="outline"
-                onClick={() => navigate("/dashboard")}
+                onClick={() => navigate("/routines")}
                 className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
               >
-                <Search className="h-4 w-4" />
-                Buscador global
+                <Dumbbell className="h-4 w-4" />
+                Ir a rutinas
               </Button>
               <Button
                 variant="outline"
@@ -131,11 +130,11 @@ export default function Sidebar() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate("/payments")}
+                onClick={() => navigate("/attendance")}
                 className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
               >
-                <Wallet className="h-4 w-4" />
-                Revisar cobros
+                <Search className="h-4 w-4" />
+                Buscar y seguir
               </Button>
             </div>
           </section>
@@ -148,8 +147,8 @@ export default function Sidebar() {
               Vista {roleLabel(role)}
             </p>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
-              Usá el dashboard como centro de control y volvés acá para moverte
-              rápido entre clientes, pagos y reportes.
+              Usa rutinas como punto de partida y desde aca movete rapido entre
+              clientes, asistencias y seguimiento.
             </p>
           </section>
         </div>

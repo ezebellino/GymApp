@@ -6,7 +6,6 @@ import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import "./index.css";
 
-const Home = lazy(() => import("./pages/Home"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Clients = lazy(() => import("./pages/Clients"));
 const Payments = lazy(() => import("./pages/Payments"));
@@ -41,14 +40,7 @@ export default function App() {
           <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(250,204,21,0.08),transparent_20%),linear-gradient(180deg,#0b0b0b_0%,#12100d_54%,#1b140e_100%)] px-4 pb-6 pt-14 lg:pl-64">
             <Suspense fallback={<PageLoader />}>
               <Routes>
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <Home />
-                    </ProtectedRoute>
-                  }
-                />
+                <Route path="/" element={<Navigate to="/routines" replace />} />
                 <Route
                   path="/dashboard"
                   element={
@@ -113,7 +105,7 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<Navigate to="/routines" replace />} />
               </Routes>
             </Suspense>
             <Footer />

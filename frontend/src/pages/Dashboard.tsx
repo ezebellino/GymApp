@@ -5,12 +5,12 @@ import {
   CalendarCheck2,
   CheckCircle2,
   CreditCard,
+  Dumbbell,
   Plus,
   Search,
   ShieldCheck,
   UserPlus2,
   Users,
-  Wallet,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/http";
@@ -388,10 +388,10 @@ export default function Dashboard() {
         icon: Users,
       },
       {
-        label: "Ingresos del mes",
-        value: nfARS.format(revenueMonth),
-        hint: "Facturación acumulada del período actual",
-        icon: CreditCard,
+        label: "Rutina base",
+        value: "4 dias",
+        hint: "Bloques principales de entrenamiento",
+        icon: Dumbbell,
       },
       {
         label: "Check-ins de hoy",
@@ -411,16 +411,16 @@ export default function Dashboard() {
       onClick: () => setSearchOpen(true),
     },
     {
+      title: "Abrir rutinas",
+      description: "Entra directo al armado de dias, ejercicios y avances.",
+      icon: Dumbbell,
+      onClick: () => navigate("/routines"),
+    },
+    {
       title: "Nuevo cliente",
       description: "Registra una alta nueva sin salir del dashboard.",
       icon: UserPlus2,
       onClick: () => setNewClientOpen(true),
-    },
-    {
-      title: "Ver pagos",
-      description: "Revisá movimientos, filtros y períodos de cobro.",
-      icon: Wallet,
-      onClick: () => navigate("/payments"),
     },
   ];
 
