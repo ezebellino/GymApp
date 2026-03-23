@@ -1,4 +1,4 @@
-# GymApp - Sistema de Gestión para Gimnasios
+# Mini Espacio - Sistema de Gestión para Gimnasios
 
 Aplicación full stack desarrollada con FastAPI, Supabase y React/Vite para la operación diaria de un gimnasio. El proyecto hoy cubre clientes, pagos, asistencias, reportes, configuración del negocio y un primer módulo de rutinas por grupos musculares.
 
@@ -143,7 +143,7 @@ python scripts/create_owner.py
 
 Credenciales por defecto:
 
-- Email: `owner@librefuncional.com`
+- Email: `owner@miniespacio.com`
 - Password: `Cambiar123`
 
 ## Deploy y sincronización

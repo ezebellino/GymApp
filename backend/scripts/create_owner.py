@@ -1,48 +1,56 @@
 import sys
 from pathlib import Path
-# Asegurar que 'backend/' esté en sys.path si alguien corre el script desde otro lado
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.orm import sessionmaker
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from app.auth import hash_password
 from app.config import settings
 from app.models import User, UserRole
-from app.auth import hash_password
-from sqlalchemy.exc import ProgrammingError, OperationalError
+
 
 def main():
     engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
 
-    # Verificar que exista la tabla 'users' (por si faltan migraciones)
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1 FROM users LIMIT 1"))
     except ProgrammingError:
-        print("❌ La tabla 'users' no existe. Corré las migraciones primero:\n"
-              "   alembic upgrade head")
+        print(
+            "La tabla 'users' no existe. Corre las migraciones primero:\n"
+            "  alembic upgrade head"
+        )
         return
-    except OperationalError as e:
-        print("❌ No pude conectarme a la base. Revisá DATABASE_URL en .env y credenciales.\n", e)
+    except OperationalError as exc:
+        print(
+            "No pude conectarme a la base. Revisa DATABASE_URL en .env y credenciales.\n",
+            exc,
+        )
         return
 
-    email = "owner@librefuncional.com"
+    email = "owner@miniespacio.com"
     with Session() as db:
         exists = db.query(User).filter(User.email == email).first()
         if exists:
-            print("ℹ️  Owner ya existe:", email)
+            print("El dueño ya existe:", email)
             return
-        u = User(
-            full_name="Owner",
+
+        owner = User(
+            full_name="Dueño",
             email=email,
             password_hash=hash_password("Cambiar123"),
-            role=UserRole.owner
+            role=UserRole.owner,
         )
-        db.add(u)
+        db.add(owner)
         db.commit()
-        print("✅ Owner creado:", email, "pass=Cambiar123")
+        print("Dueño creado:", email, "pass=Cambiar123")
+
 
 if __name__ == "__main__":
     main()

@@ -77,8 +77,8 @@ export default function Topbar() {
     setMobileMenuOpen(false);
 
     await Swal.fire({
-      title: "Sesion cerrada",
-      text: "Seras redirigido al login.",
+      title: "Sesión cerrada",
+      text: "Serás redirigido al login.",
       icon: "success",
       timer: 1400,
       showConfirmButton: false,
@@ -98,9 +98,9 @@ export default function Topbar() {
       <div className="mx-auto flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <img
-            src="/LogoLibreFuncional.png"
-            alt="Libre Funcional"
-            className="h-8 w-auto object-contain"
+            src="/mini-espacio-logo.svg"
+            alt="Mini Espacio"
+            className="h-9 w-auto object-contain"
           />
         </div>
 

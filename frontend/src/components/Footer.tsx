@@ -4,7 +4,7 @@ import type { AppSettings, Role } from "@/types";
 const SETTINGS_KEY = "app_settings";
 
 const DEFAULT_SETTINGS: AppSettings = {
-  gym_name: "Libre Funcional",
+  gym_name: "Mini Espacio",
   currency: "ARS",
   default_fee: 24000,
   address: "",
@@ -32,6 +32,25 @@ export default function Footer() {
   const [online, setOnline] = useState(true);
 
   useEffect(() => {
+    const normalizeSettings = (settings: AppSettings): AppSettings => ({
+      ...settings,
+      gym_name:
+        settings.gym_name === "Libre Funcional" ? "Mini Espacio" : settings.gym_name,
+      contact_email:
+        settings.contact_email === "owner@librefuncional.com"
+          ? "owner@miniespacio.com"
+          : settings.contact_email,
+      payment_alias:
+        settings.payment_alias === "LIBRE.FUNCIONAL.GYM"
+          ? "MINI.ESPACIO.GYM"
+          : settings.payment_alias,
+      onboarding_message:
+        settings.onboarding_message ===
+        "Bienvenido a Libre Funcional. Ante dudas sobre pagos o asistencias, consulta en recepcion."
+          ? "Bienvenido a Mini Espacio. Ante dudas sobre pagos, asistencias o rutinas, consulta en recepción."
+          : settings.onboarding_message,
+    });
+
     const syncSettings = () => {
       const raw = localStorage.getItem(SETTINGS_KEY);
       if (!raw) {
@@ -40,7 +59,7 @@ export default function Footer() {
       }
 
       try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
+        setSettings(normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) }));
       } catch {
         setSettings(DEFAULT_SETTINGS);
       }
@@ -70,7 +89,7 @@ export default function Footer() {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="font-medium text-zinc-200">{settings.gym_name}</span>
           <span>{roleLabel(role)}</span>
-          <span>{online ? "Sistema online" : "Sin conexion"}</span>
+          <span>{online ? "Sistema online" : "Sin conexión"}</span>
           {settings.address ? <span>{settings.address}</span> : null}
         </div>
 

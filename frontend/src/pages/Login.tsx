@@ -101,7 +101,7 @@ export default function Login() {
         await alertError("Credenciales inválidas", "Verificá email y contraseña.");
       } else {
         await alertError(
-          "Error de conexion",
+          "Error de conexión",
           "No se pudo contactar al servidor. Intenta de nuevo en unos minutos."
         );
       }
@@ -121,7 +121,7 @@ export default function Login() {
         <section className="hidden lg:block">
           <div className="max-w-xl">
             <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
-              Libre Funcional
+              Mini Espacio
             </div>
             <h1 className="warm-accent-text mt-5 text-5xl font-semibold tracking-tight">
               Gestiona clientes, pagos y asistencias desde un solo panel.
@@ -136,7 +136,7 @@ export default function Login() {
                 <p className="text-sm font-medium text-zinc-100">Operación diaria</p>
                 <p className="mt-2 text-sm leading-6 text-zinc-400">
                   Consulta el dashboard, registra check-ins y accede a acciones
-                  rapidas sin perder contexto.
+                  rápidas sin perder contexto.
                 </p>
               </div>
               <div className="rounded-3xl border border-amber-200/10 bg-white/[0.035] p-5">
@@ -145,7 +145,7 @@ export default function Login() {
                 </p>
                 <p className="mt-2 text-sm leading-6 text-zinc-400">
                   Revisa pagos, estados y clientes con una interfaz consistente
-                  y facil de usar.
+                  y fácil de usar.
                 </p>
               </div>
             </div>
@@ -176,13 +176,13 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
                 required
-                placeholder="owner@librefuncional.com"
+                placeholder="owner@miniespacio.com"
                 className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:ring-amber-400"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-zinc-300">Contrasena</label>
+              <label className="text-sm text-zinc-300">Contraseña</label>
               <div className="relative">
                 <Input
                   value={password}
@@ -225,12 +225,12 @@ export default function Login() {
           ) : (
             <p className="mt-4 text-center text-xs leading-6 text-zinc-500">
               Si el acceso tarda unos segundos, es normal: el backend puede estar
-              reactivandose automaticamente.
+              reactivándose automáticamente.
             </p>
           )}
 
           <p className="mt-6 text-center text-xs text-zinc-500">
-            {new Date().getFullYear()} Libre Funcional
+            {new Date().getFullYear()} Mini Espacio
           </p>
         </form>
       </div>

@@ -186,7 +186,7 @@ export default function NewCoachPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     className="border-white/10 bg-zinc-900/70 pl-10 text-zinc-100"
-                    placeholder="coach@librefuncional.com"
+                    placeholder="coach@miniespacio.com"
                   />
                 </div>
               </div>

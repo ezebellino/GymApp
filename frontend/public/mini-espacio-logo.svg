@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="miniEspacioTitle miniEspacioDesc">
+<title id="miniEspacioTitle">Mini Espacio</title>
+<desc id="miniEspacioDesc">Logo circular de Mini Espacio Entrenamientos Personalizados</desc>
+<rect width="512" height="512" rx="256" fill="#050505"/>
+<circle cx="256" cy="256" r="208" fill="#f7f5f0" stroke="#0a0a0a" stroke-width="18"/>
+<circle cx="256" cy="256" r="186" fill="none" stroke="#111111" stroke-width="10"/>
+<path d="M84 158c32-53 93-90 172-90 66 0 124 24 164 68" fill="none" stroke="#111111" stroke-linecap="round" stroke-width="11"/>
+<path d="M94 348c36 56 97 92 170 92 67 0 127-27 167-74" fill="none" stroke="#111111" stroke-linecap="round" stroke-width="11"/>
+<g fill="#0a0a0a" font-family="Arial, Helvetica, sans-serif" text-anchor="middle">
+<text x="256" y="150" font-size="24" font-weight="700" letter-spacing="4">MINI</text>
+<text x="256" y="195" font-size="56" font-weight="900" letter-spacing="1.5">ESPACIO</text>
+<text x="256" y="338" font-size="26" font-weight="800" letter-spacing="2">ENTRENAMIENTOS</text>
+<text x="256" y="372" font-size="26" font-weight="800" letter-spacing="1.5">PERSONALIZADOS</text>
+</g>
+<g transform="translate(256 258)" fill="#0a0a0a">
+<path d="M-42 -38h18l24 28l24-28h18L14 0l28 38H22L0 12L-22 38h-20L-14 0z"/>
+<path d="M-28 -68h56v12h-56z"/>
+<path d="M-10 54h20v12h-20z"/>
+</g>
+<g fill="#0a0a0a" transform="translate(118 255)">
+<rect x="38" y="-6" width="58" height="12" rx="6"/>
+<rect x="14" y="-22" width="10" height="44" rx="3"/>
+<rect x="26" y="-28" width="12" height="56" rx="3"/>
+<rect x="0" y="-16" width="12" height="32" rx="3"/>
+<rect x="98" y="-16" width="12" height="32" rx="3"/>
+<rect x="112" y="-28" width="12" height="56" rx="3"/>
+<rect x="126" y="-22" width="10" height="44" rx="3"/>
+</g>
+<g fill="#0a0a0a" transform="translate(258 255)">
+<rect x="100" y="-6" width="58" height="12" rx="6"/>
+<rect x="160" y="-22" width="10" height="44" rx="3"/>
+<rect x="172" y="-28" width="12" height="56" rx="3"/>
+<rect x="146" y="-16" width="12" height="32" rx="3"/>
+<rect x="86" y="-16" width="12" height="32" rx="3"/>
+<rect x="72" y="-28" width="12" height="56" rx="3"/>
+<rect x="60" y="-22" width="10" height="44" rx="3"/>
+</g>
+</svg>

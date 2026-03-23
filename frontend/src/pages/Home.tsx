@@ -51,12 +51,12 @@ export default function Home() {
               {getGreeting()}, {roleLabel} {name}
             </h1>
             <p className="text-zinc-400">
-              Bienvenido al sistema de gestion de{" "}
-              <span className="font-medium text-amber-300">Libre Funcional</span>.
+              Bienvenido al sistema de gestión de{" "}
+              <span className="font-medium text-amber-300">Mini Espacio</span>.
             </p>
 
             <p className="mt-3 text-sm text-zinc-500">
-              Usa el menu lateral para acceder a clientes, asistencias, pagos y
+              Usa el menú lateral para acceder a clientes, asistencias, pagos y
               reportes.
             </p>
 

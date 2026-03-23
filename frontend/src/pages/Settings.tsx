@@ -21,26 +21,47 @@ import { alertError, alertSuccess } from "@/lib/alerts";
 const LS_KEY = "app_settings";
 
 const DEFAULT_SETTINGS: AppSettings = {
-  gym_name: "Libre Funcional",
+  gym_name: "Mini Espacio",
   currency: "ARS",
   default_fee: 24000,
   address: "Av. San Martin 325 - Dolores",
-  contact_email: "owner@librefuncional.com",
+  contact_email: "owner@miniespacio.com",
   contact_phone: "11 5555 5555",
   whatsapp_phone: "11 5555 5555",
   business_hours: "Lunes a viernes de 7 a 22 hs. Sabados de 9 a 13 hs.",
-  payment_alias: "LIBRE.FUNCIONAL.GYM",
+  payment_alias: "MINI.ESPACIO.GYM",
   payment_notes:
     "Aceptamos efectivo y transferencia. Confirmar pagos con comprobante.",
   late_fee_grace_days: 5,
   allow_cash: true,
   allow_transfer: true,
   onboarding_message:
-    "Bienvenido a Libre Funcional. Ante dudas sobre pagos o asistencias, consulta en recepcion.",
+    "Bienvenido a Mini Espacio. Ante dudas sobre pagos, asistencias o rutinas, consulta en recepción.",
 };
 
 function roleLabel(role: Role) {
   return role === "owner" ? "Dueño" : "Coach";
+}
+
+function normalizeSettings(settings: AppSettings): AppSettings {
+  return {
+    ...settings,
+    gym_name:
+      settings.gym_name === "Libre Funcional" ? "Mini Espacio" : settings.gym_name,
+    contact_email:
+      settings.contact_email === "owner@librefuncional.com"
+        ? "owner@miniespacio.com"
+        : settings.contact_email,
+    payment_alias:
+      settings.payment_alias === "LIBRE.FUNCIONAL.GYM"
+        ? "MINI.ESPACIO.GYM"
+        : settings.payment_alias,
+    onboarding_message:
+      settings.onboarding_message ===
+      "Bienvenido a Libre Funcional. Ante dudas sobre pagos o asistencias, consulta en recepcion."
+        ? "Bienvenido a Mini Espacio. Ante dudas sobre pagos, asistencias o rutinas, consulta en recepción."
+        : settings.onboarding_message,
+  };
 }
 
 function InfoCard({
@@ -114,14 +135,14 @@ export default function SettingsPage() {
     (async () => {
       try {
         const { data } = await api.get<AppSettings>("/settings");
-        const next = { ...DEFAULT_SETTINGS, ...data };
+        const next = normalizeSettings({ ...DEFAULT_SETTINGS, ...data });
         setSettings(next);
         localStorage.setItem(LS_KEY, JSON.stringify(next));
       } catch {
         const raw = localStorage.getItem(LS_KEY);
         if (raw) {
           try {
-            setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
+            setSettings(normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) }));
           } catch {
             setSettings(DEFAULT_SETTINGS);
           }
@@ -144,11 +165,11 @@ export default function SettingsPage() {
     try {
       const payload = { ...settings };
       const { data } = await api.put<AppSettings>("/settings", payload);
-      const next = { ...DEFAULT_SETTINGS, ...data };
+      const next = normalizeSettings({ ...DEFAULT_SETTINGS, ...data });
       setSettings(next);
       localStorage.setItem(LS_KEY, JSON.stringify(next));
       window.dispatchEvent(new Event("app-settings:updated"));
-      await alertSuccess("Listo", "Configuracion guardada.");
+      await alertSuccess("Listo", "Configuración guardada.");
     } catch {
       localStorage.setItem(LS_KEY, JSON.stringify(settings));
       window.dispatchEvent(new Event("app-settings:updated"));
@@ -371,7 +392,7 @@ export default function SettingsPage() {
                   disabled={!canEdit}
                   onChange={(e) => updateField("payment_alias", e.target.value)}
                   className="border-amber-200/10 bg-zinc-900/70 text-zinc-200 focus-visible:ring-amber-400/35"
-                  placeholder="Ej: LIBRE.FUNCIONAL.GYM"
+                  placeholder="Ej: MINI.ESPACIO.GYM"
                 />
               </div>
 
