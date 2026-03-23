@@ -118,11 +118,11 @@ export default function Topbar() {
           {isAuthed && role === "owner" && (
             <Button
               variant="outline"
-              onClick={() => navigate("/coaches/new")}
+              onClick={() => navigate("/clients")}
               className="border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] text-amber-50 hover:bg-[linear-gradient(90deg,rgba(250,204,21,0.18),rgba(255,247,237,0.08),rgba(249,115,22,0.18))]"
             >
               <UserPlus className="h-4 w-4" />
-              Nuevo coach
+              Nuevo cliente
             </Button>
           )}
 
@@ -244,11 +244,11 @@ export default function Topbar() {
               className="w-full justify-start border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] text-sm text-amber-50 hover:opacity-95"
               onClick={() => {
                 setMobileMenuOpen(false);
-                navigate("/coaches/new");
+                navigate("/clients");
               }}
             >
               <UserPlus className="mr-2 h-4 w-4" />
-              Nuevo coach
+              Nuevo cliente
             </Button>
           )}
 
