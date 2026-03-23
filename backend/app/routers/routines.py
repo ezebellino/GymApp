@@ -21,7 +21,12 @@ router = APIRouter(
 def _ensure_seed_data(db: Session) -> None:
     existing_days = {item.id: item for item in db.query(models.TrainingDay).all()}
     for index, day in enumerate(TRAINING_DAYS, start=1):
-        if day["id"] not in existing_days:
+        existing_day = existing_days.get(day["id"])
+        if existing_day:
+            existing_day.name = day["name"]
+            existing_day.muscle_groups = ", ".join(day["muscle_groups"])
+            existing_day.day_order = index
+        else:
             db.add(
                 models.TrainingDay(
                     id=day["id"],
@@ -33,7 +38,13 @@ def _ensure_seed_data(db: Session) -> None:
 
     existing_exercises = {item.id: item for item in db.query(models.Exercise).all()}
     for exercise in EXERCISE_LIBRARY:
-        if exercise["id"] not in existing_exercises:
+        existing_exercise = existing_exercises.get(exercise["id"])
+        if existing_exercise:
+            existing_exercise.name = exercise["name"]
+            existing_exercise.muscle_group = exercise["muscle_group"]
+            existing_exercise.description = exercise.get("description")
+            existing_exercise.is_active = True
+        else:
             db.add(
                 models.Exercise(
                     id=exercise["id"],
@@ -44,13 +55,19 @@ def _ensure_seed_data(db: Session) -> None:
                 )
             )
 
+    allowed_exercise_ids = {exercise["id"] for exercise in EXERCISE_LIBRARY}
+    for exercise_id, exercise in existing_exercises.items():
+        if exercise_id not in allowed_exercise_ids:
+            exercise.is_active = False
+
     db.flush()
 
-    existing_links = {
+    existing_links_by_key = {
         (item.day_id, item.exercise_id): item
         for item in db.query(models.TrainingDayExercise).all()
     }
-    exercise_map = {item["id"]: item for item in EXERCISE_LIBRARY}
+    desired_link_keys: set[tuple[str, str]] = set()
+
     for day in TRAINING_DAYS:
         allowed_groups = set(day["muscle_groups"])
         eligible_exercises = [
@@ -60,16 +77,23 @@ def _ensure_seed_data(db: Session) -> None:
         ]
         for sort_order, exercise in enumerate(eligible_exercises, start=1):
             key = (day["id"], exercise["id"])
-            if key in existing_links:
-                continue
-            db.add(
-                models.TrainingDayExercise(
-                    day_id=day["id"],
-                    exercise_id=exercise["id"],
-                    sort_order=sort_order,
-                    is_active=exercise["id"] in day["default_active_ids"],
+            desired_link_keys.add(key)
+            existing_link = existing_links_by_key.get(key)
+            if existing_link:
+                existing_link.sort_order = sort_order
+            else:
+                db.add(
+                    models.TrainingDayExercise(
+                        day_id=day["id"],
+                        exercise_id=exercise["id"],
+                        sort_order=sort_order,
+                        is_active=exercise["id"] in day["default_active_ids"],
+                    )
                 )
-            )
+
+    for key, link in existing_links_by_key.items():
+        if key not in desired_link_keys:
+            db.delete(link)
 
     db.commit()
 
