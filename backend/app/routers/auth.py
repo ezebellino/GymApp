@@ -14,7 +14,7 @@ router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(optional
 def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == form.username).first()
     if not user or not verify_password(form.password, user.password_hash):
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
     token = create_access_token({
         "sub": user.id, 
         "name": user.full_name, 

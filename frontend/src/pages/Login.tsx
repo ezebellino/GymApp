@@ -36,7 +36,7 @@ async function requestTokenWithRetry(body: URLSearchParams) {
 }
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
@@ -63,7 +63,7 @@ export default function Login() {
 
     try {
       const body = new URLSearchParams();
-      body.append("username", email);
+      body.append("username", username);
       body.append("password", password);
 
       const { data } = await requestTokenWithRetry(body);
@@ -91,17 +91,17 @@ export default function Login() {
         );
       }
 
-      await alertSuccess("Bienvenido", "Inicio de sesión correcto.");
+      await alertSuccess("Bienvenido", "Inicio de sesion correcto.");
       navigate("/", { replace: true });
     } catch (err: any) {
       console.error("Error al hacer login", err);
       const status = err?.response?.status;
 
       if (status === 400 || status === 401) {
-        await alertError("Credenciales inválidas", "Verificá email y contraseña.");
+        await alertError("Credenciales invalidas", "Verifica usuario y contrasena.");
       } else {
         await alertError(
-          "Error de conexión",
+          "Error de conexion",
           "No se pudo contactar al servidor. Intenta de nuevo en unos minutos."
         );
       }
@@ -124,11 +124,11 @@ export default function Login() {
               Mini Espacio
             </div>
             <h1 className="warm-accent-text mt-5 text-5xl font-semibold tracking-tight">
-              Mini Espacio ordena la operación diaria del gimnasio en una sola vista.
+              Mini Espacio ordena la operacion diaria del gimnasio en una sola vista.
             </h1>
             <p className="mt-5 max-w-lg text-base leading-7 text-zinc-400">
               Clientes, cobros, asistencia y rutinas conviven en un panel pensado
-              para trabajo real, seguimiento cercano y decisiones rápidas.
+              para trabajo real, seguimiento cercano y decisiones rapidas.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -147,15 +147,15 @@ export default function Login() {
                   </div>
                 </div>
                 <p className="text-sm leading-6 text-zinc-400">
-                  Una identidad cálida, clara y enfocada en acompañar entrenamientos
+                  Una identidad calida, clara y enfocada en acompanar entrenamientos
                   personalizados de forma profesional.
                 </p>
               </div>
               <div className="rounded-3xl border border-amber-200/10 bg-white/[0.035] p-5">
-                <p className="text-sm font-medium text-zinc-100">Operación diaria</p>
+                <p className="text-sm font-medium text-zinc-100">Operacion diaria</p>
                 <p className="mt-2 text-sm leading-6 text-zinc-400">
                   Consulta el dashboard, registra check-ins y accede a acciones
-                  rápidas sin perder contexto.
+                  rapidas sin perder contexto.
                 </p>
               </div>
               <div className="rounded-3xl border border-amber-200/10 bg-white/[0.035] p-5">
@@ -164,7 +164,7 @@ export default function Login() {
                 </p>
                 <p className="mt-2 text-sm leading-6 text-zinc-400">
                   Revisa pagos, estados y clientes con una interfaz consistente
-                  y fácil de usar.
+                  y facil de usar.
                 </p>
               </div>
             </div>
@@ -202,33 +202,33 @@ export default function Login() {
 
           <div className="mt-8 space-y-5">
             <div className="space-y-2">
-              <label className="text-sm text-zinc-300">Email</label>
+              <label className="text-sm text-zinc-300">Usuario</label>
               <Input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                type="email"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                type="text"
                 required
-                placeholder="owner@miniespacio.com"
+                placeholder="manga_aguirre"
                 className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:ring-amber-400"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-zinc-300">Contraseña</label>
+              <label className="text-sm text-zinc-300">Contrasena</label>
               <div className="relative">
                 <Input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   type={showPwd ? "text" : "password"}
                   required
-                  placeholder="Tu contraseña"
+                  placeholder="Tu contrasena"
                   className="h-12 border-amber-200/10 bg-zinc-900/70 pr-10 focus-visible:ring-orange-400"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPwd((current) => !current)}
                   className="absolute inset-y-0 right-2 grid place-items-center text-zinc-400 hover:text-zinc-200"
-                  aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  aria-label={showPwd ? "Ocultar contrasena" : "Mostrar contrasena"}
                 >
                   {showPwd ? (
                     <EyeOff className="h-4 w-4" />
@@ -257,7 +257,7 @@ export default function Login() {
           ) : (
             <p className="mt-4 text-center text-xs leading-6 text-zinc-500">
               Si el acceso tarda unos segundos, es normal: el backend puede estar
-              reactivándose automáticamente.
+              reactivandose automaticamente.
             </p>
           )}
 

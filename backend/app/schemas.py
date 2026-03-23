@@ -21,7 +21,7 @@ class BaseSchema(BaseModel):
 
 class UserBase(BaseSchema):
     full_name: str = Field(min_length=1, max_length=120)
-    email: EmailStr
+    email: Annotated[str, Field(min_length=1, max_length=120)]
     role: Role
     is_active: bool = True
 
@@ -33,7 +33,7 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseSchema):
     full_name: Optional[str] = Field(None, min_length=1, max_length=120)
-    email: Optional[EmailStr] = None
+    email: Optional[Annotated[str, Field(min_length=1, max_length=120)]] = None
     role: Optional[Role] = None
     is_active: Optional[bool] = None
     password: Optional[str] = Field(None, min_length=6, max_length=100)
