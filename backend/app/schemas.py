@@ -182,6 +182,45 @@ class RoutineCatalogGroup(BaseSchema):
     exercises: list[RoutineCatalogExercise]
 
 
+class RoutineExerciseCreate(BaseSchema):
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+    muscle_group: Annotated[str, Field(min_length=1, max_length=40)]
+    description: Optional[Annotated[str, Field(max_length=220)]] = None
+    is_active: bool = True
+
+    @field_validator("name", "muscle_group", "description", mode="before")
+    @classmethod
+    def normalize_strings(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
+
+class RoutineExerciseUpdate(BaseSchema):
+    name: Optional[Annotated[str, Field(min_length=1, max_length=120)]] = None
+    muscle_group: Optional[Annotated[str, Field(min_length=1, max_length=40)]] = None
+    description: Optional[Annotated[str, Field(max_length=220)]] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("name", "muscle_group", "description", mode="before")
+    @classmethod
+    def normalize_optional_strings(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
+
+class RoutineExerciseManageOut(BaseSchema):
+    id: str
+    name: str
+    muscle_group: str
+    description: Optional[str] = None
+    is_active: bool
+    day_ids: list[str]
+
+
 class RoutineDaySelectionUpdate(BaseSchema):
     exercise_ids: list[str] = Field(default_factory=list)
 

@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
@@ -16,6 +17,84 @@ router = APIRouter(
     tags=["routines"],
     dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
+
+
+def _day_ids_for_muscle_group(muscle_group: str) -> list[str]:
+    return [
+        day["id"]
+        for day in TRAINING_DAYS
+        if muscle_group in day["muscle_groups"]
+    ]
+
+
+def _serialize_day(day: models.TrainingDay) -> schemas.RoutineDayOut:
+    return schemas.RoutineDayOut(
+        id=day.id,
+        name=day.name,
+        muscle_groups=[part.strip() for part in day.muscle_groups.split(",") if part.strip()],
+        day_order=day.day_order,
+        exercises=[
+            schemas.RoutineExerciseOption(
+                exercise_id=link.exercise.id,
+                name=link.exercise.name,
+                muscle_group=link.exercise.muscle_group,
+                description=link.exercise.description,
+                is_active=link.is_active,
+                sort_order=link.sort_order,
+            )
+            for link in sorted(day.exercises, key=lambda item: item.sort_order)
+        ],
+    )
+
+
+def _serialize_manage_exercise(exercise: models.Exercise) -> schemas.RoutineExerciseManageOut:
+    return schemas.RoutineExerciseManageOut(
+        id=exercise.id,
+        name=exercise.name,
+        muscle_group=exercise.muscle_group,
+        description=exercise.description,
+        is_active=exercise.is_active,
+        day_ids=sorted(link.day_id for link in exercise.day_links),
+    )
+
+
+def _sync_exercise_day_links(
+    db: Session,
+    exercise_id: str,
+    muscle_group: str,
+    *,
+    preserve_active: bool = True,
+) -> None:
+    desired_day_ids = set(_day_ids_for_muscle_group(muscle_group))
+    existing_links = (
+        db.query(models.TrainingDayExercise)
+        .filter(models.TrainingDayExercise.exercise_id == exercise_id)
+        .all()
+    )
+    existing_by_day = {link.day_id: link for link in existing_links}
+
+    for day_id in desired_day_ids:
+        if day_id in existing_by_day:
+            continue
+
+        sort_order = (
+            db.query(models.TrainingDayExercise)
+            .filter(models.TrainingDayExercise.day_id == day_id)
+            .count()
+            + 1
+        )
+        db.add(
+            models.TrainingDayExercise(
+                day_id=day_id,
+                exercise_id=exercise_id,
+                sort_order=sort_order,
+                is_active=not preserve_active,
+            )
+        )
+
+    for day_id, link in existing_by_day.items():
+        if day_id not in desired_day_ids:
+            db.delete(link)
 
 
 def _ensure_seed_data(db: Session) -> None:
@@ -38,13 +117,7 @@ def _ensure_seed_data(db: Session) -> None:
 
     existing_exercises = {item.id: item for item in db.query(models.Exercise).all()}
     for exercise in EXERCISE_LIBRARY:
-        existing_exercise = existing_exercises.get(exercise["id"])
-        if existing_exercise:
-            existing_exercise.name = exercise["name"]
-            existing_exercise.muscle_group = exercise["muscle_group"]
-            existing_exercise.description = exercise.get("description")
-            existing_exercise.is_active = True
-        else:
+        if exercise["id"] not in existing_exercises:
             db.add(
                 models.Exercise(
                     id=exercise["id"],
@@ -54,11 +127,6 @@ def _ensure_seed_data(db: Session) -> None:
                     is_active=True,
                 )
             )
-
-    allowed_exercise_ids = {exercise["id"] for exercise in EXERCISE_LIBRARY}
-    for exercise_id, exercise in existing_exercises.items():
-        if exercise_id not in allowed_exercise_ids:
-            exercise.is_active = False
 
     db.flush()
 
@@ -91,8 +159,9 @@ def _ensure_seed_data(db: Session) -> None:
                     )
                 )
 
+    seeded_exercise_ids = {exercise["id"] for exercise in EXERCISE_LIBRARY}
     for key, link in existing_links_by_key.items():
-        if key not in desired_link_keys:
+        if key not in desired_link_keys and link.exercise_id in seeded_exercise_ids:
             db.delete(link)
 
     db.commit()
@@ -101,7 +170,7 @@ def _ensure_seed_data(db: Session) -> None:
 def _get_day_or_404(db: Session, day_id: str) -> models.TrainingDay:
     day = db.get(models.TrainingDay, day_id)
     if not day:
-        raise HTTPException(status_code=404, detail="Día de rutina no encontrado")
+        raise HTTPException(status_code=404, detail="Dia de rutina no encontrado")
     return day
 
 
@@ -117,7 +186,12 @@ def routine_catalog(db: Session = Depends(get_db)):
     _ensure_seed_data(db)
 
     groups: dict[str, list[schemas.RoutineCatalogExercise]] = defaultdict(list)
-    exercises = db.query(models.Exercise).filter(models.Exercise.is_active.is_(True)).all()
+    exercises = (
+        db.query(models.Exercise)
+        .filter(models.Exercise.is_active.is_(True))
+        .order_by(models.Exercise.muscle_group.asc(), models.Exercise.name.asc())
+        .all()
+    )
     for exercise in exercises:
         groups[exercise.muscle_group].append(
             schemas.RoutineCatalogExercise(
@@ -144,27 +218,91 @@ def routine_days(db: Session = Depends(get_db)):
         .order_by(models.TrainingDay.day_order.asc())
         .all()
     )
+    return [_serialize_day(day) for day in days]
 
-    return [
-        schemas.RoutineDayOut(
-            id=day.id,
-            name=day.name,
-            muscle_groups=[part.strip() for part in day.muscle_groups.split(",") if part.strip()],
-            day_order=day.day_order,
-            exercises=[
-                schemas.RoutineExerciseOption(
-                    exercise_id=link.exercise.id,
-                    name=link.exercise.name,
-                    muscle_group=link.exercise.muscle_group,
-                    description=link.exercise.description,
-                    is_active=link.is_active,
-                    sort_order=link.sort_order,
-                )
-                for link in sorted(day.exercises, key=lambda item: item.sort_order)
-            ],
-        )
-        for day in days
-    ]
+
+@router.get("/exercises", response_model=list[schemas.RoutineExerciseManageOut])
+def routine_exercises(db: Session = Depends(get_db)):
+    _ensure_seed_data(db)
+
+    exercises = (
+        db.query(models.Exercise)
+        .options(joinedload(models.Exercise.day_links))
+        .order_by(models.Exercise.muscle_group.asc(), models.Exercise.name.asc())
+        .all()
+    )
+    return [_serialize_manage_exercise(exercise) for exercise in exercises]
+
+
+@router.post(
+    "/exercises",
+    response_model=schemas.RoutineExerciseManageOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_routine_exercise(
+    payload: schemas.RoutineExerciseCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role(UserRole.owner)),
+):
+    _ensure_seed_data(db)
+
+    exercise = models.Exercise(
+        id=f"custom-{uuid4()}",
+        name=payload.name,
+        muscle_group=payload.muscle_group,
+        description=payload.description,
+        is_active=payload.is_active,
+    )
+    db.add(exercise)
+    db.flush()
+    _sync_exercise_day_links(db, exercise.id, exercise.muscle_group, preserve_active=True)
+    db.commit()
+
+    created = (
+        db.query(models.Exercise)
+        .options(joinedload(models.Exercise.day_links))
+        .filter(models.Exercise.id == exercise.id)
+        .first()
+    )
+    return _serialize_manage_exercise(created)
+
+
+@router.put("/exercises/{exercise_id}", response_model=schemas.RoutineExerciseManageOut)
+def update_routine_exercise(
+    exercise_id: str,
+    payload: schemas.RoutineExerciseUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role(UserRole.owner)),
+):
+    _ensure_seed_data(db)
+
+    exercise = (
+        db.query(models.Exercise)
+        .options(joinedload(models.Exercise.day_links))
+        .filter(models.Exercise.id == exercise_id)
+        .first()
+    )
+    if not exercise:
+        raise HTTPException(status_code=404, detail="Ejercicio no encontrado")
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(exercise, field, value)
+
+    if "muscle_group" in updates:
+        _sync_exercise_day_links(db, exercise.id, exercise.muscle_group, preserve_active=True)
+    if updates.get("is_active") is False:
+        for link in exercise.day_links:
+            link.is_active = False
+
+    db.commit()
+    refreshed = (
+        db.query(models.Exercise)
+        .options(joinedload(models.Exercise.day_links))
+        .filter(models.Exercise.id == exercise.id)
+        .first()
+    )
+    return _serialize_manage_exercise(refreshed)
 
 
 @router.put("/days/{day_id}/selection", response_model=schemas.RoutineDayOut)
@@ -182,13 +320,13 @@ def update_day_selection(
         .first()
     )
     if not day:
-        raise HTTPException(status_code=404, detail="Día de rutina no encontrado")
+        raise HTTPException(status_code=404, detail="Dia de rutina no encontrado")
 
     selected = payload.exercise_ids
     available_ids = {link.exercise_id for link in day.exercises}
     invalid = [exercise_id for exercise_id in selected if exercise_id not in available_ids]
     if invalid:
-        raise HTTPException(status_code=400, detail="Hay ejercicios inválidos para este día")
+        raise HTTPException(status_code=400, detail="Hay ejercicios invalidos para este dia")
 
     selected_order = {exercise_id: index for index, exercise_id in enumerate(selected, start=1)}
     remainder = len(selected) + 1
@@ -202,7 +340,6 @@ def update_day_selection(
             remainder += 1
 
     db.commit()
-    db.refresh(day)
 
     refreshed_day = (
         db.query(models.TrainingDay)
@@ -210,24 +347,7 @@ def update_day_selection(
         .filter(models.TrainingDay.id == day_id)
         .first()
     )
-
-    return schemas.RoutineDayOut(
-        id=refreshed_day.id,
-        name=refreshed_day.name,
-        muscle_groups=[part.strip() for part in refreshed_day.muscle_groups.split(",") if part.strip()],
-        day_order=refreshed_day.day_order,
-        exercises=[
-            schemas.RoutineExerciseOption(
-                exercise_id=link.exercise.id,
-                name=link.exercise.name,
-                muscle_group=link.exercise.muscle_group,
-                description=link.exercise.description,
-                is_active=link.is_active,
-                sort_order=link.sort_order,
-            )
-            for link in sorted(refreshed_day.exercises, key=lambda item: item.sort_order)
-        ],
-    )
+    return _serialize_day(refreshed_day)
 
 
 @router.get("/clients/{client_id}/overview", response_model=list[schemas.RoutineDayProgress])
@@ -241,11 +361,7 @@ def client_routine_overview(client_id: str, db: Session = Depends(get_db)):
         .order_by(models.TrainingDay.day_order.asc())
         .all()
     )
-    logs = (
-        db.query(models.WorkoutLog)
-        .filter(models.WorkoutLog.client_id == client_id)
-        .all()
-    )
+    logs = db.query(models.WorkoutLog).filter(models.WorkoutLog.client_id == client_id).all()
 
     by_day: dict[str, list[models.WorkoutLog]] = defaultdict(list)
     for log in logs:
@@ -286,11 +402,7 @@ def client_workout_logs(
     if day_id:
         query = query.filter(models.WorkoutLog.day_id == day_id)
 
-    logs = (
-        query.order_by(models.WorkoutLog.performed_at.desc())
-        .limit(limit)
-        .all()
-    )
+    logs = query.order_by(models.WorkoutLog.performed_at.desc()).limit(limit).all()
     return [
         schemas.WorkoutLogOut(
             id=log.id,
@@ -335,7 +447,7 @@ def create_workout_log(
         .first()
     )
     if not link or not link.is_active:
-        raise HTTPException(status_code=400, detail="Ese ejercicio no está activo para el día seleccionado")
+        raise HTTPException(status_code=400, detail="Ese ejercicio no esta activo para el dia seleccionado")
 
     log = models.WorkoutLog(
         client_id=client_id,

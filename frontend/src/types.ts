@@ -71,6 +71,15 @@ export type RoutineCatalogGroup = {
   }>;
 };
 
+export type RoutineExerciseManage = {
+  id: string;
+  name: string;
+  muscle_group: string;
+  description?: string | null;
+  is_active: boolean;
+  day_ids: string[];
+};
+
 export type RoutineDayProgress = {
   day_id: string;
   day_name: string;

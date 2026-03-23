@@ -6,21 +6,34 @@ import {
   ClipboardList,
   Dumbbell,
   History,
+  PencilLine,
+  Plus,
   Save,
   Scale,
+  Settings2,
   Target,
   UserRound,
 } from "lucide-react";
 import api from "@/lib/http";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
 import type {
   Client,
+  Role,
   RoutineCatalogGroup,
   RoutineDay,
   RoutineDayProgress,
+  RoutineExerciseManage,
   WorkoutLog,
 } from "@/types";
 
@@ -42,6 +55,22 @@ function emptyDraft(): ExerciseDraft {
   };
 }
 
+type ExerciseManagerDraft = {
+  name: string;
+  muscle_group: string;
+  description: string;
+  is_active: boolean;
+};
+
+function emptyExerciseManagerDraft(): ExerciseManagerDraft {
+  return {
+    name: "",
+    muscle_group: "",
+    description: "",
+    is_active: true,
+  };
+}
+
 function formatDateTime(value?: string | null) {
   if (!value) return "Sin registros";
   return new Date(value).toLocaleString("es-AR", {
@@ -54,9 +83,12 @@ function formatDateTime(value?: string | null) {
 }
 
 export default function RoutinesPage() {
+  const viewerRole = ((localStorage.getItem("user_role") as Role) || "coach") as Role;
+  const canManageExercises = viewerRole === "owner";
   const [clients, setClients] = useState<Client[]>([]);
   const [days, setDays] = useState<RoutineDay[]>([]);
   const [catalog, setCatalog] = useState<RoutineCatalogGroup[]>([]);
+  const [managedExercises, setManagedExercises] = useState<RoutineExerciseManage[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedDayId, setSelectedDayId] = useState("");
   const [dayProgress, setDayProgress] = useState<RoutineDayProgress[]>([]);
@@ -67,6 +99,13 @@ export default function RoutinesPage() {
   const [savingSelection, setSavingSelection] = useState(false);
   const [savingExerciseId, setSavingExerciseId] = useState<string | null>(null);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [showExerciseManager, setShowExerciseManager] = useState(false);
+  const [exerciseDialogOpen, setExerciseDialogOpen] = useState(false);
+  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
+  const [exerciseDraft, setExerciseDraft] = useState<ExerciseManagerDraft>(
+    emptyExerciseManagerDraft()
+  );
+  const [savingExerciseManager, setSavingExerciseManager] = useState(false);
 
   const selectedDay = useMemo(
     () => days.find((day) => day.id === selectedDayId) ?? null,
@@ -104,22 +143,64 @@ export default function RoutinesPage() {
       }));
   }, [catalog, selectedDay]);
 
+  const managedExerciseGroups = useMemo(() => {
+    const grouped = managedExercises.reduce<Record<string, RoutineExerciseManage[]>>(
+      (accumulator, exercise) => {
+        if (!accumulator[exercise.muscle_group]) {
+          accumulator[exercise.muscle_group] = [];
+        }
+        accumulator[exercise.muscle_group].push(exercise);
+        return accumulator;
+      },
+      {}
+    );
+
+    return Object.entries(grouped)
+      .sort(([left], [right]) => left.localeCompare(right, "es"))
+      .map(([muscleGroup, exercises]) => ({
+        muscleGroup,
+        exercises: [...exercises].sort((left, right) =>
+          left.name.localeCompare(right.name, "es")
+        ),
+      }));
+  }, [managedExercises]);
+
+  async function loadRoutineConfiguration() {
+    const [daysResp, catalogResp, exercisesResp] = await Promise.all([
+      api.get<RoutineDay[]>("/routines/days"),
+      api.get<RoutineCatalogGroup[]>("/routines/catalog"),
+      api.get<RoutineExerciseManage[]>("/routines/exercises"),
+    ]);
+
+    const nextDays = daysResp.data ?? [];
+    setDays(nextDays);
+    setCatalog(catalogResp.data ?? []);
+    setManagedExercises(exercisesResp.data ?? []);
+
+    if (!selectedDayId && nextDays[0]) {
+      setSelectedDayId(nextDays[0].id);
+      return nextDays;
+    }
+
+    if (selectedDayId && !nextDays.some((day) => day.id === selectedDayId) && nextDays[0]) {
+      setSelectedDayId(nextDays[0].id);
+    }
+
+    return nextDays;
+  }
+
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        const [clientsResp, daysResp, catalogResp] = await Promise.all([
+        const [clientsResp, nextDays] = await Promise.all([
           api.get<Client[]>("/clients", { params: { limit: CLIENT_LIMIT, offset: 0 } }),
-          api.get<RoutineDay[]>("/routines/days"),
-          api.get<RoutineCatalogGroup[]>("/routines/catalog"),
+          loadRoutineConfiguration(),
         ]);
 
         const nextClients = clientsResp.data ?? [];
-        const nextDays = daysResp.data ?? [];
 
         setClients(nextClients);
-        setDays(nextDays);
-        setCatalog(catalogResp.data ?? []);
         if (nextClients[0]) setSelectedClientId(nextClients[0].id);
         if (nextDays[0]) setSelectedDayId(nextDays[0].id);
       } catch (error) {
@@ -245,6 +326,72 @@ export default function RoutinesPage() {
         [field]: value,
       },
     }));
+  }
+
+  function openCreateExerciseDialog(muscleGroup?: string) {
+    setEditingExerciseId(null);
+    setExerciseDraft({
+      ...emptyExerciseManagerDraft(),
+      muscle_group: muscleGroup ?? selectedDay?.muscle_groups[0] ?? "",
+    });
+    setExerciseDialogOpen(true);
+  }
+
+  function openEditExerciseDialog(exercise: RoutineExerciseManage) {
+    setEditingExerciseId(exercise.id);
+    setExerciseDraft({
+      name: exercise.name,
+      muscle_group: exercise.muscle_group,
+      description: exercise.description ?? "",
+      is_active: exercise.is_active,
+    });
+    setExerciseDialogOpen(true);
+  }
+
+  async function saveManagedExercise() {
+    if (!exerciseDraft.name.trim() || !exerciseDraft.muscle_group.trim()) {
+      await alertError(
+        "Faltan datos del ejercicio",
+        "Completa al menos nombre y grupo muscular."
+      );
+      return;
+    }
+
+    setSavingExerciseManager(true);
+    try {
+      if (editingExerciseId) {
+        await api.put(`/routines/exercises/${editingExerciseId}`, {
+          name: exerciseDraft.name,
+          muscle_group: exerciseDraft.muscle_group,
+          description: exerciseDraft.description.trim() || null,
+          is_active: exerciseDraft.is_active,
+        });
+      } else {
+        await api.post("/routines/exercises", {
+          name: exerciseDraft.name,
+          muscle_group: exerciseDraft.muscle_group,
+          description: exerciseDraft.description.trim() || null,
+          is_active: exerciseDraft.is_active,
+        });
+      }
+
+      await loadRoutineConfiguration();
+      setExerciseDialogOpen(false);
+      setEditingExerciseId(null);
+      setExerciseDraft(emptyExerciseManagerDraft());
+      await alertSuccessAutoClose(
+        editingExerciseId ? "Ejercicio actualizado" : "Ejercicio agregado",
+        "La plantilla ya quedo lista para usarse."
+      );
+    } catch (error) {
+      console.error("Error guardando ejercicio", error);
+      await alertError(
+        "No se pudo guardar el ejercicio",
+        "Revisa los datos e intenta nuevamente."
+      );
+    } finally {
+      setSavingExerciseManager(false);
+    }
   }
 
   if (loading) {
@@ -609,6 +756,106 @@ export default function RoutinesPage() {
               </div>
             </div>
           ) : null}
+
+          {canManageExercises ? (
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">
+                    Gestion de ejercicios
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-zinc-400">
+                    Agrega ejercicios nuevos o corrige nombres y grupos musculares
+                    sin tocar la base manualmente.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowExerciseManager((current) => !current)}
+                    className="border-white/10 bg-black/10 text-zinc-100 hover:bg-white/[0.06]"
+                  >
+                    <Settings2 className="mr-2 h-4 w-4" />
+                    {showExerciseManager ? "Ocultar gestion" : "Gestionar ejercicios"}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => openCreateExerciseDialog()}
+                    className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nuevo ejercicio
+                  </Button>
+                </div>
+              </div>
+
+              {showExerciseManager ? (
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  {managedExerciseGroups.map((group) => (
+                    <div
+                      key={group.muscleGroup}
+                      className="rounded-[24px] border border-white/10 bg-black/10 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-zinc-100">
+                            {group.muscleGroup}
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {group.exercises.length} ejercicios cargados
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openCreateExerciseDialog(group.muscleGroup)}
+                          className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Agregar
+                        </Button>
+                      </div>
+
+                      <div className="mt-3 space-y-2">
+                        {group.exercises.map((exercise) => (
+                          <div
+                            key={exercise.id}
+                            className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-medium text-zinc-100">
+                                {exercise.name}
+                              </p>
+                              <p className="mt-1 text-xs text-zinc-500">
+                                {exercise.is_active ? "Disponible" : "Oculto"} ·{" "}
+                                {exercise.day_ids.length} dias vinculados
+                              </p>
+                              {exercise.description ? (
+                                <p className="mt-2 text-xs leading-5 text-zinc-400">
+                                  {exercise.description}
+                                </p>
+                              ) : null}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditExerciseDialog(exercise)}
+                              className="shrink-0 text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                            >
+                              <PencilLine className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -674,6 +921,107 @@ export default function RoutinesPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={exerciseDialogOpen} onOpenChange={setExerciseDialogOpen}>
+        <DialogContent className="border-amber-200/10 bg-zinc-950 text-zinc-100 sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingExerciseId ? "Editar ejercicio" : "Nuevo ejercicio"}
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              El ejercicio se vincula automaticamente a los dias que coincidan con
+              su grupo muscular.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm text-zinc-400">Nombre</label>
+              <Input
+                value={exerciseDraft.name}
+                onChange={(event) =>
+                  setExerciseDraft((current) => ({
+                    ...current,
+                    name: event.target.value,
+                  }))
+                }
+                placeholder="Ej. Remo sentado en cable"
+                className="border-white/10 bg-zinc-900/70"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm text-zinc-400">Grupo muscular</label>
+              <select
+                value={exerciseDraft.muscle_group}
+                onChange={(event) =>
+                  setExerciseDraft((current) => ({
+                    ...current,
+                    muscle_group: event.target.value,
+                  }))
+                }
+                className="w-full rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-amber-400/25"
+              >
+                <option value="">Selecciona un grupo</option>
+                {managedExerciseGroups.map((group) => (
+                  <option key={group.muscleGroup} value={group.muscleGroup}>
+                    {group.muscleGroup}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm text-zinc-400">Descripcion breve</label>
+              <Input
+                value={exerciseDraft.description}
+                onChange={(event) =>
+                  setExerciseDraft((current) => ({
+                    ...current,
+                    description: event.target.value,
+                  }))
+                }
+                placeholder="Opcional: agarre, foco tecnico o variante"
+                className="border-white/10 bg-zinc-900/70"
+              />
+            </div>
+
+            <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-zinc-300">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-amber-400"
+                checked={exerciseDraft.is_active}
+                onChange={(event) =>
+                  setExerciseDraft((current) => ({
+                    ...current,
+                    is_active: event.target.checked,
+                  }))
+                }
+              />
+              Disponible para usarse en las plantillas
+            </label>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setExerciseDialogOpen(false)}
+              className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={saveManagedExercise}
+              disabled={savingExerciseManager}
+              className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
+            >
+              {savingExerciseManager ? "Guardando..." : "Guardar ejercicio"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
