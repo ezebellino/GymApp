@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import { Eye, EyeOff, LogIn } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, LogIn } from "lucide-react";
 import api from "@/lib/http";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,14 +124,33 @@ export default function Login() {
               Mini Espacio
             </div>
             <h1 className="warm-accent-text mt-5 text-5xl font-semibold tracking-tight">
-              Gestiona clientes, pagos y asistencias desde un solo panel.
+              Mini Espacio ordena la operación diaria del gimnasio en una sola vista.
             </h1>
             <p className="mt-5 max-w-lg text-base leading-7 text-zinc-400">
-              Una experiencia más clara para operar el gimnasio con rapidez,
-              control y seguimiento diario.
+              Clientes, cobros, asistencia y rutinas conviven en un panel pensado
+              para trabajo real, seguimiento cercano y decisiones rápidas.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-3xl border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.08),rgba(255,247,237,0.03),rgba(249,115,22,0.09))] p-5">
+                <div className="mb-3 flex items-center gap-3">
+                  <img
+                    src="/mini-espacio-logo.svg"
+                    alt="Mini Espacio"
+                    className="h-10 w-10 rounded-full object-cover ring-1 ring-white/10"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-zinc-100">Marca activa</p>
+                    <p className="text-xs uppercase tracking-[0.22em] text-amber-100/80">
+                      Mini Espacio
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm leading-6 text-zinc-400">
+                  Una identidad cálida, clara y enfocada en acompañar entrenamientos
+                  personalizados de forma profesional.
+                </p>
+              </div>
               <div className="rounded-3xl border border-amber-200/10 bg-white/[0.035] p-5">
                 <p className="text-sm font-medium text-zinc-100">Operación diaria</p>
                 <p className="mt-2 text-sm leading-6 text-zinc-400">
@@ -160,6 +179,19 @@ export default function Login() {
             <p className="text-sm uppercase tracking-[0.24em] text-zinc-500">
               Acceso seguro
             </p>
+            <div className="flex items-center gap-3">
+              <img
+                src="/mini-espacio-logo.svg"
+                alt="Mini Espacio"
+                className="h-12 w-12 rounded-full object-cover ring-1 ring-white/10"
+              />
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-amber-100/80">
+                  Mini Espacio
+                </p>
+                <p className="text-sm text-zinc-400">Entrenamientos personalizados</p>
+              </div>
+            </div>
             <h2 className="text-3xl font-semibold tracking-tight text-zinc-50">
               Ingresar al panel
             </h2>
@@ -228,6 +260,13 @@ export default function Login() {
               reactivándose automáticamente.
             </p>
           )}
+
+          <div className="mt-6 rounded-2xl border border-amber-200/10 bg-white/[0.03] p-4 text-sm text-zinc-400">
+            <div className="flex items-center justify-between gap-3">
+              <span>Demo operativa lista para seguimiento diario</span>
+              <ArrowRight className="h-4 w-4 text-amber-200" />
+            </div>
+          </div>
 
           <p className="mt-6 text-center text-xs text-zinc-500">
             {new Date().getFullYear()} Mini Espacio

@@ -52,6 +52,22 @@ export default function Sidebar() {
     <aside className="warm-scrollbar fixed left-0 top-14 z-40 hidden h-[calc(100vh-3.5rem)] w-64 flex-col overflow-y-auto border-r border-amber-200/10 bg-[#0d0b0a]/84 backdrop-blur-xl lg:flex">
       <TooltipProvider delayDuration={80}>
         <nav className="space-y-4 p-4">
+          <section className="rounded-2xl border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(255,247,237,0.03),rgba(249,115,22,0.12))] p-4 shadow-[0_20px_60px_-40px_rgba(249,115,22,0.55)]">
+            <div className="flex items-center gap-3">
+              <img
+                src="/mini-espacio-logo.svg"
+                alt="Mini Espacio"
+                className="h-12 w-12 rounded-full object-cover ring-1 ring-white/10"
+              />
+              <div>
+                <p className="text-sm font-semibold text-zinc-50">Mini Espacio</p>
+                <p className="text-xs uppercase tracking-[0.22em] text-amber-100/80">
+                  Entrenamiento personalizado
+                </p>
+              </div>
+            </div>
+          </section>
+
           {allowed.map(({ to, label, icon: Icon }) => (
             <Tooltip key={to}>
               <TooltipTrigger asChild>

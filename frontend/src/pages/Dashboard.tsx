@@ -478,15 +478,40 @@ export default function Dashboard() {
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <section className="grid gap-4 lg:grid-cols-[1.5fr_0.9fr]">
         <div className="rounded-[32px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.14))] p-6 shadow-[0_25px_90px_-55px_rgba(249,115,22,0.58)]">
-          <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
-            Centro operativo
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
+                Centro operativo
+              </div>
+              <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+                Bienvenido, {userName}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
+                Mini Espacio concentra clientes, cobros, asistencia y seguimiento
+                diario para que el equipo trabaje con foco y buen contexto.
+              </p>
+            </div>
+
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4 md:min-w-[280px]">
+              <div className="flex items-center gap-3">
+                <img
+                  src="/mini-espacio-logo.svg"
+                  alt="Mini Espacio"
+                  className="h-14 w-14 rounded-full object-cover ring-1 ring-white/10"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">Mini Espacio</p>
+                  <p className="text-xs uppercase tracking-[0.22em] text-amber-100/80">
+                    Entrenamiento personalizado
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-zinc-300">
+                Vista {roleLabel(role)} lista para operar el gimnasio, cuidar la
+                experiencia del cliente y sostener el seguimiento del día.
+              </p>
+            </div>
           </div>
-          <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-            Bienvenido, {userName}
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-            Controla clientes, cobros y asistencias desde un solo lugar.
-          </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Button
@@ -647,7 +672,7 @@ export default function Dashboard() {
 
           <form className="space-y-3" onSubmit={doQuickCheckin}>
             <div>
-              <label className="text-xs text-zinc-400">Busqueda general</label>
+              <label className="text-xs text-zinc-400">Búsqueda general</label>
               <Input
                 className="mt-1 border-white/10 bg-zinc-900/70"
                 placeholder="Ej: Maria, 11 5555 5555 o contacto@mail.com"
@@ -746,7 +771,7 @@ export default function Dashboard() {
                 <tr>
                   <th className="border-b border-white/10 px-5 py-3">ID</th>
                   <th className="border-b border-white/10 px-5 py-3">Cliente</th>
-                  <th className="border-b border-white/10 px-5 py-3">Metodo</th>
+                  <th className="border-b border-white/10 px-5 py-3">Método</th>
                   <th className="border-b border-white/10 px-5 py-3">Canal</th>
                   <th className="border-b border-white/10 px-5 py-3">Monto</th>
                   <th className="border-b border-white/10 px-5 py-3">Fecha</th>
@@ -838,7 +863,7 @@ export default function Dashboard() {
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-zinc-400">Telefono</label>
+                    <label className="text-sm text-zinc-400">Teléfono</label>
                     <Input
                       value={newPhone}
                       onChange={(e) => setNewPhone(e.target.value)}

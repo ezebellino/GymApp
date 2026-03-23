@@ -241,16 +241,40 @@ export default function RoutinesPage() {
     <div className="space-y-8">
       <section className="grid gap-4 lg:grid-cols-[1.45fr_0.95fr]">
         <div className="rounded-[28px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.11))] p-6 shadow-[0_20px_80px_-40px_rgba(249,115,22,0.42)]">
-          <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
-            Plan de entrenamiento
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
+                Plan de entrenamiento
+              </div>
+              <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+                Organiza rutinas por grupos musculares y seguí el progreso de cada cliente.
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
+                Mini Espacio trabaja con una base común de entrenamiento y desde aquí
+                el equipo define qué ejercicios quedan activos para cada día.
+              </p>
+            </div>
+
+            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4 md:min-w-[280px]">
+              <div className="flex items-center gap-3">
+                <img
+                  src="/mini-espacio-logo.svg"
+                  alt="Mini Espacio"
+                  className="h-14 w-14 rounded-full object-cover ring-1 ring-white/10"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">Mini Espacio</p>
+                  <p className="text-xs uppercase tracking-[0.22em] text-amber-100/80">
+                    Rutina base del gimnasio
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-zinc-300">
+                El coach o dueño decide la plantilla del día y cada cliente registra
+                repeticiones, series y kilos sobre esa misma estructura.
+              </p>
+            </div>
           </div>
-          <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-            Organiza rutinas por grupos musculares y seguí el progreso de cada cliente.
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-            Todas las rutinas parten de una plantilla compartida. Desde acá definís los
-            ejercicios activos del día y registrás repeticiones, series y carga en kilos.
-          </p>
         </div>
 
         <div className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-6 backdrop-blur-xl">
