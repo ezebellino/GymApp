@@ -242,6 +242,21 @@ class WorkoutLogCreate(BaseSchema):
         return value
 
 
+class WorkoutLogUpdate(BaseSchema):
+    sets_count: Optional[Annotated[int, Field(ge=1, le=20)]] = None
+    reps: Optional[Annotated[int, Field(ge=1, le=200)]] = None
+    weight_kg: Optional[Annotated[float, Field(ge=0, le=500)]] = None
+    note: Optional[Annotated[str, Field(max_length=220)]] = None
+
+    @field_validator("note", mode="before")
+    @classmethod
+    def normalize_note(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
+
 class WorkoutLogOut(BaseSchema):
     id: str
     client_id: str

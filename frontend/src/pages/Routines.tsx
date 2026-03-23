@@ -57,6 +57,15 @@ function emptyDraft(): ExerciseDraft {
   };
 }
 
+function draftFromLog(log: WorkoutLog): ExerciseDraft {
+  return {
+    sets_count: log.sets_count?.toString() ?? "",
+    reps: log.reps?.toString() ?? "",
+    weight_kg: log.weight_kg?.toString() ?? "",
+    note: log.note ?? "",
+  };
+}
+
 type ExerciseManagerDraft = {
   name: string;
   muscle_group: string;
@@ -104,11 +113,15 @@ export default function RoutinesPage() {
   const [showExerciseManager, setShowExerciseManager] = useState(false);
   const [exerciseDialogOpen, setExerciseDialogOpen] = useState(false);
   const [editClientOpen, setEditClientOpen] = useState(false);
+  const [editLogOpen, setEditLogOpen] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
+  const [editingLog, setEditingLog] = useState<WorkoutLog | null>(null);
+  const [editLogDraft, setEditLogDraft] = useState<ExerciseDraft>(emptyDraft());
   const [exerciseDraft, setExerciseDraft] = useState<ExerciseManagerDraft>(
     emptyExerciseManagerDraft()
   );
   const [savingExerciseManager, setSavingExerciseManager] = useState(false);
+  const [savingLogEdit, setSavingLogEdit] = useState(false);
 
   const selectedDay = useMemo(
     () => days.find((day) => day.id === selectedDayId) ?? null,
@@ -413,6 +426,43 @@ export default function RoutinesPage() {
       );
     } finally {
       setSavingExerciseManager(false);
+    }
+  }
+
+  function openEditLogDialog(log: WorkoutLog) {
+    setEditingLog(log);
+    setEditLogDraft(draftFromLog(log));
+    setEditLogOpen(true);
+  }
+
+  async function saveLogEdit() {
+    if (!selectedClientId || !editingLog) return;
+
+    setSavingLogEdit(true);
+    try {
+      await api.patch(`/routines/clients/${selectedClientId}/logs/${editingLog.id}`, {
+        sets_count: editLogDraft.sets_count ? Number(editLogDraft.sets_count) : null,
+        reps: editLogDraft.reps ? Number(editLogDraft.reps) : null,
+        weight_kg: editLogDraft.weight_kg ? Number(editLogDraft.weight_kg) : 0,
+        note: editLogDraft.note.trim() || null,
+      });
+
+      await refreshSelectedClientData();
+      setEditLogOpen(false);
+      setEditingLog(null);
+      setEditLogDraft(emptyDraft());
+      await alertSuccessAutoClose(
+        "Registro actualizado",
+        "Los datos del avance ya quedaron corregidos."
+      );
+    } catch (error) {
+      console.error("Error actualizando avance", error);
+      await alertError(
+        "No se pudo actualizar el avance",
+        "Revisa los datos y vuelve a intentar."
+      );
+    } finally {
+      setSavingLogEdit(false);
     }
   }
 
@@ -913,12 +963,13 @@ export default function RoutinesPage() {
                     <th className="px-4 py-3">Reps</th>
                     <th className="px-4 py-3">Kg</th>
                     <th className="px-4 py-3">Nota</th>
+                    <th className="px-4 py-3 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="bg-zinc-950/30">
                   {logs.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-zinc-400">
+                      <td colSpan={7} className="px-4 py-10 text-center text-zinc-400">
                         Todavia no hay avances cargados para este cliente en{" "}
                         {selectedDay?.name ?? "este dia"}.
                       </td>
@@ -947,6 +998,17 @@ export default function RoutinesPage() {
                           {log.weight_kg}
                         </td>
                         <td className="px-4 py-3 text-zinc-400">{log.note || "-"}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => openEditLogDialog(log)}
+                            className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+                          >
+                            <PencilLine className="mr-2 h-4 w-4" />
+                            Editar
+                          </Button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -1053,6 +1115,103 @@ export default function RoutinesPage() {
               className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
             >
               {savingExerciseManager ? "Guardando..." : "Guardar ejercicio"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editLogOpen} onOpenChange={setEditLogOpen}>
+        <DialogContent className="border-amber-200/10 bg-zinc-950 text-zinc-100 sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Editar avance</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Corrige series, repeticiones, kilos o nota del ejercicio ya cargado.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+              <p className="font-medium text-zinc-100">
+                {editingLog?.exercise_name ?? "Ejercicio"}
+              </p>
+              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-500">
+                {editingLog?.muscle_group ?? "Grupo muscular"}
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Input
+                type="number"
+                value={editLogDraft.sets_count}
+                onChange={(event) =>
+                  setEditLogDraft((current) => ({
+                    ...current,
+                    sets_count: event.target.value,
+                  }))
+                }
+                placeholder="Series"
+                className="border-white/10 bg-zinc-900/70"
+              />
+              <Input
+                type="number"
+                value={editLogDraft.reps}
+                onChange={(event) =>
+                  setEditLogDraft((current) => ({
+                    ...current,
+                    reps: event.target.value,
+                  }))
+                }
+                placeholder="Reps"
+                className="border-white/10 bg-zinc-900/70"
+              />
+              <div className="relative">
+                <Scale className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={editLogDraft.weight_kg}
+                  onChange={(event) =>
+                    setEditLogDraft((current) => ({
+                      ...current,
+                      weight_kg: event.target.value,
+                    }))
+                  }
+                  placeholder="Kg"
+                  className="border-white/10 bg-zinc-900/70 pl-10"
+                />
+              </div>
+            </div>
+
+            <Input
+              value={editLogDraft.note}
+              onChange={(event) =>
+                setEditLogDraft((current) => ({
+                  ...current,
+                  note: event.target.value,
+                }))
+              }
+              placeholder="Nota opcional"
+              className="border-white/10 bg-zinc-900/70"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEditLogOpen(false)}
+              className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={saveLogEdit}
+              disabled={savingLogEdit}
+              className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
+            >
+              {savingLogEdit ? "Guardando..." : "Guardar cambios"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -501,3 +501,50 @@ def create_workout_log(
         note=log.note,
         performed_at=log.performed_at,
     )
+
+
+@router.patch("/clients/{client_id}/logs/{log_id}", response_model=schemas.WorkoutLogOut)
+def update_workout_log(
+    client_id: str,
+    log_id: str,
+    payload: schemas.WorkoutLogUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    _ensure_seed_data(db)
+    _get_client_or_404(db, client_id)
+
+    log = (
+        db.query(models.WorkoutLog)
+        .options(joinedload(models.WorkoutLog.day), joinedload(models.WorkoutLog.exercise))
+        .filter(
+            models.WorkoutLog.id == log_id,
+            models.WorkoutLog.client_id == client_id,
+        )
+        .first()
+    )
+    if not log:
+        raise HTTPException(status_code=404, detail="Registro de rutina no encontrado")
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(log, field, value)
+    log.created_by_user_id = current_user.id
+
+    db.commit()
+    db.refresh(log)
+
+    return schemas.WorkoutLogOut(
+        id=log.id,
+        client_id=log.client_id,
+        day_id=log.day_id,
+        day_name=log.day.name,
+        exercise_id=log.exercise_id,
+        exercise_name=log.exercise.name,
+        muscle_group=log.exercise.muscle_group,
+        sets_count=log.sets_count,
+        reps=log.reps,
+        weight_kg=log.weight_kg,
+        note=log.note,
+        performed_at=log.performed_at,
+    )
