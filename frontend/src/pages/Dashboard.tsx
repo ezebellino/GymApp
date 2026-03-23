@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   CreditCard,
   Dumbbell,
+  MessageCircle,
   Plus,
   Search,
   ShieldCheck,
@@ -29,6 +30,8 @@ type PaymentsKpiResp = { amount_sum?: number };
 type ClientMini = {
   id: string;
   full_name: string;
+  phone?: string | null;
+  email?: string | null;
   is_active?: boolean;
 };
 
@@ -147,6 +150,7 @@ export default function Dashboard() {
   const [revenueMonth, setRevenueMonth] = useState(0);
   const [checkinsToday, setCheckinsToday] = useState(0);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [pendingClients, setPendingClients] = useState<ClientMini[]>([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [newClientOpen, setNewClientOpen] = useState(false);
@@ -173,6 +177,20 @@ export default function Dashboard() {
     const totalHeader = (resp.headers["x-total-count"] ??
       resp.headers["X-Total-Count"]) as string | undefined;
     setCheckinsToday(totalHeader ? Number(totalHeader) : 0);
+  }
+
+  function openPaymentReminder(client: ClientMini) {
+    if (!client.phone) return;
+    const digits = client.phone.replace(/\D/g, "");
+    const normalizedPhone = digits.startsWith("54") ? digits : `54${digits}`;
+    const message = encodeURIComponent(
+      `Hola ${client.full_name}, te escribimos desde Mini Espacio para recordarte el pago pendiente del mes. Si ya abonaste, podes ignorar este mensaje. Gracias.`
+    );
+    window.open(
+      `https://wa.me/${normalizedPhone}?text=${message}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   }
 
   async function loadDashboard() {
@@ -244,8 +262,9 @@ export default function Dashboard() {
       );
       const pendingThisMonth = clients.filter(
         (client) => client.is_active !== false && !paidClientIds.has(client.id)
-      ).length;
-      setClientsWithoutPayment(pendingThisMonth);
+      );
+      setClientsWithoutPayment(pendingThisMonth.length);
+      setPendingClients(pendingThisMonth.slice(0, 6));
     } finally {
       setLoadingPayments(false);
     }
@@ -487,8 +506,9 @@ export default function Dashboard() {
                 Bienvenido, {userName}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-                Mini Espacio concentra clientes, cobros, asistencia y seguimiento
-                diario para que el equipo trabaje con foco y buen contexto.
+                Mini Espacio concentra el seguimiento diario del gimnasio y te
+                invita a pasar rapido a rutinas para cargar avances y dejar todo
+                el dia bien registrado.
               </p>
             </div>
 
@@ -515,8 +535,16 @@ export default function Dashboard() {
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Button
-              onClick={() => setSearchOpen(true)}
+              onClick={() => navigate("/routines")}
               className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
+            >
+              <Dumbbell className="mr-2 h-4 w-4" />
+              Ir a rutinas
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setSearchOpen(true)}
+              className="border-amber-200/10 bg-white/[0.04] hover:bg-white/[0.08]"
             >
               <Search className="mr-2 h-4 w-4" />
               Abrir buscador
@@ -826,6 +854,65 @@ export default function Dashboard() {
           </div>
         </section>
       </div>
+
+      <section className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-5">
+        <div className="flex flex-col gap-3 border-b border-amber-200/10 pb-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-zinc-100">
+              Seguimiento de cobros
+            </h2>
+            <p className="mt-1 text-sm text-zinc-400">
+              Clientes activos sin pago registrado este mes y acceso rapido a WhatsApp.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate("/payments")}
+            className="border-amber-200/10 bg-white/[0.04] hover:bg-white/[0.08]"
+          >
+            Ver pagos
+          </Button>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {pendingClients.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-5 text-sm text-zinc-400 md:col-span-2 xl:col-span-3">
+              No hay clientes pendientes en la muestra actual.
+            </div>
+          ) : (
+            pendingClients.map((client) => (
+              <div
+                key={client.id}
+                className="rounded-2xl border border-white/10 bg-black/10 p-4"
+              >
+                <p className="font-semibold text-zinc-100">{client.full_name}</p>
+                <p className="mt-1 text-sm text-zinc-500">
+                  {client.phone || "Sin telefono cargado"}
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate("/clients")}
+                    className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+                  >
+                    Ver ficha
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => openPaymentReminder(client)}
+                    disabled={!client.phone}
+                    className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    WhatsApp
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
 
       <SpotlightSearch
         open={searchOpen}

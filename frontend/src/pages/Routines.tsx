@@ -12,9 +12,11 @@ import {
   Scale,
   Settings2,
   Target,
+  UserPen,
   UserRound,
 } from "lucide-react";
 import api from "@/lib/http";
+import EditClientDialog from "@/components/EditClientDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -101,6 +103,7 @@ export default function RoutinesPage() {
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [showExerciseManager, setShowExerciseManager] = useState(false);
   const [exerciseDialogOpen, setExerciseDialogOpen] = useState(false);
+  const [editClientOpen, setEditClientOpen] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [exerciseDraft, setExerciseDraft] = useState<ExerciseManagerDraft>(
     emptyExerciseManagerDraft()
@@ -165,6 +168,28 @@ export default function RoutinesPage() {
       }));
   }, [managedExercises]);
 
+  async function loadClients() {
+    const clientsResp = await api.get<Client[]>("/clients", {
+      params: { limit: CLIENT_LIMIT, offset: 0 },
+    });
+    const nextClients = clientsResp.data ?? [];
+    setClients(nextClients);
+
+    if (!selectedClientId && nextClients[0]) {
+      setSelectedClientId(nextClients[0].id);
+    }
+
+    if (
+      selectedClientId &&
+      !nextClients.some((client) => client.id === selectedClientId) &&
+      nextClients[0]
+    ) {
+      setSelectedClientId(nextClients[0].id);
+    }
+
+    return nextClients;
+  }
+
   async function loadRoutineConfiguration() {
     const [daysResp, catalogResp, exercisesResp] = await Promise.all([
       api.get<RoutineDay[]>("/routines/days"),
@@ -193,14 +218,11 @@ export default function RoutinesPage() {
     (async () => {
       setLoading(true);
       try {
-        const [clientsResp, nextDays] = await Promise.all([
-          api.get<Client[]>("/clients", { params: { limit: CLIENT_LIMIT, offset: 0 } }),
+        const [nextClients, nextDays] = await Promise.all([
+          loadClients(),
           loadRoutineConfiguration(),
         ]);
 
-        const nextClients = clientsResp.data ?? [];
-
-        setClients(nextClients);
         if (nextClients[0]) setSelectedClientId(nextClients[0].id);
         if (nextDays[0]) setSelectedDayId(nextDays[0].id);
       } catch (error) {
@@ -530,9 +552,22 @@ export default function RoutinesPage() {
           <CardContent className="space-y-4 pt-6 text-sm text-zinc-400">
             <div>
               <p className="text-zinc-500">Cliente actual</p>
-              <p className="mt-1 text-lg font-semibold text-zinc-100">
-                {selectedClient?.full_name ?? "Sin cliente"}
-              </p>
+              <div className="mt-1 flex items-center justify-between gap-3">
+                <p className="text-lg font-semibold text-zinc-100">
+                  {selectedClient?.full_name ?? "Sin cliente"}
+                </p>
+                {selectedClient ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditClientOpen(true)}
+                    className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+                  >
+                    <UserPen className="mr-2 h-4 w-4" />
+                    Editar
+                  </Button>
+                ) : null}
+              </div>
             </div>
             <div>
               <p className="text-zinc-500">Dia elegido</p>
@@ -1022,6 +1057,18 @@ export default function RoutinesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {selectedClient ? (
+        <EditClientDialog
+          open={editClientOpen}
+          onOpenChange={setEditClientOpen}
+          client={selectedClient}
+          onSuccess={async () => {
+            await loadClients();
+            await refreshSelectedClientData();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -10,6 +10,7 @@ from ..auth import get_current_user, require_role
 from ..deps import get_db
 from ..models import UserRole
 from ..routine_catalog import EXERCISE_LIBRARY, TRAINING_DAYS
+from ..utils import now_ar
 
 
 router = APIRouter(
@@ -461,6 +462,27 @@ def create_workout_log(
         created_by_user_id=current_user.id,
     )
     db.add(log)
+
+    today_start = now_ar().replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
+    tomorrow_start = today_start + timedelta(days=1)
+    existing_attendance = (
+        db.query(models.Attendance)
+        .filter(
+            models.Attendance.client_id == client_id,
+            models.Attendance.checkin_at >= today_start,
+            models.Attendance.checkin_at < tomorrow_start,
+        )
+        .first()
+    )
+    if not existing_attendance:
+        db.add(
+            models.Attendance(
+                client_id=client_id,
+                coach_id=current_user.id if current_user.role == models.UserRole.coach else None,
+                checkin_at=now_ar().replace(tzinfo=None),
+            )
+        )
+
     db.commit()
     db.refresh(log)
 

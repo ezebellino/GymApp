@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, UserCheck, Users, UserX } from "lucide-react";
+import { MessageCircle, PencilLine, Search, UserCheck, Users, UserX } from "lucide-react";
 import { fetchClients } from "@/services/clients";
 import type { Client } from "@/types";
 import Pagination from "@/components/Pagination";
+import EditClientDialog from "@/components/EditClientDialog";
 import { useDebounce } from "../hooks/useDebounce";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,9 @@ function SkeletonRow() {
       </td>
       <td className="p-4">
         <div className="h-4 w-24 rounded bg-white/10" />
+      </td>
+      <td className="p-4">
+        <div className="h-9 w-40 rounded bg-white/10" />
       </td>
     </tr>
   );
@@ -90,6 +94,20 @@ export default function Clients() {
   const [limit, setLimit] = useState(10);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [editClientOpen, setEditClientOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+
+  function openPaymentReminder(client: Client) {
+    if (!client.phone) return;
+    const digits = client.phone.replace(/\D/g, "");
+    const normalizedPhone = digits.startsWith("54") ? digits : `54${digits}`;
+    if (!normalizedPhone) return;
+
+    const message = encodeURIComponent(
+      `Hola ${client.full_name}, te escribimos desde Mini Espacio para recordarte el pago pendiente del mes. Si ya abonaste, podes ignorar este mensaje. Gracias.`
+    );
+    window.open(`https://wa.me/${normalizedPhone}?text=${message}`, "_blank", "noopener,noreferrer");
+  }
 
   useEffect(() => {
     setOffset(0);
@@ -229,6 +247,7 @@ export default function Clients() {
                 <th className="p-4 font-medium text-zinc-300/80">Telefono</th>
                 <th className="p-4 font-medium text-zinc-300/80">Estado</th>
                 <th className="p-4 font-medium text-zinc-300/80">Alta</th>
+                <th className="p-4 font-medium text-zinc-300/80">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -242,10 +261,10 @@ export default function Clients() {
 
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-0">
-                    <EmptyState query={debouncedQ} />
-                  </td>
-                </tr>
+                    <td colSpan={6} className="p-0">
+                      <EmptyState query={debouncedQ} />
+                    </td>
+                  </tr>
               )}
 
               {!loading &&
@@ -280,6 +299,30 @@ export default function Clients() {
                     <td className="p-4 text-zinc-300/90">
                       {new Date(client.join_date).toLocaleDateString("es-AR")}
                     </td>
+                    <td className="p-4">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedClient(client);
+                            setEditClientOpen(true);
+                          }}
+                          className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-medium text-zinc-100 transition hover:bg-white/[0.06]"
+                        >
+                          <PencilLine className="h-3.5 w-3.5" />
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openPaymentReminder(client)}
+                          disabled={!client.phone}
+                          className="inline-flex items-center gap-2 rounded-xl border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] px-3 py-2 text-xs font-medium text-amber-50 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          WhatsApp
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
             </tbody>
@@ -298,6 +341,23 @@ export default function Clients() {
           />
         </div>
       </Card>
+
+      {selectedClient ? (
+        <EditClientDialog
+          open={editClientOpen}
+          onOpenChange={setEditClientOpen}
+          client={selectedClient}
+          onSuccess={async () => {
+            const { items, total } = await fetchClients({
+              q: debouncedQ || undefined,
+              limit,
+              offset,
+            });
+            setItems(items);
+            setTotal(total);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
