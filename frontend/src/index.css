@@ -8,6 +8,8 @@
     --theme-accent-start: 250 204 21;
     --theme-accent-mid: 255 247 237;
     --theme-accent-end: 249 115 22;
+    --theme-accent-secondary: 251 191 36;
+    --theme-accent-shadow: 249 115 22;
     --theme-body-start: #090909;
     --theme-body-mid: #111111;
     --theme-body-end: #17120d;
@@ -20,6 +22,8 @@
     --theme-accent-start: 251 146 60;
     --theme-accent-mid: 245 235 220;
     --theme-accent-end: 180 83 9;
+    --theme-accent-secondary: 217 119 6;
+    --theme-accent-shadow: 180 83 9;
     --theme-body-start: #0b0908;
     --theme-body-mid: #14100d;
     --theme-body-end: #211712;
@@ -32,6 +36,8 @@
     --theme-accent-start: 163 230 53;
     --theme-accent-mid: 245 245 220;
     --theme-accent-end: 217 119 6;
+    --theme-accent-secondary: 132 204 22;
+    --theme-accent-shadow: 132 204 22;
     --theme-body-start: #080908;
     --theme-body-mid: #11130f;
     --theme-body-end: #171b12;
@@ -48,13 +54,28 @@
 
   body {
     background:
-      radial-gradient(circle at top left, rgba(var(--theme-accent-start), 0.1), transparent 30%),
-      radial-gradient(circle at top right, rgba(var(--theme-accent-end), 0.08), transparent 32%),
+      radial-gradient(circle at top left, rgba(var(--theme-accent-start), 0.14), transparent 30%),
+      radial-gradient(circle at top right, rgba(var(--theme-accent-end), 0.12), transparent 34%),
+      radial-gradient(circle at bottom center, rgba(var(--theme-accent-secondary), 0.09), transparent 38%),
       linear-gradient(180deg, var(--theme-body-start) 0%, var(--theme-body-mid) 52%, var(--theme-body-end) 100%);
     color: var(--foreground);
     font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     transition: background 220ms ease, color 220ms ease;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(var(--theme-accent-start), 0.1), transparent 22%),
+      radial-gradient(circle at 88% 14%, rgba(var(--theme-accent-end), 0.08), transparent 24%),
+      radial-gradient(circle at 50% 100%, rgba(var(--theme-accent-secondary), 0.08), transparent 28%);
+    opacity: 1;
+    transition: background 220ms ease;
   }
 
   .dark {
@@ -68,7 +89,7 @@
     @apply border border-white/10 bg-zinc-950/65 backdrop-blur-xl;
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.03),
-      0 24px 70px -42px rgba(var(--theme-accent-end), 0.32);
+      0 24px 70px -42px rgba(var(--theme-accent-shadow), 0.32);
   }
 
   .warm-glow {
@@ -107,12 +128,41 @@
   }
 
   .app-shell-bg {
-    background: rgb(11 11 11);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--theme-shell-start) 92%, black) 0%, color-mix(in srgb, var(--theme-shell-end) 88%, black) 100%);
   }
 
   .app-main-shell-bg {
     background:
-      radial-gradient(circle at top, rgba(var(--theme-accent-start), 0.08), transparent 20%),
+      radial-gradient(circle at top, rgba(var(--theme-accent-start), 0.14), transparent 20%),
+      radial-gradient(circle at 85% 18%, rgba(var(--theme-accent-end), 0.08), transparent 22%),
+      radial-gradient(circle at 20% 82%, rgba(var(--theme-accent-secondary), 0.06), transparent 24%),
+      linear-gradient(
+        180deg,
+        var(--theme-shell-start) 0%,
+        var(--theme-shell-mid) 54%,
+        var(--theme-shell-end) 100%
+      );
+  }
+
+  :root[data-theme="dark-copper"] .app-main-shell-bg {
+    background:
+      radial-gradient(circle at top, rgba(var(--theme-accent-start), 0.16), transparent 20%),
+      radial-gradient(circle at 84% 14%, rgba(var(--theme-accent-end), 0.09), transparent 21%),
+      radial-gradient(circle at 24% 78%, rgba(var(--theme-accent-secondary), 0.06), transparent 26%),
+      linear-gradient(
+        180deg,
+        var(--theme-shell-start) 0%,
+        var(--theme-shell-mid) 54%,
+        var(--theme-shell-end) 100%
+      );
+  }
+
+  :root[data-theme="dark-olive"] .app-main-shell-bg {
+    background:
+      radial-gradient(circle at top, rgba(var(--theme-accent-start), 0.13), transparent 20%),
+      radial-gradient(circle at 82% 16%, rgba(var(--theme-accent-end), 0.08), transparent 20%),
+      radial-gradient(circle at 18% 80%, rgba(var(--theme-accent-secondary), 0.08), transparent 28%),
       linear-gradient(
         180deg,
         var(--theme-shell-start) 0%,
