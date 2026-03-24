@@ -170,6 +170,7 @@ export default function Dashboard() {
   const [submittingQuickPayment, setSubmittingQuickPayment] = useState(false);
   const [defaultFee, setDefaultFee] = useState(30000);
   const [adminName, setAdminName] = useState("");
+  const [gymName, setGymName] = useState("Mini Espacio");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -186,7 +187,8 @@ export default function Dashboard() {
       try {
         const parsed = JSON.parse(raw) as Partial<AppSettings>;
         setDefaultFee(Number(parsed.default_fee) || 30000);
-        setAdminName(String(parsed.admin_name ?? "").trim());
+        setGymName(String(parsed.gym_name ?? "Mini Espacio").trim() || "Mini Espacio");
+        setAdminName((current) => String(parsed.admin_name ?? "").trim() || current);
       } catch {
         setDefaultFee(30000);
       }
@@ -208,7 +210,8 @@ export default function Dashboard() {
         const { data } = await api.get<AppSettings>("/settings");
         if (!cancelled) {
           setDefaultFee(Number(data?.default_fee) || 30000);
-          setAdminName(String(data?.admin_name ?? "").trim());
+          setGymName(String(data?.gym_name ?? "Mini Espacio").trim() || "Mini Espacio");
+          setAdminName((current) => String(data?.admin_name ?? "").trim() || current);
         }
       } catch {
         // Keep local/default fallback
@@ -546,10 +549,16 @@ export default function Dashboard() {
   );
 
   const displayName = useMemo(() => {
-    const preferred = role === "owner" ? adminName || userName : userName;
+    const cleanedUserName = sanitizeUserName(userName || "Usuario");
+    const ownerName =
+      adminName ||
+      (cleanedUserName.toLowerCase() === gymName.trim().toLowerCase()
+        ? ""
+        : cleanedUserName);
+    const preferred = role === "owner" ? ownerName : cleanedUserName;
     const cleaned = sanitizeUserName(preferred || "Usuario");
     return cleaned || "Usuario";
-  }, [adminName, role, userName]);
+  }, [adminName, gymName, role, userName]);
 
   const quickActions = [
     {
