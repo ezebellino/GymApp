@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  BarChart3,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -29,6 +30,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type {
   Client,
   Role,
@@ -93,6 +105,14 @@ function formatDateTime(value?: string | null) {
   });
 }
 
+function formatShortDate(value?: string | null) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
 export default function RoutinesPage() {
   const viewerRole = ((localStorage.getItem("user_role") as Role) || "coach") as Role;
   const canManageExercises = viewerRole === "owner";
@@ -104,6 +124,7 @@ export default function RoutinesPage() {
   const [selectedDayId, setSelectedDayId] = useState("");
   const [dayProgress, setDayProgress] = useState<RoutineDayProgress[]>([]);
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
+  const [metricsLogs, setMetricsLogs] = useState<WorkoutLog[]>([]);
   const [selectedExercises, setSelectedExercises] = useState<Record<string, boolean>>({});
   const [drafts, setDrafts] = useState<Record<string, ExerciseDraft>>({});
   const [loading, setLoading] = useState(true);
@@ -122,6 +143,7 @@ export default function RoutinesPage() {
   );
   const [savingExerciseManager, setSavingExerciseManager] = useState(false);
   const [savingLogEdit, setSavingLogEdit] = useState(false);
+  const [metricsExerciseId, setMetricsExerciseId] = useState("");
 
   const selectedDay = useMemo(
     () => days.find((day) => day.id === selectedDayId) ?? null,
@@ -180,6 +202,83 @@ export default function RoutinesPage() {
         ),
       }));
   }, [managedExercises]);
+
+  const metricExercises = useMemo(() => {
+    const exerciseMap = new Map<
+      string,
+      { exercise_id: string; exercise_name: string; muscle_group: string }
+    >();
+
+    metricsLogs.forEach((log) => {
+      if (!exerciseMap.has(log.exercise_id)) {
+        exerciseMap.set(log.exercise_id, {
+          exercise_id: log.exercise_id,
+          exercise_name: log.exercise_name,
+          muscle_group: log.muscle_group,
+        });
+      }
+    });
+
+    return Array.from(exerciseMap.values()).sort((left, right) =>
+      left.exercise_name.localeCompare(right.exercise_name, "es")
+    );
+  }, [metricsLogs]);
+
+  const selectedMetricsExercise =
+    metricExercises.find((exercise) => exercise.exercise_id === metricsExerciseId) ?? null;
+
+  const exerciseChartData = useMemo(() => {
+    const filteredLogs = metricsExerciseId
+      ? metricsLogs.filter((log) => log.exercise_id === metricsExerciseId)
+      : [];
+
+    return [...filteredLogs]
+      .sort(
+        (left, right) =>
+          new Date(left.performed_at).getTime() - new Date(right.performed_at).getTime()
+      )
+      .map((log) => ({
+        date: formatShortDate(log.performed_at),
+        kg: log.weight_kg,
+        reps: log.reps ?? 0,
+        sets: log.sets_count ?? 0,
+        volume: (log.sets_count ?? 0) * (log.reps ?? 0) * log.weight_kg,
+      }));
+  }, [metricsExerciseId, metricsLogs]);
+
+  const dayChartData = useMemo(
+    () =>
+      dayProgress.map((item) => ({
+        day: item.day_name.replace("Dia ", "D"),
+        registros: item.log_count,
+        ejercicios: item.active_exercise_count,
+      })),
+    [dayProgress]
+  );
+
+  const metricsSummary = useMemo(() => {
+    const filteredLogs = metricsExerciseId
+      ? metricsLogs.filter((log) => log.exercise_id === metricsExerciseId)
+      : [];
+
+    const bestWeight = filteredLogs.reduce(
+      (current, log) => Math.max(current, log.weight_kg),
+      0
+    );
+    const totalVolume = filteredLogs.reduce(
+      (current, log) =>
+        current + (log.sets_count ?? 0) * (log.reps ?? 0) * log.weight_kg,
+      0
+    );
+    const lastLog = filteredLogs[filteredLogs.length - 1] ?? null;
+
+    return {
+      totalLogs: filteredLogs.length,
+      bestWeight,
+      totalVolume,
+      lastPerformedAt: lastLog?.performed_at ?? null,
+    };
+  }, [metricsExerciseId, metricsLogs]);
 
   async function loadClients() {
     const clientsResp = await api.get<Client[]>("/clients", {
@@ -275,18 +374,36 @@ export default function RoutinesPage() {
     if (!selectedClientId || !selectedDayId) return;
 
     try {
-      const [progressResp, logsResp] = await Promise.all([
+      const [progressResp, logsResp, metricsResp] = await Promise.all([
         api.get<RoutineDayProgress[]>(`/routines/clients/${selectedClientId}/overview`),
         api.get<WorkoutLog[]>(`/routines/clients/${selectedClientId}/logs`, {
           params: { day_id: selectedDayId, limit: 20 },
         }),
+        api.get<WorkoutLog[]>(`/routines/clients/${selectedClientId}/logs`, {
+          params: { limit: 200 },
+        }),
       ]);
       setDayProgress(progressResp.data ?? []);
       setLogs(logsResp.data ?? []);
+      setMetricsLogs(metricsResp.data ?? []);
     } catch (error) {
       console.error("Error cargando seguimiento de rutinas", error);
     }
   }
+
+  useEffect(() => {
+    if (!metricExercises.length) {
+      if (metricsExerciseId) setMetricsExerciseId("");
+      return;
+    }
+
+    const exists = metricExercises.some(
+      (exercise) => exercise.exercise_id === metricsExerciseId
+    );
+    if (!metricsExerciseId || !exists) {
+      setMetricsExerciseId(metricExercises[0].exercise_id);
+    }
+  }, [metricExercises, metricsExerciseId]);
 
   async function saveDaySelection() {
     if (!selectedDayId || !selectedDay) return;
@@ -941,6 +1058,149 @@ export default function RoutinesPage() {
               ) : null}
             </div>
           ) : null}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-[28px] border-amber-200/10 bg-zinc-900/60 backdrop-blur-xl">
+        <CardHeader className="border-b border-amber-200/10 pb-5">
+          <CardTitle className="flex items-center gap-2 text-zinc-100">
+            <BarChart3 className="h-5 w-5" />
+            Progreso del cliente
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6 pt-6">
+          <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">
+                    Evolucion por ejercicio
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Mira rapido como viene subiendo la carga del cliente ejercicio por ejercicio.
+                  </p>
+                </div>
+                <div className="min-w-[220px]">
+                  <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-zinc-500">
+                    Ejercicio
+                  </label>
+                  <select
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-amber-400/25"
+                    value={metricsExerciseId}
+                    onChange={(event) => setMetricsExerciseId(event.target.value)}
+                  >
+                    {metricExercises.map((exercise) => (
+                      <option key={exercise.exercise_id} value={exercise.exercise_id}>
+                        {exercise.exercise_name} · {exercise.muscle_group}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-5 h-72">
+                {exerciseChartData.length === 0 ? (
+                  <div className="grid h-full place-items-center rounded-2xl border border-dashed border-white/10 bg-black/10 text-sm text-zinc-400">
+                    Todavia no hay suficientes datos para graficar este ejercicio.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={exerciseChartData} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
+                      <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                      <XAxis dataKey="date" stroke="#a1a1aa" fontSize={12} />
+                      <YAxis stroke="#a1a1aa" fontSize={12} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{
+                          background: "#09090b",
+                          border: "1px solid rgba(251,191,36,0.18)",
+                          borderRadius: 16,
+                          color: "#f4f4f5",
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="kg"
+                        name="Kg"
+                        stroke="#facc15"
+                        strokeWidth={3}
+                        dot={{ r: 3, fill: "#fff7ed" }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-sm font-semibold text-zinc-100">Resumen del ejercicio</p>
+                <div className="mt-4 grid gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      Registros
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold text-zinc-100">
+                      {metricsSummary.totalLogs}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      Mejor carga
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold text-zinc-100">
+                      {metricsSummary.bestWeight} kg
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      Volumen acumulado
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold text-zinc-100">
+                      {metricsSummary.totalVolume.toLocaleString("es-AR")}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      Ultimo registro
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-zinc-100">
+                      {formatDateTime(metricsSummary.lastPerformedAt)}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {selectedMetricsExercise
+                        ? `${selectedMetricsExercise.exercise_name} · ${selectedMetricsExercise.muscle_group}`
+                        : "Selecciona un ejercicio para ver detalle"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-sm font-semibold text-zinc-100">
+                  Registros por dia de entrenamiento
+                </p>
+                <div className="mt-4 h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dayChartData} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
+                      <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                      <XAxis dataKey="day" stroke="#a1a1aa" fontSize={12} />
+                      <YAxis stroke="#a1a1aa" fontSize={12} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{
+                          background: "#09090b",
+                          border: "1px solid rgba(251,191,36,0.18)",
+                          borderRadius: 16,
+                          color: "#f4f4f5",
+                        }}
+                      />
+                      <Bar dataKey="registros" name="Registros" fill="#f97316" radius={[10, 10, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

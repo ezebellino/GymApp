@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarRange, CreditCard, Eye, MessageCircle, Search, Wallet } from "lucide-react";
+import {
+  CalendarRange,
+  CreditCard,
+  Eye,
+  MessageCircle,
+  Search,
+  Trash2,
+  Wallet,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,6 +108,7 @@ export default function PaymentsPage() {
   const [limit] = useState(20);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
   const [sendingReminders, setSendingReminders] = useState(false);
   const [showReminderPreview, setShowReminderPreview] = useState(false);
 
@@ -303,6 +312,42 @@ export default function PaymentsPage() {
     }
   }
 
+  async function handleDeletePayment(payment: Payment) {
+    const clientName = payment.client?.full_name ?? "este cliente";
+    const period = `${String(payment.period_month).padStart(2, "0")}/${payment.period_year}`;
+
+    const result = await confirmAction(
+      "Dar de baja pago",
+      `Se eliminara el pago de ${clientName} correspondiente a ${period}. Esta accion no se puede deshacer.`
+    );
+
+    if (!result.isConfirmed) return;
+
+    setDeletingPaymentId(payment.id);
+    try {
+      await api.delete(`/payments/${payment.id}`);
+
+      const trimmed = q.trim();
+      if (!trimmed) await loadWith({ limit, offset });
+      else if (isUUID(trimmed)) await loadWith({ client_id: trimmed, limit, offset });
+      else await loadWith({ q: trimmed, limit, offset });
+
+      await alertSuccessAutoClose(
+        "Pago dado de baja",
+        "El movimiento se elimino correctamente.",
+        1200
+      );
+    } catch (error) {
+      console.error("Error eliminando pago", error);
+      await alertInfo(
+        "No se pudo eliminar el pago",
+        "Revisa permisos o intenta nuevamente en unos segundos."
+      );
+    } finally {
+      setDeletingPaymentId(null);
+    }
+  }
+
   return (
     <div className="space-y-8">
       <section className="grid gap-4 lg:grid-cols-[1.45fr_0.95fr]">
@@ -480,12 +525,13 @@ export default function PaymentsPage() {
                   <th className="p-4 text-left">Periodo</th>
                   <th className="p-4 text-left">Monto</th>
                   <th className="p-4 text-left">Metodo</th>
+                  <th className="p-4 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="bg-zinc-950/40">
                 {loading && (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center">
+                    <td colSpan={6} className="p-8 text-center">
                       <div className="inline-flex items-center gap-2 text-zinc-400">
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-500 border-t-transparent" />
                         Cargando movimientos...
@@ -496,7 +542,7 @@ export default function PaymentsPage() {
 
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-zinc-400">
+                    <td colSpan={6} className="p-8 text-center text-zinc-400">
                       No hay pagos para los filtros actuales.
                     </td>
                   </tr>
@@ -549,6 +595,20 @@ export default function PaymentsPage() {
                         ) : (
                           <span className="text-zinc-500">-</span>
                         )}
+                      </td>
+
+                      <td className="p-4 text-right">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeletePayment(payment)}
+                          disabled={deletingPaymentId === payment.id}
+                          className="border-red-500/20 bg-red-500/8 text-red-100 hover:bg-red-500/15 disabled:opacity-60"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {deletingPaymentId === payment.id ? "Eliminando..." : "Dar de baja"}
+                        </Button>
                       </td>
                     </tr>
                   ))}
