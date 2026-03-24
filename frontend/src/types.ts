@@ -29,6 +29,7 @@ export type Attendance = {
 
 export type AppSettings = {
   gym_name: string;
+  admin_name: string | null;
   currency: string;
   default_fee: number;
   address: string | null;

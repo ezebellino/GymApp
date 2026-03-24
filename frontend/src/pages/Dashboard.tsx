@@ -140,6 +140,10 @@ const alertIcons = {
   positive: CheckCircle2,
 } as const;
 
+function sanitizeUserName(value: string) {
+  return value.replace(/^(dueño|dueno|coach)\s+/i, "").trim();
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [userName, setUserName] = useState<string>("Usuario");
@@ -165,6 +169,7 @@ export default function Dashboard() {
   const [searchingPayments, setSearchingPayments] = useState(false);
   const [submittingQuickPayment, setSubmittingQuickPayment] = useState(false);
   const [defaultFee, setDefaultFee] = useState(30000);
+  const [adminName, setAdminName] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -174,15 +179,25 @@ export default function Dashboard() {
     setUserName(localStorage.getItem("user_name") || "Usuario");
     setRole((localStorage.getItem("user_role") as Role) || "owner");
 
-    const raw = localStorage.getItem("app_settings");
-    if (raw) {
+    const syncLocalSettings = () => {
+      const raw = localStorage.getItem("app_settings");
+      if (!raw) return;
+
       try {
         const parsed = JSON.parse(raw) as Partial<AppSettings>;
         setDefaultFee(Number(parsed.default_fee) || 30000);
+        setAdminName(String(parsed.admin_name ?? "").trim());
       } catch {
         setDefaultFee(30000);
       }
-    }
+    };
+
+    syncLocalSettings();
+    window.addEventListener("app-settings:updated", syncLocalSettings);
+
+    return () => {
+      window.removeEventListener("app-settings:updated", syncLocalSettings);
+    };
   }, []);
 
   useEffect(() => {
@@ -193,6 +208,7 @@ export default function Dashboard() {
         const { data } = await api.get<AppSettings>("/settings");
         if (!cancelled) {
           setDefaultFee(Number(data?.default_fee) || 30000);
+          setAdminName(String(data?.admin_name ?? "").trim());
         }
       } catch {
         // Keep local/default fallback
@@ -529,6 +545,12 @@ export default function Dashboard() {
     [activeClients, checkinsToday, clientsTotal, revenueMonth]
   );
 
+  const displayName = useMemo(() => {
+    const preferred = role === "owner" ? adminName || userName : userName;
+    const cleaned = sanitizeUserName(preferred || "Usuario");
+    return cleaned || "Usuario";
+  }, [adminName, role, userName]);
+
   const quickActions = [
     {
       title: "Buscar cliente",
@@ -610,7 +632,7 @@ export default function Dashboard() {
                 Centro operativo
               </div>
               <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-                Bienvenido, {userName}
+                Bienvenido, {displayName}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
                 Mini Espacio concentra el seguimiento diario del gimnasio y te

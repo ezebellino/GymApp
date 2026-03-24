@@ -5,6 +5,7 @@ const SETTINGS_KEY = "app_settings";
 
 const DEFAULT_SETTINGS: AppSettings = {
   gym_name: "Mini Espacio",
+  admin_name: "Fabian Aguirre (Manga)",
   currency: "ARS",
   default_fee: 30000,
   address: "",
@@ -36,6 +37,7 @@ export default function Footer() {
       ...settings,
       gym_name:
         settings.gym_name === "Libre Funcional" ? "Mini Espacio" : settings.gym_name,
+      admin_name: settings.admin_name || "Fabian Aguirre (Manga)",
       contact_email:
         settings.contact_email === "owner@librefuncional.com"
           ? "owner@miniespacio.com"
@@ -88,6 +90,7 @@ export default function Footer() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="font-medium text-zinc-200">{settings.gym_name}</span>
+          {settings.admin_name ? <span>{settings.admin_name}</span> : null}
           <span>{roleLabel(role)}</span>
           <span>{online ? "Sistema online" : "Sin conexión"}</span>
           {settings.address ? <span>{settings.address}</span> : null}

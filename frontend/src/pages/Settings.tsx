@@ -22,6 +22,7 @@ const LS_KEY = "app_settings";
 
 const DEFAULT_SETTINGS: AppSettings = {
   gym_name: "Mini Espacio",
+  admin_name: "Fabian Aguirre (Manga)",
   currency: "ARS",
   default_fee: 30000,
   address: "Av. San Martin 325 - Dolores",
@@ -48,6 +49,7 @@ function normalizeSettings(settings: AppSettings): AppSettings {
     ...settings,
     gym_name:
       settings.gym_name === "Libre Funcional" ? "Mini Espacio" : settings.gym_name,
+    admin_name: settings.admin_name || "Fabian Aguirre (Manga)",
     contact_email:
       settings.contact_email === "owner@librefuncional.com"
         ? "owner@miniespacio.com"
@@ -280,6 +282,17 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-sm text-zinc-400">Administrador</label>
+                  <Input
+                    value={settings.admin_name ?? ""}
+                    disabled={!canEdit}
+                    onChange={(e) => updateField("admin_name", e.target.value)}
+                    className="border-amber-200/10 bg-zinc-900/70 text-zinc-200 focus-visible:ring-amber-400/35"
+                    placeholder="Fabian Aguirre (Manga)"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-sm text-zinc-400">Moneda</label>
                   <Input
                     value={settings.currency}
@@ -461,6 +474,9 @@ export default function SettingsPage() {
             <CardContent className="space-y-4 pt-6">
               <div className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(180deg,rgba(250,204,21,0.08),rgba(255,247,237,0.02),rgba(249,115,22,0.12))] p-4">
                 <p className="text-lg font-semibold text-zinc-50">{settings.gym_name}</p>
+                <p className="mt-1 text-sm text-amber-100/85">
+                  Administra: {settings.admin_name || "Sin responsable definido"}
+                </p>
                 <div className="mt-4 space-y-3 text-sm text-zinc-300">
                   <div className="flex items-start gap-3">
                     <MapPin className="mt-0.5 h-4 w-4 text-amber-200" />
@@ -532,6 +548,12 @@ export default function SettingsPage() {
               <CardTitle className="text-zinc-100">Resumen rápido</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pt-6 text-sm text-zinc-400">
+              <p>
+                Responsable:{" "}
+                <span className="font-medium text-zinc-100">
+                  {settings.admin_name || "No cargado"}
+                </span>
+              </p>
               <p>
                 WhatsApp principal:{" "}
                 <span className="font-medium text-zinc-100">

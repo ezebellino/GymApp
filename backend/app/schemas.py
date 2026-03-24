@@ -283,6 +283,7 @@ class RoutineDayProgress(BaseSchema):
 
 class SettingsBase(BaseSchema):
     gym_name: Annotated[str, Field(min_length=1, max_length=100)]
+    admin_name: Optional[Annotated[str, Field(max_length=120)]] = None
     currency: Annotated[str, Field(min_length=1, max_length=10)]
     default_fee: Annotated[Decimal, Field(ge=0)]
     address: Optional[Annotated[str, Field(max_length=200)]] = None
@@ -299,6 +300,7 @@ class SettingsBase(BaseSchema):
 
     @field_validator(
         "gym_name",
+        "admin_name",
         "currency",
         "address",
         "contact_phone",
@@ -335,6 +337,7 @@ class Settings(SettingsBase):
 
 class SettingsUpdate(BaseSchema):
     gym_name: Optional[Annotated[str, Field(min_length=1, max_length=100)]] = None
+    admin_name: Optional[Annotated[str, Field(max_length=120)]] = None
     currency: Optional[Annotated[str, Field(min_length=1, max_length=10)]] = None
     default_fee: Optional[Annotated[Decimal, Field(ge=0)]] = None
     address: Optional[Annotated[str, Field(max_length=200)]] = None

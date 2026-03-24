@@ -104,7 +104,7 @@ export default function Topbar() {
           />
         </div>
 
-        <div className="hidden flex-1 justify-center md:flex">
+        <div className="hidden flex-1 justify-center lg:flex">
           <Button
             variant="outline"
             className="w-72 border-amber-200/10 bg-white/[0.03] text-amber-50 hover:border-amber-300/20 hover:bg-white/[0.06]"
@@ -114,7 +114,7 @@ export default function Topbar() {
           </Button>
         </div>
 
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-3 lg:flex">
           {isAuthed && role === "owner" && (
             <Button
               variant="outline"
@@ -148,7 +148,7 @@ export default function Topbar() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="flex items-center gap-2 lg:hidden">
           {isAuthed ? (
             <Button
               variant="outline"
@@ -176,7 +176,7 @@ export default function Topbar() {
       </div>
 
       {mobileMenuOpen && isAuthed && (
-        <div className="space-y-3 border-t border-amber-200/10 bg-[#120f0d]/95 px-4 pb-3 pt-2 md:hidden">
+        <div className="space-y-3 border-t border-amber-200/10 bg-[#120f0d]/95 px-4 pb-3 pt-2 lg:hidden">
           <div className="space-y-2">
             <Button
               variant="outline"
