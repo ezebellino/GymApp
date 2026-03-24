@@ -39,6 +39,8 @@ export type AppSettings = {
   business_hours: string | null;
   payment_alias: string | null;
   payment_notes: string | null;
+  payment_reminder_message: string | null;
+  payment_reminder_last_sent_at: string | null;
   late_fee_grace_days: number;
   allow_cash: boolean;
   allow_transfer: boolean;

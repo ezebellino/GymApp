@@ -15,6 +15,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   business_hours: "",
   payment_alias: "",
   payment_notes: "",
+  payment_reminder_message: "",
+  payment_reminder_last_sent_at: null,
   late_fee_grace_days: 5,
   allow_cash: true,
   allow_transfer: true,

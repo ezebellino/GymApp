@@ -168,6 +168,7 @@ export default function Dashboard() {
   const [paymentResults, setPaymentResults] = useState<Client[]>([]);
   const [searchingPayments, setSearchingPayments] = useState(false);
   const [submittingQuickPayment, setSubmittingQuickPayment] = useState(false);
+  const [quickPaymentMethod, setQuickPaymentMethod] = useState<"cash" | "transfer">("cash");
   const [defaultFee, setDefaultFee] = useState(30000);
   const [adminName, setAdminName] = useState("");
   const [gymName, setGymName] = useState("Mini Espacio");
@@ -455,7 +456,7 @@ export default function Dashboard() {
       await api.post("/payments", {
         client_id: paymentClientId,
         amount: defaultFee,
-        method: "cash",
+        method: quickPaymentMethod,
         method_channel: null,
         note: "Cobro rapido de cuota mensual",
         period_month: now.getMonth() + 1,
@@ -477,7 +478,7 @@ export default function Dashboard() {
 
       await alertSuccessAutoClose(
         "Pago rapido registrado",
-        `Se cobro la cuota vigente de ${clientName}.`
+        `Se registró la cuota vigente de ${clientName} por ${quickPaymentMethod === "cash" ? "efectivo" : "transferencia"}.`
       );
     } catch (error: any) {
       console.error(error);
@@ -977,8 +978,38 @@ export default function Dashboard() {
                   {nfARS.format(defaultFee)}
                 </p>
                 <p className="mt-1 text-xs text-zinc-400">
-                  Se registra para el mes actual en efectivo.
+                  Se registra para el mes actual con el método que selecciones.
                 </p>
+              </div>
+
+              <div>
+                <label className="text-xs text-zinc-400">Método rápido</label>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setQuickPaymentMethod("cash")}
+                    className={
+                      quickPaymentMethod === "cash"
+                        ? "border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50"
+                        : "border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.08]"
+                    }
+                  >
+                    Efectivo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setQuickPaymentMethod("transfer")}
+                    className={
+                      quickPaymentMethod === "transfer"
+                        ? "border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50"
+                        : "border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.08]"
+                    }
+                  >
+                    Transferencia
+                  </Button>
+                </div>
               </div>
 
               <div className="flex items-center justify-between gap-3 pt-2">

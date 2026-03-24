@@ -19,6 +19,8 @@ DEFAULTS = SettingsBase(
     business_hours="Lunes a viernes de 7 a 22 hs. Sabados de 9 a 13 hs.",
     payment_alias="MINI.ESPACIO.GYM",
     payment_notes="Aceptamos efectivo y transferencia. Confirmar pagos con comprobante.",
+    payment_reminder_message="Hola {client_name}, te recordamos con cariño la cuota mensual de {gym_name}. El valor actual es {amount} y contamos con {grace_days} días de tolerancia para abonarla. Podés transferir al alias {payment_alias}. Si ya pagaste, podés ignorar este mensaje. ¡Gracias!",
+    payment_reminder_last_sent_at=None,
     late_fee_grace_days=5,
     allow_cash=True,
     allow_transfer=True,
@@ -37,6 +39,8 @@ def _apply_brand_refresh(settings: AppSettings) -> AppSettings:
         updates["contact_email"] = DEFAULTS.contact_email
     if settings.payment_alias == "LIBRE.FUNCIONAL.GYM":
         updates["payment_alias"] = DEFAULTS.payment_alias
+    if not settings.payment_reminder_message:
+        updates["payment_reminder_message"] = DEFAULTS.payment_reminder_message
     if (
         settings.onboarding_message
         == "Bienvenido a Libre Funcional. Ante dudas sobre pagos o asistencias, consulta en recepcion."

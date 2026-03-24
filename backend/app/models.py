@@ -152,6 +152,8 @@ class AppSettings(Base):
     business_hours = Column(String, nullable=True)
     payment_alias = Column(String, nullable=True)
     payment_notes = Column(String, nullable=True)
+    payment_reminder_message = Column(String, nullable=True)
+    payment_reminder_last_sent_at = Column(DateTime, nullable=True)
     late_fee_grace_days = Column(Integer, nullable=False, default=5)
     allow_cash = Column(Boolean, nullable=False, default=True)
     allow_transfer = Column(Boolean, nullable=False, default=True)

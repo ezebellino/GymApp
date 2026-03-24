@@ -44,6 +44,7 @@ export default function UserCard({
   const [openEdit, setOpenEdit] = useState(false);
   const [defaultFee, setDefaultFee] = useState(30000);
   const [quickPaying, setQuickPaying] = useState(false);
+  const [quickPaymentMethod, setQuickPaymentMethod] = useState<"cash" | "transfer">("cash");
 
   useEffect(() => {
     let cancelled = false;
@@ -73,14 +74,14 @@ export default function UserCard({
     };
   }, []);
 
-  async function handleQuickPayment() {
+  async function handleQuickPayment(method: "cash" | "transfer") {
     setQuickPaying(true);
     try {
       const now = new Date();
       await api.post("/payments", {
         client_id: client.id,
         amount: defaultFee,
-        method: "cash",
+        method,
         method_channel: null,
         note: "Cobro rapido de cuota mensual",
         period_month: now.getMonth() + 1,
@@ -94,7 +95,7 @@ export default function UserCard({
 
       await alertSuccessAutoClose(
         "Pago rapido registrado",
-        `Se cobro la cuota vigente de ${client.full_name}.`
+        `Se registró la cuota vigente de ${client.full_name} por ${method === "cash" ? "efectivo" : "transferencia"}.`
       );
     } catch (error: any) {
       await alertError(
@@ -235,14 +236,42 @@ export default function UserCard({
             Crear pago
           </Button>
 
-          <Button
-            size="sm"
-            className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
-            onClick={handleQuickPayment}
-            disabled={quickPaying}
-          >
-            {quickPaying ? "Cobrando..." : `Cobro rapido $${defaultFee.toLocaleString("es-AR")}`}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className={
+                quickPaymentMethod === "cash"
+                  ? "border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
+                  : "border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.08]"
+              }
+              onClick={() => setQuickPaymentMethod("cash")}
+            >
+              Efectivo
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className={
+                quickPaymentMethod === "transfer"
+                  ? "border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
+                  : "border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.08]"
+              }
+              onClick={() => setQuickPaymentMethod("transfer")}
+            >
+              Transferencia
+            </Button>
+            <Button
+              size="sm"
+              className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
+              onClick={() => handleQuickPayment(quickPaymentMethod)}
+              disabled={quickPaying}
+            >
+              {quickPaying
+                ? "Cobrando..."
+                : `Cobro rapido $${defaultFee.toLocaleString("es-AR")}`}
+            </Button>
+          </div>
 
           <Button
             size="sm"

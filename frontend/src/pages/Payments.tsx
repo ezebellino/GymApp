@@ -41,6 +41,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   business_hours: "",
   payment_alias: "MINI.ESPACIO.GYM",
   payment_notes: "",
+  payment_reminder_message:
+    "Hola {client_name}, te recordamos con cariño la cuota mensual de {gym_name}. El valor actual es {amount} y contamos con {grace_days} días de tolerancia para abonarla. Podés transferir al alias {payment_alias}. Si ya pagaste, podés ignorar este mensaje. ¡Gracias!",
+  payment_reminder_last_sent_at: null,
   late_fee_grace_days: 5,
   allow_cash: true,
   allow_transfer: true,
@@ -227,17 +230,21 @@ export default function PaymentsPage() {
   ).length;
   const reminderTargetsCount = pendingClients.length;
 
+  function buildReminderMessage(client: PaymentClient) {
+    const template =
+      settings.payment_reminder_message || DEFAULT_SETTINGS.payment_reminder_message || "";
+    return template
+      .replaceAll("{client_name}", client.full_name)
+      .replaceAll("{gym_name}", settings.gym_name)
+      .replaceAll("{amount}", nfARS.format(settings.default_fee))
+      .replaceAll("{grace_days}", String(settings.late_fee_grace_days))
+      .replaceAll("{payment_alias}", settings.payment_alias || "no definido");
+  }
+
   function buildReminderLink(client: PaymentClient) {
     const digits = (client.phone || "").replace(/\D/g, "");
     const normalizedPhone = digits.startsWith("54") ? digits : `54${digits}`;
-    const amount = nfARS.format(settings.default_fee);
-    const toleranceLabel = `${settings.late_fee_grace_days} día${settings.late_fee_grace_days === 1 ? "" : "s"}`;
-    const transferText = settings.payment_alias
-      ? ` Podés transferir al alias ${settings.payment_alias}.`
-      : "";
-    const message = encodeURIComponent(
-      `Hola ${client.full_name}, te recordamos con cariño la cuota mensual de ${settings.gym_name}. El valor actual es ${amount} y contamos con ${toleranceLabel} de tolerancia para abonarla.${transferText} Si ya pagaste, podés ignorar este mensaje. ¡Gracias!`
-    );
+    const message = encodeURIComponent(buildReminderMessage(client));
     return `https://wa.me/${normalizedPhone}?text=${message}`;
   }
 
@@ -259,11 +266,32 @@ export default function PaymentsPage() {
 
     setSendingReminders(true);
     try {
+      const sentAt = new Date().toISOString();
       pendingClients.forEach((client, index) => {
         window.setTimeout(() => {
           window.open(buildReminderLink(client), "_blank", "noopener,noreferrer");
         }, index * 220);
       });
+
+      const nextSettings = {
+        ...settings,
+        payment_reminder_last_sent_at: sentAt,
+      };
+      setSettings(nextSettings);
+      localStorage.setItem("app_settings", JSON.stringify(nextSettings));
+      window.dispatchEvent(new Event("app-settings:updated"));
+
+      try {
+        const { data } = await api.patch<AppSettings>("/settings", {
+          payment_reminder_last_sent_at: sentAt,
+        });
+        const syncedSettings = { ...DEFAULT_SETTINGS, ...data };
+        setSettings(syncedSettings);
+        localStorage.setItem("app_settings", JSON.stringify(syncedSettings));
+        window.dispatchEvent(new Event("app-settings:updated"));
+      } catch {
+        // keep local trace if backend update is unavailable
+      }
 
       await alertSuccessAutoClose(
         "Recordatorios preparados",
@@ -311,6 +339,14 @@ export default function PaymentsPage() {
               </p>
               <p className="mt-1 text-zinc-400">
                 Mensaje mensual con cuota {nfARS.format(settings.default_fee)}, {settings.late_fee_grace_days} días de tolerancia y alias {settings.payment_alias || "no definido"}.
+              </p>
+              <p className="mt-2 text-xs text-zinc-500">
+                Último envío registrado:{" "}
+                <span className="text-zinc-300">
+                  {settings.payment_reminder_last_sent_at
+                    ? new Date(settings.payment_reminder_last_sent_at).toLocaleString("es-AR")
+                    : "todavía no hay envíos"}
+                </span>
               </p>
             </div>
           </div>

@@ -33,6 +33,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   payment_alias: "MINI.ESPACIO.GYM",
   payment_notes:
     "Aceptamos efectivo y transferencia. Confirmar pagos con comprobante.",
+  payment_reminder_message:
+    "Hola {client_name}, te recordamos con cariño la cuota mensual de {gym_name}. El valor actual es {amount} y contamos con {grace_days} días de tolerancia para abonarla. Podés transferir al alias {payment_alias}. Si ya pagaste, podés ignorar este mensaje. ¡Gracias!",
+  payment_reminder_last_sent_at: null,
   late_fee_grace_days: 5,
   allow_cash: true,
   allow_transfer: true,
@@ -58,6 +61,9 @@ function normalizeSettings(settings: AppSettings): AppSettings {
       settings.payment_alias === "LIBRE.FUNCIONAL.GYM"
         ? "MINI.ESPACIO.GYM"
         : settings.payment_alias,
+    payment_reminder_message:
+      settings.payment_reminder_message ||
+      DEFAULT_SETTINGS.payment_reminder_message,
     onboarding_message:
       settings.onboarding_message ===
       "Bienvenido a Libre Funcional. Ante dudas sobre pagos o asistencias, consulta en recepcion."
@@ -253,8 +259,8 @@ export default function SettingsPage() {
           icon={Wallet}
         />
         <InfoCard
-          title="Mensaje interno"
-          description="Dejá un texto base para recepción o seguimiento diario, útil al recibir nuevos clientes o responder consultas."
+          title="Recordatorio mensual"
+          description="Personaliza el mensaje de pago para WhatsApp usando placeholders simples y deja trazabilidad del último envío."
           icon={MessageSquareText}
         />
       </section>
@@ -444,23 +450,35 @@ export default function SettingsPage() {
             <CardHeader className="border-b border-amber-200/10 pb-5">
               <CardTitle className="flex items-center gap-2 text-zinc-100">
                 <MessageSquareText className="h-5 w-5" />
-                Mensaje operativo y de recepcion
+                Mensaje de recordatorio de pago
               </CardTitle>
             </CardHeader>
 
             <CardContent className="space-y-4 pt-6">
               <p className="text-sm leading-6 text-zinc-400">
-                Este mensaje puede servir como base para recepcion, coaches o
-                comunicacion con clientes nuevos.
+                Este texto se usa para los recordatorios mensuales por WhatsApp.
+                Puedes incluir placeholders: <span className="text-zinc-200">{`{client_name}`}</span>,{" "}
+                <span className="text-zinc-200">{`{gym_name}`}</span>,{" "}
+                <span className="text-zinc-200">{`{amount}`}</span>,{" "}
+                <span className="text-zinc-200">{`{grace_days}`}</span> y{" "}
+                <span className="text-zinc-200">{`{payment_alias}`}</span>.
               </p>
               <textarea
-                value={settings.onboarding_message ?? ""}
+                value={settings.payment_reminder_message ?? ""}
                 disabled={!canEdit}
-                onChange={(e) => updateField("onboarding_message", e.target.value)}
-                rows={5}
+                onChange={(e) => updateField("payment_reminder_message", e.target.value)}
+                rows={7}
                 className="w-full rounded-xl border border-amber-200/10 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-200 outline-none transition focus:border-amber-300/25 focus:ring-2 focus:ring-amber-400/25 disabled:cursor-not-allowed disabled:opacity-70"
-                placeholder="Escribe un mensaje base para nuevos clientes o recordatorios operativos."
+                placeholder="Escribe el mensaje base para los recordatorios de pago."
               />
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-zinc-400">
+                Último envío registrado:{" "}
+                <span className="font-medium text-zinc-100">
+                  {settings.payment_reminder_last_sent_at
+                    ? new Date(settings.payment_reminder_last_sent_at).toLocaleString("es-AR")
+                    : "Todavía no se registró"}
+                </span>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -561,9 +579,9 @@ export default function SettingsPage() {
                 </span>
               </p>
               <p>
-                Mensaje de recepcion:{" "}
+                Recordatorio mensual:{" "}
                 <span className="font-medium text-zinc-100">
-                  {settings.onboarding_message
+                  {settings.payment_reminder_message
                     ? "Configurado"
                     : "Pendiente de definir"}
                 </span>

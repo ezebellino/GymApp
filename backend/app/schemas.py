@@ -293,6 +293,8 @@ class SettingsBase(BaseSchema):
     business_hours: Optional[Annotated[str, Field(max_length=160)]] = None
     payment_alias: Optional[Annotated[str, Field(max_length=120)]] = None
     payment_notes: Optional[Annotated[str, Field(max_length=280)]] = None
+    payment_reminder_message: Optional[Annotated[str, Field(max_length=500)]] = None
+    payment_reminder_last_sent_at: Optional[datetime] = None
     late_fee_grace_days: Annotated[int, Field(ge=0, le=60)] = 5
     allow_cash: bool = True
     allow_transfer: bool = True
@@ -308,6 +310,7 @@ class SettingsBase(BaseSchema):
         "business_hours",
         "payment_alias",
         "payment_notes",
+        "payment_reminder_message",
         "onboarding_message",
         mode="before",
     )
@@ -347,6 +350,8 @@ class SettingsUpdate(BaseSchema):
     business_hours: Optional[Annotated[str, Field(max_length=160)]] = None
     payment_alias: Optional[Annotated[str, Field(max_length=120)]] = None
     payment_notes: Optional[Annotated[str, Field(max_length=280)]] = None
+    payment_reminder_message: Optional[Annotated[str, Field(max_length=500)]] = None
+    payment_reminder_last_sent_at: Optional[datetime] = None
     late_fee_grace_days: Optional[Annotated[int, Field(ge=0, le=60)]] = None
     allow_cash: Optional[bool] = None
     allow_transfer: Optional[bool] = None
