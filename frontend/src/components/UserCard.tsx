@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BadgeCheck, CalendarClock, Mail, Phone, Wallet } from "lucide-react";
+import { BadgeCheck, CalendarClock, Download, Mail, Phone, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ export default function UserCard({
   const [openEdit, setOpenEdit] = useState(false);
   const [defaultFee, setDefaultFee] = useState(30000);
   const [quickPaying, setQuickPaying] = useState(false);
+  const [downloadingReport, setDownloadingReport] = useState(false);
   const [quickPaymentMethod, setQuickPaymentMethod] = useState<"cash" | "transfer">("cash");
 
   useEffect(() => {
@@ -104,6 +105,38 @@ export default function UserCard({
       );
     } finally {
       setQuickPaying(false);
+    }
+  }
+
+  async function handleDownloadProgressReport() {
+    setDownloadingReport(true);
+    try {
+      const response = await api.get(`/routines/clients/${client.id}/progress-report`, {
+        responseType: "blob",
+      });
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const safeName = client.full_name.toLowerCase().replace(/\s+/g, "-");
+      link.href = url;
+      link.download = `progreso-${safeName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      await alertSuccessAutoClose(
+        "PDF listo",
+        `Se descargo el reporte de progreso de ${client.full_name}.`
+      );
+    } catch (error: any) {
+      await alertError(
+        "No se pudo generar el PDF",
+        error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos."
+      );
+    } finally {
+      setDownloadingReport(false);
     }
   }
 
@@ -280,6 +313,17 @@ export default function UserCard({
             onClick={() => onAction?.("viewHistory", client)}
           >
             Ver historial
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.08]"
+            onClick={handleDownloadProgressReport}
+            disabled={downloadingReport}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {downloadingReport ? "Generando PDF..." : "PDF progreso"}
           </Button>
         </div>
       </CardContent>

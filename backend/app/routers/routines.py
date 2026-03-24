@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
+import textwrap
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -180,6 +181,60 @@ def _get_client_or_404(db: Session, client_id: str) -> models.Client:
     if not client:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     return client
+
+
+def _pdf_escape(text: str) -> str:
+    normalized = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    return normalized.encode("latin-1", "replace").decode("latin-1")
+
+
+def _build_simple_pdf(lines: list[str]) -> bytes:
+    content_lines = ["BT", "/F1 12 Tf", "50 790 Td", "16 TL"]
+    for line in lines:
+        content_lines.append(f"({_pdf_escape(line)}) Tj")
+        content_lines.append("T*")
+    content_lines.append("ET")
+    content_stream = "\n".join(content_lines).encode("latin-1", "replace")
+
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        f"<< /Length {len(content_stream)} >>\nstream\n".encode("latin-1")
+        + content_stream
+        + b"\nendstream",
+    ]
+
+    pdf = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf.extend(f"{index} 0 obj\n".encode("latin-1"))
+        pdf.extend(obj)
+        pdf.extend(b"\nendobj\n")
+
+    xref_offset = len(pdf)
+    pdf.extend(f"xref\n0 {len(objects) + 1}\n".encode("latin-1"))
+    pdf.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        pdf.extend(f"{offset:010d} 00000 n \n".encode("latin-1"))
+    pdf.extend(
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF".encode(
+            "latin-1"
+        )
+    )
+    return bytes(pdf)
+
+
+def _motivation_for_metrics(log_count: int, attendance_count: int, improvements: int) -> str:
+    if improvements >= 3:
+        return "Gran momento: ya se nota una evolucion clara en varios ejercicios. Segui asi."
+    if log_count >= 12 and attendance_count >= 8:
+        return "Excelente constancia. La disciplina que estas sosteniendo ya esta dando resultados."
+    if log_count >= 6:
+        return "Muy buen avance. Cada registro suma y hace visible el progreso real."
+    return "Buen comienzo. Lo importante es sostener el ritmo y seguir registrando cada entrenamiento."
 
 
 @router.get("/catalog", response_model=list[schemas.RoutineCatalogGroup])
@@ -421,6 +476,140 @@ def client_workout_logs(
         )
         for log in logs
     ]
+
+
+@router.get("/clients/{client_id}/progress-report")
+def client_progress_report(
+    client_id: str,
+    db: Session = Depends(get_db),
+):
+    _ensure_seed_data(db)
+    client = _get_client_or_404(db, client_id)
+
+    logs = (
+        db.query(models.WorkoutLog)
+        .options(joinedload(models.WorkoutLog.day), joinedload(models.WorkoutLog.exercise))
+        .filter(models.WorkoutLog.client_id == client_id)
+        .order_by(models.WorkoutLog.performed_at.asc())
+        .all()
+    )
+    attendance_count = (
+        db.query(models.Attendance)
+        .filter(models.Attendance.client_id == client_id)
+        .count()
+    )
+    latest_payment = (
+        db.query(models.Payment)
+        .filter(models.Payment.client_id == client_id)
+        .order_by(models.Payment.created_at.desc())
+        .first()
+    )
+    settings = db.query(models.AppSettings).first()
+    gym_name = settings.gym_name if settings and settings.gym_name else "Mini Espacio"
+
+    exercise_histories: dict[str, list[models.WorkoutLog]] = defaultdict(list)
+    for log in logs:
+        exercise_histories[log.exercise_id].append(log)
+
+    improvements: list[tuple[str, float, float, float]] = []
+    for history in exercise_histories.values():
+        if len(history) < 2:
+            continue
+        first_weight = history[0].weight_kg or 0
+        last_weight = history[-1].weight_kg or 0
+        delta = last_weight - first_weight
+        if delta > 0:
+          improvements.append(
+              (
+                  history[-1].exercise.name,
+                  first_weight,
+                  last_weight,
+                  delta,
+              )
+          )
+
+    improvements.sort(key=lambda item: item[3], reverse=True)
+    top_improvements = improvements[:3]
+
+    best_log = max(logs, key=lambda item: item.weight_kg, default=None)
+    recent_logs = list(reversed(logs[-5:]))
+    total_volume = sum((log.sets_count or 0) * (log.reps or 0) * log.weight_kg for log in logs)
+    unique_days = len({log.day_id for log in logs})
+    unique_exercises = len(exercise_histories)
+    last_training = logs[-1].performed_at if logs else None
+    motivation = _motivation_for_metrics(len(logs), attendance_count, len(top_improvements))
+
+    lines: list[str] = []
+
+    def add_line(text: str = ""):
+        if not text:
+            lines.append(" ")
+            return
+        wrapped = textwrap.wrap(text, width=82) or [text]
+        lines.extend(wrapped)
+
+    add_line(f"{gym_name} - Reporte de progreso")
+    add_line(f"Cliente: {client.full_name}")
+    add_line(
+        f"Emitido: {now_ar().strftime('%d/%m/%Y %H:%M')}  |  Alta: {client.join_date.strftime('%d/%m/%Y')}"
+    )
+    add_line()
+    add_line("Resumen general")
+    add_line(f"- Registros de rutina: {len(logs)}")
+    add_line(f"- Asistencias acumuladas: {attendance_count}")
+    add_line(f"- Dias entrenados con registros: {unique_days}")
+    add_line(f"- Ejercicios con historial: {unique_exercises}")
+    add_line(f"- Volumen acumulado estimado: {int(total_volume):,}".replace(",", "."))
+    add_line(
+        f"- Ultimo entrenamiento registrado: {last_training.strftime('%d/%m/%Y %H:%M') if last_training else 'Sin registros todavia'}"
+    )
+    add_line(
+        f"- Ultimo pago: {latest_payment.period_month:02d}/{latest_payment.period_year} por ${latest_payment.amount:,.0f}".replace(
+            ",", "."
+        )
+        if latest_payment
+        else "- Ultimo pago: sin pagos registrados"
+    )
+    add_line()
+
+    add_line("Mejor marca actual")
+    if best_log:
+        add_line(
+            f"- {best_log.exercise.name}: {best_log.weight_kg:g} kg el {best_log.performed_at.strftime('%d/%m/%Y')}"
+        )
+    else:
+        add_line("- Aun no hay registros de cargas para mostrar una mejor marca.")
+    add_line()
+
+    add_line("Ejercicios con mejor crecimiento")
+    if top_improvements:
+        for name, start_weight, end_weight, delta in top_improvements:
+            add_line(f"- {name}: de {start_weight:g} kg a {end_weight:g} kg (+{delta:g} kg)")
+    else:
+        add_line("- Todavia no hay suficiente historial para mostrar mejoras comparativas.")
+    add_line()
+
+    add_line("Ultimos avances")
+    if recent_logs:
+        for log in recent_logs:
+            add_line(
+                f"- {log.performed_at.strftime('%d/%m/%Y')}: {log.exercise.name} | {log.weight_kg:g} kg | {log.reps or '-'} reps | {log.sets_count or '-'} series"
+            )
+    else:
+        add_line("- Sin avances cargados todavia.")
+    add_line()
+
+    add_line("Mensaje de aliento")
+    add_line(motivation)
+    add_line("Segui registrando cada entrenamiento: ver el progreso ayuda a sostener la motivacion.")
+
+    pdf_bytes = _build_simple_pdf(lines)
+    filename = f"progreso-{client.full_name.lower().replace(' ', '-')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post(
