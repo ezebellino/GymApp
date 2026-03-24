@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
-import type { Role } from "@/types";
+import type { AppSettings, Role } from "@/types";
 import { searchClients } from "@/services/search";
 import type { Client } from "@/types";
 
@@ -159,6 +159,12 @@ export default function Dashboard() {
   const [submittingCheckin, setSubmittingCheckin] = useState(false);
   const [clientResults, setClientResults] = useState<Client[]>([]);
   const [searchingClients, setSearchingClients] = useState(false);
+  const [paymentQuery, setPaymentQuery] = useState("");
+  const [paymentClientId, setPaymentClientId] = useState("");
+  const [paymentResults, setPaymentResults] = useState<Client[]>([]);
+  const [searchingPayments, setSearchingPayments] = useState(false);
+  const [submittingQuickPayment, setSubmittingQuickPayment] = useState(false);
+  const [defaultFee, setDefaultFee] = useState(30000);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -167,6 +173,35 @@ export default function Dashboard() {
   useEffect(() => {
     setUserName(localStorage.getItem("user_name") || "Usuario");
     setRole((localStorage.getItem("user_role") as Role) || "owner");
+
+    const raw = localStorage.getItem("app_settings");
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as Partial<AppSettings>;
+        setDefaultFee(Number(parsed.default_fee) || 30000);
+      } catch {
+        setDefaultFee(30000);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data } = await api.get<AppSettings>("/settings");
+        if (!cancelled) {
+          setDefaultFee(Number(data?.default_fee) || 30000);
+        }
+      } catch {
+        // Keep local/default fallback
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function refreshCheckinsToday() {
@@ -333,6 +368,28 @@ export default function Dashboard() {
     return () => clearTimeout(timeoutId);
   }, [q]);
 
+  useEffect(() => {
+    const term = paymentQuery.trim();
+    if (!term) {
+      setPaymentResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        setSearchingPayments(true);
+        const data = await searchClients(term);
+        setPaymentResults(data);
+      } catch (error) {
+        console.error("Error buscando clientes para quick payment", error);
+      } finally {
+        setSearchingPayments(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [paymentQuery]);
+
   async function doQuickCheckin(e?: FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!q && !clientId) return;
@@ -361,6 +418,56 @@ export default function Dashboard() {
       );
     } finally {
       setSubmittingCheckin(false);
+    }
+  }
+
+  async function doQuickPayment(e?: FormEvent<HTMLFormElement>) {
+    e?.preventDefault();
+    if (!paymentQuery && !paymentClientId) return;
+
+    const selectedClient =
+      paymentResults.find((client) => client.id === paymentClientId) ??
+      clientResults.find((client) => client.id === paymentClientId);
+    const clientName = selectedClient?.full_name || paymentQuery.trim() || "el cliente";
+
+    setSubmittingQuickPayment(true);
+    try {
+      const now = new Date();
+      await api.post("/payments", {
+        client_id: paymentClientId,
+        amount: defaultFee,
+        method: "cash",
+        method_channel: null,
+        note: "Cobro rapido de cuota mensual",
+        period_month: now.getMonth() + 1,
+        period_year: now.getFullYear(),
+      });
+
+      await loadDashboard();
+      setPaymentQuery("");
+      setPaymentClientId("");
+      setPaymentResults([]);
+
+      try {
+        window.dispatchEvent(
+          new CustomEvent("payments:created", { detail: { client_id: paymentClientId } })
+        );
+      } catch {
+        // no-op
+      }
+
+      await alertSuccessAutoClose(
+        "Pago rapido registrado",
+        `Se cobro la cuota vigente de ${clientName}.`
+      );
+    } catch (error: any) {
+      console.error(error);
+      await alertError(
+        "No se pudo registrar el pago",
+        error?.response?.data?.detail ?? "Revisa si el periodo ya fue cobrado."
+      );
+    } finally {
+      setSubmittingQuickPayment(false);
     }
   }
 
@@ -687,7 +794,8 @@ export default function Dashboard() {
       </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <section className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-5 lg:col-span-1">
+        <div className="space-y-6 lg:col-span-1">
+          <section className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-5">
           <div className="mb-4">
             <h2 className="text-base font-semibold text-zinc-100">
               Check-in rápido
@@ -770,7 +878,94 @@ export default function Dashboard() {
               </Button>
             </div>
           </form>
-        </section>
+          </section>
+
+          <section className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-5">
+            <div className="mb-4">
+              <h2 className="text-base font-semibold text-zinc-100">
+                Pago rápido
+              </h2>
+              <p className="mt-1 text-sm text-zinc-400">
+                Registrá la cuota mensual desde el dashboard usando el valor actual de Ajustes.
+              </p>
+            </div>
+
+            <form className="space-y-3" onSubmit={doQuickPayment}>
+              <div>
+                <label className="text-xs text-zinc-400">Cliente</label>
+                <Input
+                  className="mt-1 border-white/10 bg-zinc-900/70"
+                  placeholder="Buscá por nombre o teléfono"
+                  value={paymentQuery}
+                  onChange={(e) => {
+                    setPaymentQuery(e.target.value);
+                    setPaymentClientId("");
+                  }}
+                />
+
+                {searchingPayments && paymentQuery.trim() ? (
+                  <p className="mt-2 text-xs text-zinc-400">Buscando clientes...</p>
+                ) : null}
+
+                {!searchingPayments && paymentResults.length > 0 && paymentQuery.trim() ? (
+                  <div className="mt-2 max-h-56 overflow-y-auto rounded-2xl border border-white/10 bg-zinc-950/90">
+                    {paymentResults.map((client) => (
+                      <button
+                        key={client.id}
+                        type="button"
+                        onClick={() => {
+                          setPaymentClientId(client.id);
+                          setPaymentQuery(client.full_name ?? "");
+                          setPaymentResults([]);
+                        }}
+                        className="flex w-full justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-white/5"
+                      >
+                        <div className="truncate">
+                          <div className="font-medium">{client.full_name}</div>
+                          <div className="text-xs text-zinc-400">
+                            {client.phone ?? "Sin teléfono"} - {client.email ?? "Sin email"}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {!searchingPayments && paymentResults.length === 0 && paymentQuery.trim() ? (
+                  <p className="mt-2 text-xs text-zinc-500">
+                    No se encontraron clientes para "{paymentQuery.trim()}".
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="rounded-2xl border border-amber-300/15 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03),rgba(249,115,22,0.12))] px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Cuota vigente
+                </p>
+                <p className="mt-1 text-xl font-semibold text-zinc-50">
+                  {nfARS.format(defaultFee)}
+                </p>
+                <p className="mt-1 text-xs text-zinc-400">
+                  Se registra para el mes actual en efectivo.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <span className="text-xs text-zinc-500">
+                  Ideal para cobrar sin entrar a la ficha.
+                </span>
+                <Button
+                  type="submit"
+                  disabled={submittingQuickPayment || !paymentClientId}
+                  className="border border-amber-300/25 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-sm font-medium text-amber-50 hover:opacity-95"
+                >
+                  <CreditCard size={16} className="mr-2" />
+                  {submittingQuickPayment ? "Registrando..." : "Cobrar cuota"}
+                </Button>
+              </div>
+            </form>
+          </section>
+        </div>
 
         <section className="overflow-hidden rounded-[28px] border border-amber-200/10 lg:col-span-2">
           <header className="border-b border-amber-200/10 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.04),rgba(249,115,22,0.14))] px-5 py-4">
