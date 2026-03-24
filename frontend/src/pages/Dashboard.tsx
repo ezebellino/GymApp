@@ -641,7 +641,7 @@ export default function Dashboard() {
                 Centro operativo
               </div>
               <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-                Bienvenido, {displayName}
+                Bienvenido {displayName}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
                 Mini Espacio concentra el seguimiento diario del gimnasio y te

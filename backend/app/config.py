@@ -17,7 +17,9 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = [
         "http://localhost:5173",
         "https://libre-funcional.vercel.app",
-    ]
+        "https://miniespacio.vercel.app"
+        ]
+
 
     # Config Pydantic v2
     model_config = SettingsConfigDict(

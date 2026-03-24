@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarRange, CreditCard, MessageCircle, Search, Wallet } from "lucide-react";
+import { CalendarRange, CreditCard, Eye, MessageCircle, Search, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,6 +98,7 @@ export default function PaymentsPage() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [sendingReminders, setSendingReminders] = useState(false);
+  const [showReminderPreview, setShowReminderPreview] = useState(false);
 
   async function loadReminderTargets() {
     const now = new Date();
@@ -364,6 +365,15 @@ export default function PaymentsPage() {
 
             <div className="flex items-center gap-2">
               <Button
+                onClick={() => setShowReminderPreview((current) => !current)}
+                disabled={reminderTargetsCount === 0}
+                className="border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+                variant="outline"
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                {showReminderPreview ? "Ocultar lista" : "Ver destinatarios"}
+              </Button>
+              <Button
                 onClick={handleBulkReminder}
                 disabled={sendingReminders || reminderTargetsCount === 0}
                 className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
@@ -393,6 +403,38 @@ export default function PaymentsPage() {
         </CardHeader>
 
         <CardContent className="space-y-5 pt-5">
+          {showReminderPreview && (
+            <div className="rounded-2xl border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.06),rgba(255,255,255,0.02)_50%,rgba(249,115,22,0.07))] p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-zinc-100">
+                    Destinatarios del recordatorio mensual
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Se enviará a clientes activos con WhatsApp cargado y cuota pendiente del mes.
+                  </p>
+                </div>
+                <p className="text-xs uppercase tracking-[0.18em] text-amber-100/80">
+                  {reminderTargetsCount} pendiente{reminderTargetsCount === 1 ? "" : "s"}
+                </p>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {pendingClients.map((client) => (
+                  <div
+                    key={client.id}
+                    className="rounded-xl border border-white/10 bg-black/10 px-4 py-3"
+                  >
+                    <p className="font-medium text-zinc-100">{client.full_name}</p>
+                    <p className="mt-1 text-sm text-zinc-400">
+                      {client.phone || "Sin WhatsApp"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="overflow-hidden rounded-2xl border border-amber-200/10">
             <table className="w-full text-sm">
               <thead className="bg-zinc-900/70">
