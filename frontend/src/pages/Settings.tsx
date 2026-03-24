@@ -30,6 +30,7 @@ const LS_KEY = "app_settings";
 const DEFAULT_SETTINGS: AppSettings = {
   gym_name: "Mini Espacio",
   admin_name: "Fabian Aguirre (Manga)",
+  theme_preference: "dark-gold",
   currency: "ARS",
   default_fee: 30000,
   address: "Av. San Martin 325 - Dolores",
@@ -68,6 +69,7 @@ function normalizeSettings(settings: AppSettings): AppSettings {
       settings.payment_alias === "LIBRE.FUNCIONAL.GYM"
         ? "MINI.ESPACIO.GYM"
         : settings.payment_alias,
+    theme_preference: settings.theme_preference || "dark-gold",
     payment_reminder_message:
       settings.payment_reminder_message ||
       DEFAULT_SETTINGS.payment_reminder_message,
@@ -154,6 +156,8 @@ export default function SettingsPage() {
         const { data } = await api.get<AppSettings>("/settings");
         const next = normalizeSettings({ ...DEFAULT_SETTINGS, ...data });
         setSettings(next);
+        setThemeId(next.theme_preference || "dark-gold");
+        applyTheme((next.theme_preference || "dark-gold") as AppThemeId);
         localStorage.setItem(LS_KEY, JSON.stringify(next));
       } catch {
         const raw = localStorage.getItem(LS_KEY);
@@ -179,6 +183,7 @@ export default function SettingsPage() {
 
   function handleThemeChange(nextTheme: AppThemeId) {
     setThemeId(nextTheme);
+    updateField("theme_preference", nextTheme);
     applyTheme(nextTheme);
   }
 
@@ -189,6 +194,7 @@ export default function SettingsPage() {
       const { data } = await api.put<AppSettings>("/settings", payload);
       const next = normalizeSettings({ ...DEFAULT_SETTINGS, ...data });
       setSettings(next);
+      setThemeId((next.theme_preference || "dark-gold") as AppThemeId);
       localStorage.setItem(LS_KEY, JSON.stringify(next));
       window.dispatchEvent(new Event("app-settings:updated"));
       await alertSuccess("Listo", "Configuración guardada.");

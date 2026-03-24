@@ -4,7 +4,7 @@ import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { getStoredTheme, applyTheme } from "./lib/theme";
+import { syncThemeFromSettings } from "./lib/theme";
 import "./index.css";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -32,7 +32,19 @@ export default function App() {
   const isAuthRoute = location.pathname.startsWith("/login");
 
   useEffect(() => {
-    applyTheme(getStoredTheme());
+    syncThemeFromSettings();
+
+    const handleThemeUpdate = () => {
+      syncThemeFromSettings();
+    };
+
+    window.addEventListener("app-settings:updated", handleThemeUpdate);
+    window.addEventListener("app-theme:updated", handleThemeUpdate);
+
+    return () => {
+      window.removeEventListener("app-settings:updated", handleThemeUpdate);
+      window.removeEventListener("app-theme:updated", handleThemeUpdate);
+    };
   }, []);
 
   return (

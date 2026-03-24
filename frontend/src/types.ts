@@ -30,6 +30,7 @@ export type Attendance = {
 export type AppSettings = {
   gym_name: string;
   admin_name: string | null;
+  theme_preference: "dark-gold" | "dark-copper" | "dark-olive" | null;
   currency: string;
   default_fee: number;
   address: string | null;

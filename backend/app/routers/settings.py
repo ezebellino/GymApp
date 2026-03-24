@@ -10,6 +10,7 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 DEFAULTS = SettingsBase(
     gym_name="Mini Espacio",
     admin_name="Fabian Aguirre (Manga)",
+    theme_preference="dark-gold",
     currency="ARS",
     default_fee=30000,
     address="Av. San Martin 325 - Dolores",
@@ -35,6 +36,8 @@ def _apply_brand_refresh(settings: AppSettings) -> AppSettings:
         updates["gym_name"] = DEFAULTS.gym_name
     if not settings.admin_name:
         updates["admin_name"] = DEFAULTS.admin_name
+    if not settings.theme_preference:
+        updates["theme_preference"] = DEFAULTS.theme_preference
     if settings.contact_email == "owner@librefuncional.com":
         updates["contact_email"] = DEFAULTS.contact_email
     if settings.payment_alias == "LIBRE.FUNCIONAL.GYM":

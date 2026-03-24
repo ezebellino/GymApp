@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator, fi
 
 
 Role = Literal["owner", "coach"]
+ThemePreference = Literal["dark-gold", "dark-copper", "dark-olive"]
 
 
 class BaseSchema(BaseModel):
@@ -284,6 +285,7 @@ class RoutineDayProgress(BaseSchema):
 class SettingsBase(BaseSchema):
     gym_name: Annotated[str, Field(min_length=1, max_length=100)]
     admin_name: Optional[Annotated[str, Field(max_length=120)]] = None
+    theme_preference: Optional[ThemePreference] = "dark-gold"
     currency: Annotated[str, Field(min_length=1, max_length=10)]
     default_fee: Annotated[Decimal, Field(ge=0)]
     address: Optional[Annotated[str, Field(max_length=200)]] = None
@@ -341,6 +343,7 @@ class Settings(SettingsBase):
 class SettingsUpdate(BaseSchema):
     gym_name: Optional[Annotated[str, Field(min_length=1, max_length=100)]] = None
     admin_name: Optional[Annotated[str, Field(max_length=120)]] = None
+    theme_preference: Optional[ThemePreference] = None
     currency: Optional[Annotated[str, Field(min_length=1, max_length=10)]] = None
     default_fee: Optional[Annotated[Decimal, Field(ge=0)]] = None
     address: Optional[Annotated[str, Field(max_length=200)]] = None

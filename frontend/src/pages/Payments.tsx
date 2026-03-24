@@ -40,6 +40,7 @@ type Payment = {
 const DEFAULT_SETTINGS: AppSettings = {
   gym_name: "Mini Espacio",
   admin_name: "Fabian Aguirre (Manga)",
+  theme_preference: "dark-gold",
   currency: "ARS",
   default_fee: 30000,
   address: "",

@@ -6,6 +6,7 @@ const SETTINGS_KEY = "app_settings";
 const DEFAULT_SETTINGS: AppSettings = {
   gym_name: "Mini Espacio",
   admin_name: "Fabian Aguirre (Manga)",
+  theme_preference: "dark-gold",
   currency: "ARS",
   default_fee: 30000,
   address: "",
@@ -48,6 +49,7 @@ export default function Footer() {
         settings.payment_alias === "LIBRE.FUNCIONAL.GYM"
           ? "MINI.ESPACIO.GYM"
           : settings.payment_alias,
+      theme_preference: settings.theme_preference || "dark-gold",
       onboarding_message:
         settings.onboarding_message ===
         "Bienvenido a Libre Funcional. Ante dudas sobre pagos o asistencias, consulta en recepcion."
