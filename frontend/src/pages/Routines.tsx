@@ -13,6 +13,7 @@ import {
   Scale,
   Settings2,
   Target,
+  Trash2,
   UserPen,
   UserRound,
 } from "lucide-react";
@@ -29,7 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
+import { alertError, alertSuccessAutoClose, confirmAction } from "@/lib/alerts";
 import {
   Bar,
   BarChart,
@@ -143,6 +144,7 @@ export default function RoutinesPage() {
   );
   const [savingExerciseManager, setSavingExerciseManager] = useState(false);
   const [savingLogEdit, setSavingLogEdit] = useState(false);
+  const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
   const [metricsExerciseId, setMetricsExerciseId] = useState("");
 
   const selectedDay = useMemo(
@@ -580,6 +582,40 @@ export default function RoutinesPage() {
       );
     } finally {
       setSavingLogEdit(false);
+    }
+  }
+
+  async function deleteLog(log: WorkoutLog) {
+    if (!selectedClientId) return;
+
+    const result = await confirmAction(
+      "Eliminar avance",
+      `Se eliminara el registro de ${log.exercise_name} del ${formatDateTime(log.performed_at)}.`
+    );
+
+    if (!result.isConfirmed) return;
+
+    setDeletingLogId(log.id);
+    try {
+      await api.delete(`/routines/clients/${selectedClientId}/logs/${log.id}`);
+      await refreshSelectedClientData();
+      setEditLogOpen(false);
+      if (editingLog?.id === log.id) {
+        setEditingLog(null);
+        setEditLogDraft(emptyDraft());
+      }
+      await alertSuccessAutoClose(
+        "Registro eliminado",
+        "El avance ya no forma parte del historial."
+      );
+    } catch (error) {
+      console.error("Error eliminando avance", error);
+      await alertError(
+        "No se pudo eliminar el avance",
+        "Intenta nuevamente en unos segundos."
+      );
+    } finally {
+      setDeletingLogId(null);
     }
   }
 
@@ -1259,15 +1295,27 @@ export default function RoutinesPage() {
                         </td>
                         <td className="px-4 py-3 text-zinc-400">{log.note || "-"}</td>
                         <td className="px-4 py-3 text-right">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => openEditLogDialog(log)}
-                            className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
-                          >
-                            <PencilLine className="mr-2 h-4 w-4" />
-                            Editar
-                          </Button>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => openEditLogDialog(log)}
+                              className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+                            >
+                              <PencilLine className="mr-2 h-4 w-4" />
+                              Editar
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => deleteLog(log)}
+                              disabled={deletingLogId === log.id}
+                              className="border-red-500/20 bg-red-500/8 text-red-100 hover:bg-red-500/15 disabled:opacity-60"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              {deletingLogId === log.id ? "Eliminando..." : "Eliminar"}
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1360,6 +1408,16 @@ export default function RoutinesPage() {
           </div>
 
           <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => editingLog && deleteLog(editingLog)}
+              disabled={savingLogEdit || !editingLog || deletingLogId === editingLog.id}
+              className="mr-auto border-red-500/20 bg-red-500/8 text-red-100 hover:bg-red-500/15 disabled:opacity-60"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {editingLog && deletingLogId === editingLog.id ? "Eliminando..." : "Eliminar"}
+            </Button>
             <Button
               type="button"
               variant="outline"

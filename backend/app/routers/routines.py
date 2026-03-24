@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session, joinedload
 
 from .. import models, schemas
@@ -548,3 +548,28 @@ def update_workout_log(
         note=log.note,
         performed_at=log.performed_at,
     )
+
+
+@router.delete("/clients/{client_id}/logs/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_workout_log(
+    client_id: str,
+    log_id: str,
+    db: Session = Depends(get_db),
+):
+    _ensure_seed_data(db)
+    _get_client_or_404(db, client_id)
+
+    log = (
+        db.query(models.WorkoutLog)
+        .filter(
+            models.WorkoutLog.id == log_id,
+            models.WorkoutLog.client_id == client_id,
+        )
+        .first()
+    )
+    if not log:
+        raise HTTPException(status_code=404, detail="Registro de rutina no encontrado")
+
+    db.delete(log)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
