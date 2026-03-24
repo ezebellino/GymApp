@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarRange, CreditCard, Search, Wallet } from "lucide-react";
+import { CalendarRange, CreditCard, MessageCircle, Search, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import api from "@/lib/http";
 import { useLocation } from "react-router-dom";
+import { alertInfo, alertSuccessAutoClose, confirmAction } from "@/lib/alerts";
+import type { AppSettings } from "@/types";
 
 type PaymentClient = {
   id: string;
   full_name: string;
   email?: string | null;
   phone?: string | null;
+  is_active?: boolean;
 };
 
 type Payment = {
@@ -24,6 +27,24 @@ type Payment = {
   period_month: number;
   period_year: number;
   created_at: string;
+};
+
+const DEFAULT_SETTINGS: AppSettings = {
+  gym_name: "Mini Espacio",
+  admin_name: "Fabian Aguirre (Manga)",
+  currency: "ARS",
+  default_fee: 30000,
+  address: "",
+  contact_email: "",
+  contact_phone: "",
+  whatsapp_phone: "",
+  business_hours: "",
+  payment_alias: "MINI.ESPACIO.GYM",
+  payment_notes: "",
+  late_fee_grace_days: 5,
+  allow_cash: true,
+  allow_transfer: true,
+  onboarding_message: "",
 };
 
 const nfARS = new Intl.NumberFormat("es-AR", {
@@ -70,10 +91,40 @@ export default function PaymentsPage() {
   const location = useLocation();
   const [q, setQ] = useState<string>("");
   const [items, setItems] = useState<Payment[]>([]);
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [pendingClients, setPendingClients] = useState<PaymentClient[]>([]);
   const [total, setTotal] = useState(0);
   const [limit] = useState(20);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [sendingReminders, setSendingReminders] = useState(false);
+
+  async function loadReminderTargets() {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+
+    const [clientsResp, paymentsResp] = await Promise.all([
+      api.get<PaymentClient[]>("/clients", { params: { limit: 200, offset: 0 } }),
+      api.get<Payment[]>("/payments", { params: { limit: 200, offset: 0 } }),
+    ]);
+
+    const paidClientIds = new Set(
+      (paymentsResp.data || [])
+        .filter((payment) => payment.period_month === month && payment.period_year === year)
+        .map((payment) => payment.client_id)
+    );
+
+    const clients = clientsResp.data || [];
+    setPendingClients(
+      clients.filter(
+        (client) =>
+          client.is_active !== false &&
+          !!client.phone &&
+          !paidClientIds.has(client.id)
+      )
+    );
+  }
 
   async function loadWith(paramsIn: {
     q?: string;
@@ -90,10 +141,41 @@ export default function PaymentsPage() {
         (headers["x-total-count"] as string) ??
         ((headers["X-Total-Count"] as unknown) as string);
       setTotal(totalHeader ? Number(totalHeader) : data.length);
+      await loadReminderTargets();
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    const raw = localStorage.getItem("app_settings");
+    if (raw) {
+      try {
+        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
+      } catch {
+        setSettings(DEFAULT_SETTINGS);
+      }
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data } = await api.get<AppSettings>("/settings");
+        if (!cancelled) {
+          const next = { ...DEFAULT_SETTINGS, ...data };
+          setSettings(next);
+          localStorage.setItem("app_settings", JSON.stringify(next));
+        }
+      } catch {
+        // Keep local fallback
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const sp = new URLSearchParams(location.search);
@@ -142,6 +224,55 @@ export default function PaymentsPage() {
   const transferCount = rows.filter(
     (payment) => payment.method === "transfer"
   ).length;
+  const reminderTargetsCount = pendingClients.length;
+
+  function buildReminderLink(client: PaymentClient) {
+    const digits = (client.phone || "").replace(/\D/g, "");
+    const normalizedPhone = digits.startsWith("54") ? digits : `54${digits}`;
+    const amount = nfARS.format(settings.default_fee);
+    const toleranceLabel = `${settings.late_fee_grace_days} día${settings.late_fee_grace_days === 1 ? "" : "s"}`;
+    const transferText = settings.payment_alias
+      ? ` Podés transferir al alias ${settings.payment_alias}.`
+      : "";
+    const message = encodeURIComponent(
+      `Hola ${client.full_name}, te recordamos con cariño la cuota mensual de ${settings.gym_name}. El valor actual es ${amount} y contamos con ${toleranceLabel} de tolerancia para abonarla.${transferText} Si ya pagaste, podés ignorar este mensaje. ¡Gracias!`
+    );
+    return `https://wa.me/${normalizedPhone}?text=${message}`;
+  }
+
+  async function handleBulkReminder() {
+    if (pendingClients.length === 0) {
+      await alertInfo(
+        "Sin recordatorios pendientes",
+        "No hay clientes con WhatsApp cargado y cuota pendiente para este mes."
+      );
+      return;
+    }
+
+    const result = await confirmAction(
+      "Enviar recordatorios de pago",
+      `Se abrirán ${pendingClients.length} chat${pendingClients.length === 1 ? "" : "s"} de WhatsApp con el mensaje del mes.`
+    );
+
+    if (!result.isConfirmed) return;
+
+    setSendingReminders(true);
+    try {
+      pendingClients.forEach((client, index) => {
+        window.setTimeout(() => {
+          window.open(buildReminderLink(client), "_blank", "noopener,noreferrer");
+        }, index * 220);
+      });
+
+      await alertSuccessAutoClose(
+        "Recordatorios preparados",
+        `Se abrieron ${pendingClients.length} chat${pendingClients.length === 1 ? "" : "s"} con el mensaje mensual.`,
+        1500
+      );
+    } finally {
+      setSendingReminders(false);
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -172,6 +303,14 @@ export default function PaymentsPage() {
             </div>
             <div className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.05),rgba(249,115,22,0.12))] p-4 text-sm text-amber-50">
               Esta pagina muestra {rows.length} movimiento{rows.length === 1 ? "" : "s"} cargado{rows.length === 1 ? "" : "s"}.
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-zinc-300">
+              <p className="font-medium text-zinc-100">
+                {reminderTargetsCount} cliente{reminderTargetsCount === 1 ? "" : "s"} pendiente{reminderTargetsCount === 1 ? "" : "s"} con WhatsApp
+              </p>
+              <p className="mt-1 text-zinc-400">
+                Mensaje mensual con cuota {nfARS.format(settings.default_fee)}, {settings.late_fee_grace_days} días de tolerancia y alias {settings.payment_alias || "no definido"}.
+              </p>
             </div>
           </div>
         </div>
@@ -224,6 +363,15 @@ export default function PaymentsPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              <Button
+                onClick={handleBulkReminder}
+                disabled={sendingReminders || reminderTargetsCount === 0}
+                className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                variant="outline"
+              >
+                <MessageCircle className="mr-2 h-4 w-4" />
+                {sendingReminders ? "Abriendo chats..." : "Recordatorio mensual"}
+              </Button>
               <Button
                 variant="outline"
                 disabled={offset === 0 || loading}
