@@ -6,7 +6,7 @@ const SETTINGS_KEY = "app_settings";
 const DEFAULT_SETTINGS: AppSettings = {
   gym_name: "Mini Espacio",
   currency: "ARS",
-  default_fee: 24000,
+  default_fee: 30000,
   address: "",
   contact_email: "",
   contact_phone: "",

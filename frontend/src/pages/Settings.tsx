@@ -23,7 +23,7 @@ const LS_KEY = "app_settings";
 const DEFAULT_SETTINGS: AppSettings = {
   gym_name: "Mini Espacio",
   currency: "ARS",
-  default_fee: 24000,
+  default_fee: 30000,
   address: "Av. San Martin 325 - Dolores",
   contact_email: "owner@miniespacio.com",
   contact_phone: "11 5555 5555",

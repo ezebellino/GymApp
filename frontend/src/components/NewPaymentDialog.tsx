@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/http";
 import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
+import type { AppSettings } from "@/types";
 
 type Props = {
   open: boolean;
@@ -40,12 +41,39 @@ export default function NewPaymentDialog({
 
   useEffect(() => {
     if (!open) return;
-    setAmount(defaultFee);
     setMethod("cash");
     setMethodChannel("");
     setPeriodMonth(now.getMonth() + 1);
     setPeriodYear(now.getFullYear());
     setNote("");
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get<AppSettings>("/settings");
+        if (!cancelled) {
+          setAmount(Number(data?.default_fee) || defaultFee);
+        }
+      } catch {
+        if (!cancelled) {
+          const raw = localStorage.getItem("app_settings");
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              setAmount(Number(parsed?.default_fee) || defaultFee);
+              return;
+            } catch {
+              // ignore parse error and use prop fallback
+            }
+          }
+          setAmount(defaultFee);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [defaultFee, now, open]);
 
   async function handleCreate() {

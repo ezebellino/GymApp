@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BadgeCheck, CalendarClock, Mail, Phone, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Client, Payment, Role } from "@/types";
+import type { AppSettings, Client, Payment, Role } from "@/types";
 import NewPaymentDialog from "./NewPaymentDialog";
 import AttendanceCalendar from "./AttendanceCalendar";
 import LastPayments from "./LastPayments";
 import EditClientDialog from "./EditClientDialog";
+import api from "@/lib/http";
+import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
 
 type Props = {
   viewerRole: Role;
@@ -40,6 +42,69 @@ export default function UserCard({
 
   const [openPayment, setOpenPayment] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
+  const [defaultFee, setDefaultFee] = useState(30000);
+  const [quickPaying, setQuickPaying] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data } = await api.get<AppSettings>("/settings");
+        if (!cancelled) {
+          setDefaultFee(Number(data?.default_fee) || 30000);
+        }
+      } catch {
+        const raw = localStorage.getItem("app_settings");
+        if (!raw || cancelled) return;
+        try {
+          const parsed = JSON.parse(raw);
+          if (!cancelled) {
+            setDefaultFee(Number(parsed?.default_fee) || 30000);
+          }
+        } catch {
+          // ignore parse errors
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleQuickPayment() {
+    setQuickPaying(true);
+    try {
+      const now = new Date();
+      await api.post("/payments", {
+        client_id: client.id,
+        amount: defaultFee,
+        method: "cash",
+        method_channel: null,
+        note: "Cobro rapido de cuota mensual",
+        period_month: now.getMonth() + 1,
+        period_year: now.getFullYear(),
+      });
+
+      onRefresh?.();
+      window.dispatchEvent(
+        new CustomEvent("payments:created", { detail: { client_id: client.id } })
+      );
+
+      await alertSuccessAutoClose(
+        "Pago rapido registrado",
+        `Se cobro la cuota vigente de ${client.full_name}.`
+      );
+    } catch (error: any) {
+      await alertError(
+        "No se pudo crear el pago rapido",
+        error?.response?.data?.detail ?? "Revisa si el periodo ya fue cobrado."
+      );
+    } finally {
+      setQuickPaying(false);
+    }
+  }
 
   return (
     <Card className="overflow-hidden rounded-[28px] border-amber-200/10 bg-[#0d0b0a]/92 shadow-[0_24px_80px_-50px_rgba(249,115,22,0.55)]">
@@ -172,6 +237,15 @@ export default function UserCard({
 
           <Button
             size="sm"
+            className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
+            onClick={handleQuickPayment}
+            disabled={quickPaying}
+          >
+            {quickPaying ? "Cobrando..." : `Cobro rapido $${defaultFee.toLocaleString("es-AR")}`}
+          </Button>
+
+          <Button
+            size="sm"
             variant="ghost"
             className="text-zinc-100 hover:bg-white/[0.06]"
             onClick={() => onAction?.("viewHistory", client)}
@@ -186,6 +260,7 @@ export default function UserCard({
         onOpenChange={setOpenPayment}
         clientId={client.id}
         clientName={client.full_name}
+        defaultFee={defaultFee}
         onSuccess={onRefresh}
       />
       <EditClientDialog
