@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { BadgeCheck, CalendarClock, Download, Mail, Phone, Wallet } from "lucide-react";
+import {
+  BadgeCheck,
+  CalendarClock,
+  Download,
+  Mail,
+  MessageCircle,
+  Phone,
+  Wallet,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +17,7 @@ import AttendanceCalendar from "./AttendanceCalendar";
 import LastPayments from "./LastPayments";
 import EditClientDialog from "./EditClientDialog";
 import api from "@/lib/http";
-import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
+import { alertError, alertInfo, alertSuccessAutoClose } from "@/lib/alerts";
 
 type Props = {
   viewerRole: Role;
@@ -45,6 +53,7 @@ export default function UserCard({
   const [defaultFee, setDefaultFee] = useState(30000);
   const [quickPaying, setQuickPaying] = useState(false);
   const [downloadingReport, setDownloadingReport] = useState(false);
+  const [sharingReport, setSharingReport] = useState(false);
   const [quickPaymentMethod, setQuickPaymentMethod] = useState<"cash" | "transfer">("cash");
 
   useEffect(() => {
@@ -108,23 +117,33 @@ export default function UserCard({
     }
   }
 
+  async function fetchProgressReport() {
+    const response = await api.get(`/routines/clients/${client.id}/progress-report`, {
+      responseType: "blob",
+    });
+
+    const blob = new Blob([response.data], { type: "application/pdf" });
+    const safeName = client.full_name.toLowerCase().replace(/\s+/g, "-");
+    const filename = `progreso-${safeName}.pdf`;
+    return { blob, filename };
+  }
+
+  function downloadBlob(blob: Blob, filename: string) {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  }
+
   async function handleDownloadProgressReport() {
     setDownloadingReport(true);
     try {
-      const response = await api.get(`/routines/clients/${client.id}/progress-report`, {
-        responseType: "blob",
-      });
-
-      const blob = new Blob([response.data], { type: "application/pdf" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      const safeName = client.full_name.toLowerCase().replace(/\s+/g, "-");
-      link.href = url;
-      link.download = `progreso-${safeName}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      const { blob, filename } = await fetchProgressReport();
+      downloadBlob(blob, filename);
 
       await alertSuccessAutoClose(
         "PDF listo",
@@ -137,6 +156,63 @@ export default function UserCard({
       );
     } finally {
       setDownloadingReport(false);
+    }
+  }
+
+  async function handleShareProgressReport() {
+    if (!client.phone) {
+      await alertInfo(
+        "Falta WhatsApp",
+        "Este cliente no tiene telefono cargado para compartirle el reporte."
+      );
+      return;
+    }
+
+    setSharingReport(true);
+    try {
+      const { blob, filename } = await fetchProgressReport();
+      const message =
+        `Hola ${client.full_name}, te compartimos tu reporte de progreso de Mini Espacio. ` +
+        `Segui asi, tu constancia ya esta mostrando resultados.`;
+
+      const file = new File([blob], filename, { type: "application/pdf" });
+      const canNativeShare =
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function" &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [file] });
+
+      if (canNativeShare) {
+        await navigator.share({
+          title: `Progreso de ${client.full_name}`,
+          text: message,
+          files: [file],
+        });
+        await alertSuccessAutoClose(
+          "Reporte compartido",
+          `Se abrio el flujo para enviarle el PDF a ${client.full_name}.`
+        );
+        return;
+      }
+
+      downloadBlob(blob, filename);
+
+      const digits = client.phone.replace(/\D/g, "");
+      const normalizedPhone = digits.startsWith("54") ? digits : `54${digits}`;
+      const whatsappUrl = `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+
+      await alertInfo(
+        "PDF listo para compartir",
+        "Descargamos el reporte y abrimos WhatsApp con el mensaje preparado. En algunos navegadores el archivo se adjunta manualmente."
+      );
+    } catch (error: any) {
+      await alertError(
+        "No se pudo preparar el reporte",
+        error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos."
+      );
+    } finally {
+      setSharingReport(false);
     }
   }
 
@@ -324,6 +400,17 @@ export default function UserCard({
           >
             <Download className="mr-2 h-4 w-4" />
             {downloadingReport ? "Generando PDF..." : "PDF progreso"}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-emerald-500/20 bg-emerald-500/8 text-emerald-100 hover:bg-emerald-500/15 disabled:opacity-60"
+            onClick={handleShareProgressReport}
+            disabled={sharingReport || !client.phone}
+          >
+            <MessageCircle className="mr-2 h-4 w-4" />
+            {sharingReport ? "Preparando..." : "WhatsApp progreso"}
           </Button>
         </div>
       </CardContent>
