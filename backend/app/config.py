@@ -2,7 +2,6 @@
 from pathlib import Path
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
 
 # Ruta del .env: backend/.env (subimos 1 nivel desde app/)
 ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
@@ -29,7 +28,7 @@ class Settings(BaseSettings):
     )
 
 try:
-    settings = Settings()
+    settings = Settings()  # pyright: ignore[reportCallIssue]
 except ValidationError as e:
     # Mostramos el error claramente (cuáles variables faltan)
     print(f"[CONFIG] Error al cargar variables desde {ENV_PATH}:")
