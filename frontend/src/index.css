@@ -5,6 +5,39 @@
   :root {
     --background: oklch(0.16 0.01 70);
     --foreground: oklch(0.96 0.01 80);
+    --theme-accent-start: 250 204 21;
+    --theme-accent-mid: 255 247 237;
+    --theme-accent-end: 249 115 22;
+    --theme-body-start: #090909;
+    --theme-body-mid: #111111;
+    --theme-body-end: #17120d;
+    --theme-shell-start: #0b0b0b;
+    --theme-shell-mid: #12100d;
+    --theme-shell-end: #1b140e;
+  }
+
+  :root[data-theme="dark-copper"] {
+    --theme-accent-start: 251 146 60;
+    --theme-accent-mid: 245 235 220;
+    --theme-accent-end: 180 83 9;
+    --theme-body-start: #0b0908;
+    --theme-body-mid: #14100d;
+    --theme-body-end: #211712;
+    --theme-shell-start: #0c0a09;
+    --theme-shell-mid: #17110d;
+    --theme-shell-end: #241714;
+  }
+
+  :root[data-theme="dark-olive"] {
+    --theme-accent-start: 163 230 53;
+    --theme-accent-mid: 245 245 220;
+    --theme-accent-end: 217 119 6;
+    --theme-body-start: #080908;
+    --theme-body-mid: #11130f;
+    --theme-body-end: #171b12;
+    --theme-shell-start: #0a0b09;
+    --theme-shell-mid: #12140f;
+    --theme-shell-end: #1a1d13;
   }
 
   html,
@@ -15,12 +48,13 @@
 
   body {
     background:
-      radial-gradient(circle at top left, rgba(251, 191, 36, 0.1), transparent 30%),
-      radial-gradient(circle at top right, rgba(249, 115, 22, 0.08), transparent 32%),
-      linear-gradient(180deg, #090909 0%, #111111 52%, #17120d 100%);
+      radial-gradient(circle at top left, rgba(var(--theme-accent-start), 0.1), transparent 30%),
+      radial-gradient(circle at top right, rgba(var(--theme-accent-end), 0.08), transparent 32%),
+      linear-gradient(180deg, var(--theme-body-start) 0%, var(--theme-body-mid) 52%, var(--theme-body-end) 100%);
     color: var(--foreground);
     font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    transition: background 220ms ease, color 220ms ease;
   }
 
   .dark {
@@ -34,25 +68,30 @@
     @apply border border-white/10 bg-zinc-950/65 backdrop-blur-xl;
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.03),
-      0 24px 70px -42px rgba(249, 115, 22, 0.32);
+      0 24px 70px -42px rgba(var(--theme-accent-end), 0.32);
   }
 
   .warm-glow {
-    box-shadow: 0 18px 60px -34px rgba(251, 191, 36, 0.35);
+    box-shadow: 0 18px 60px -34px rgba(var(--theme-accent-start), 0.35);
   }
 
   .warm-border {
     border-image: linear-gradient(
         90deg,
-        rgba(250, 204, 21, 0.5),
+        rgba(var(--theme-accent-start), 0.5),
         rgba(255, 255, 255, 0.35),
-        rgba(249, 115, 22, 0.45)
+        rgba(var(--theme-accent-end), 0.45)
       )
       1;
   }
 
   .warm-accent-text {
-    background-image: linear-gradient(90deg, #facc15 0%, #fff7ed 48%, #f97316 100%);
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--theme-accent-start)) 0%,
+      rgb(var(--theme-accent-mid)) 48%,
+      rgb(var(--theme-accent-end)) 100%
+    );
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -61,14 +100,38 @@
   .warm-accent-bg {
     background-image: linear-gradient(
       90deg,
-      rgba(250, 204, 21, 0.22),
+      rgba(var(--theme-accent-start), 0.22),
       rgba(255, 255, 255, 0.08),
-      rgba(249, 115, 22, 0.22)
+      rgba(var(--theme-accent-end), 0.22)
+    );
+  }
+
+  .app-shell-bg {
+    background: rgb(11 11 11);
+  }
+
+  .app-main-shell-bg {
+    background:
+      radial-gradient(circle at top, rgba(var(--theme-accent-start), 0.08), transparent 20%),
+      linear-gradient(
+        180deg,
+        var(--theme-shell-start) 0%,
+        var(--theme-shell-mid) 54%,
+        var(--theme-shell-end) 100%
+      );
+  }
+
+  .theme-chip {
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--theme-accent-start)) 0%,
+      rgb(var(--theme-accent-mid)) 48%,
+      rgb(var(--theme-accent-end)) 100%
     );
   }
 
   .warm-scrollbar {
-    scrollbar-color: rgba(251, 191, 36, 0.5) rgba(255, 255, 255, 0.05);
+    scrollbar-color: rgba(var(--theme-accent-start), 0.5) rgba(255, 255, 255, 0.05);
     scrollbar-width: thin;
   }
 
@@ -85,9 +148,9 @@
   .warm-scrollbar::-webkit-scrollbar-thumb {
     background: linear-gradient(
       180deg,
-      rgba(250, 204, 21, 0.8),
+      rgba(var(--theme-accent-start), 0.8),
       rgba(255, 247, 237, 0.7),
-      rgba(249, 115, 22, 0.75)
+      rgba(var(--theme-accent-end), 0.75)
     );
     border: 2px solid rgba(12, 11, 10, 0.72);
     border-radius: 9999px;

@@ -17,6 +17,13 @@ import { Input } from "@/components/ui/input";
 import api from "@/lib/http";
 import type { AppSettings, Role } from "@/types";
 import { alertError, alertSuccess } from "@/lib/alerts";
+import {
+  APP_THEMES,
+  applyTheme,
+  DEFAULT_THEME_ID,
+  getStoredTheme,
+  type AppThemeId,
+} from "@/lib/theme";
 
 const LS_KEY = "app_settings";
 
@@ -131,6 +138,7 @@ function ToggleCard({
 export default function SettingsPage() {
   const [role, setRole] = useState<Role>("coach");
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [themeId, setThemeId] = useState<AppThemeId>(DEFAULT_THEME_ID);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -139,6 +147,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const storedRole = (localStorage.getItem("user_role") as Role) || "coach";
     setRole(storedRole);
+    setThemeId(getStoredTheme());
 
     (async () => {
       try {
@@ -166,6 +175,11 @@ export default function SettingsPage() {
       ...current,
       [key]: value,
     }));
+  }
+
+  function handleThemeChange(nextTheme: AppThemeId) {
+    setThemeId(nextTheme);
+    applyTheme(nextTheme);
   }
 
   async function save() {
@@ -557,6 +571,63 @@ export default function SettingsPage() {
                   Esta configuracion afecta lo que el equipo consulta para cobrar,
                   responder dudas y sostener la experiencia diaria del gimnasio.
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-[28px] border-amber-200/10 bg-white/[0.035] backdrop-blur-xl">
+            <CardHeader className="border-b border-amber-200/10 pb-4">
+              <CardTitle className="text-zinc-100">Tema visual</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              <p className="text-sm leading-6 text-zinc-400">
+                Elegi una paleta cerrada para mantener la app consistente. Por ahora
+                este cambio se guarda solo en este dispositivo.
+              </p>
+
+              <div className="space-y-3">
+                {APP_THEMES.map((theme) => {
+                  const isActive = theme.id === themeId;
+
+                  return (
+                    <button
+                      key={theme.id}
+                      type="button"
+                      onClick={() => handleThemeChange(theme.id)}
+                      className={`w-full rounded-[24px] border px-4 py-4 text-left transition ${
+                        isActive
+                          ? "border-amber-300/25 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(255,247,237,0.04),rgba(249,115,22,0.14))]"
+                          : "border-white/10 bg-white/[0.03] hover:bg-white/[0.05]"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-zinc-100">{theme.name}</p>
+                          <p className="mt-1 text-sm leading-6 text-zinc-400">
+                            {theme.description}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="h-3 w-8 rounded-full"
+                            style={{
+                              backgroundImage: `linear-gradient(90deg, ${theme.preview.start} 0%, ${theme.preview.mid} 48%, ${theme.preview.end} 100%)`,
+                            }}
+                          />
+                          <span
+                            className={`rounded-full border px-2 py-1 text-[11px] uppercase tracking-[0.18em] ${
+                              isActive
+                                ? "border-amber-300/20 bg-amber-300/10 text-amber-100"
+                                : "border-white/10 bg-black/10 text-zinc-400"
+                            }`}
+                          >
+                            {isActive ? "Activo" : theme.shortName}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
