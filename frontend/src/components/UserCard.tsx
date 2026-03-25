@@ -23,7 +23,7 @@ import AttendanceCalendar from "./AttendanceCalendar";
 import LastPayments from "./LastPayments";
 import EditClientDialog from "./EditClientDialog";
 import api from "@/lib/http";
-import { alertError, alertInfo, alertSuccessAutoClose } from "@/lib/alerts";
+import { alertInfo, alertSuccessAutoClose, toast } from "@/lib/alerts";
 
 type Props = {
   viewerRole: Role;
@@ -123,12 +123,234 @@ export default function UserCard({
     }
   }
 
-  async function fetchProgressReport() {
-    const response = await api.get(`/routines/clients/${client.id}/progress-report`, {
-      responseType: "blob",
+  function buildClientProgressPdf(summary: ClientProgressSummary) {
+    const escapePdf = (value: string) =>
+      value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
+
+    const text = (
+      x: number,
+      y: number,
+      size: number,
+      value: string,
+      color = "1 1 1",
+      font = "F1"
+    ) =>
+      `BT /${font} ${size} Tf ${color} rg 1 0 0 1 ${x} ${y} Tm (${escapePdf(value)}) Tj ET`;
+
+    const rect = (
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+      fill = "0.09 0.09 0.10"
+    ) => `${fill} rg ${x} ${y} ${width} ${height} re f`;
+
+    const lines: string[] = [];
+    const amber = "0.980 0.800 0.082";
+    const cream = "1.000 0.969 0.929";
+    const orange = "0.976 0.451 0.086";
+    const emerald = "0.204 0.827 0.600";
+    const zinc = "0.635 0.635 0.659";
+    const white = "0.980 0.980 0.980";
+
+    const score = Math.max(
+      10,
+      Math.min(
+        100,
+        Math.min(summary.log_count * 3, 40) +
+          Math.min(summary.attendance_count * 2, 30) +
+          Math.min((summary.top_improvement ? 1 : 0) * 30, 30)
+      )
+    );
+
+    lines.push(rect(0, 0, 595, 842, "0.04 0.04 0.04"));
+    lines.push(rect(44, 770, 120, 26, amber));
+    lines.push(text(58, 779, 11, "REPORTE GYM", "0.04 0.04 0.04"));
+    lines.push(text(44, 732, 24, summary.gym_name.slice(0, 32), white));
+    lines.push(text(44, 707, 17, "PROGRESO Y CRECIMIENTO", cream));
+    lines.push(
+      text(
+        44,
+        688,
+        10,
+        `Cliente: ${summary.client_name} | Emitido: ${new Date().toLocaleDateString("es-AR")}`,
+        zinc
+      )
+    );
+
+    const cards = [
+      ["ASISTENCIAS", String(summary.attendance_count), "presencias"],
+      ["RUTINAS", String(summary.log_count), "cargas"],
+      ["DIAS", String(summary.unique_days), "activos"],
+      ["EJERCICIOS", String(summary.unique_exercises), "trabajados"],
+    ];
+
+    cards.forEach(([label, value, hint], index) => {
+      const x = 44 + index * 132;
+      lines.push(rect(x, 595, 118, 70, "0.10 0.10 0.11"));
+      lines.push(text(x + 10, 645, 8, label, zinc));
+      lines.push(text(x + 10, 623, 18, value, white));
+      lines.push(text(x + 10, 606, 8, hint, zinc));
     });
 
-    const blob = new Blob([response.data], { type: "application/pdf" });
+    lines.push(rect(44, 505, 507, 72, "0.10 0.10 0.11"));
+    lines.push(text(58, 553, 13, "INDICE GENERAL DE PROGRESO", white));
+    lines.push(
+      text(
+        58,
+        537,
+        9,
+        "Lectura simple del momento actual: constancia, asistencia y mejoras.",
+        zinc
+      )
+    );
+    lines.push(rect(58, 518, 320, 10, "0.15 0.15 0.16"));
+    lines.push(rect(58, 518, Math.max(26, 3.2 * score), 10, score >= 65 ? emerald : amber));
+    lines.push(text(466, 535, 24, `${score}/100`, white));
+
+    lines.push(rect(44, 278, 507, 205, "0.10 0.10 0.11"));
+    lines.push(text(58, 455, 13, "METRICA DE CRECIMIENTO", white));
+    const chartTitle = summary.top_improvement
+      ? `Crecimiento destacado en ${summary.top_improvement.exercise_name}`
+      : "Constancia general y progreso acumulado";
+    lines.push(text(58, 439, 9, chartTitle.slice(0, 82), zinc));
+
+    const chart = summary.top_improvement
+      ? [
+          ["Inicio", summary.top_improvement.start_weight],
+          ["Actual", summary.top_improvement.end_weight],
+          ["Mejora", summary.top_improvement.delta_weight],
+        ]
+      : [
+          ["Rutinas", summary.log_count],
+          ["Asist.", summary.attendance_count],
+          ["Dias", summary.unique_days],
+        ];
+    const maxValue = Math.max(...chart.map((item) => Number(item[1]) || 0), 1);
+    const graphX = 70;
+    const graphY = 306;
+    const graphW = 452;
+    const graphH = 100;
+    lines.push(`0.25 0.25 0.27 RG ${graphX} ${graphY} m ${graphX} ${graphY + graphH} l S`);
+    lines.push(`0.25 0.25 0.27 RG ${graphX} ${graphY} m ${graphX + graphW} ${graphY} l S`);
+    const step = graphW / chart.length;
+    chart.forEach(([label, rawValue], index) => {
+      const value = Number(rawValue) || 0;
+      const barH = Math.max(8, (value / maxValue) * graphH);
+      const x = graphX + index * step + 28;
+      lines.push(rect(x, graphY, 42, barH, index % 2 === 0 ? amber : orange));
+      lines.push(text(x + 4, graphY - 12, 8, label, zinc));
+      lines.push(text(x + 6, graphY + barH + 5, 8, `${value}`, white));
+    });
+
+    lines.push(rect(44, 104, 247, 150, "0.10 0.10 0.11"));
+    lines.push(text(58, 228, 13, "DESTACADOS DE FUERZA", white));
+    if (summary.best_exercise_name && typeof summary.best_weight_kg === "number") {
+      lines.push(
+        text(
+          58,
+          204,
+          10,
+          `Mejor marca: ${summary.best_exercise_name.slice(0, 18)} - ${summary.best_weight_kg} kg`,
+          cream
+        )
+      );
+    } else {
+      lines.push(text(58, 204, 10, "Mejor marca: sin registros todavia", cream));
+    }
+    if (summary.top_improvement) {
+      lines.push(
+        text(
+          58,
+          178,
+          9,
+          `+${summary.top_improvement.delta_weight} kg en ${summary.top_improvement.exercise_name.slice(0, 18)}`,
+          zinc
+        )
+      );
+      lines.push(
+        text(
+          58,
+          160,
+          9,
+          `${summary.top_improvement.start_weight} kg -> ${summary.top_improvement.end_weight} kg`,
+          zinc
+        )
+      );
+    } else {
+      lines.push(text(58, 178, 9, "Aun no hay mejoras comparativas suficientes.", zinc));
+    }
+    lines.push(
+      text(
+        58,
+        124,
+        9,
+        `Volumen acumulado: ${Math.round(summary.total_volume).toLocaleString("es-AR")}`,
+        zinc
+      )
+    );
+
+    lines.push(rect(304, 104, 247, 150, "0.10 0.10 0.11"));
+    lines.push(text(318, 228, 13, "MENSAJE DE ALIENTO", white));
+    const motivationLines = summary.motivation.match(/.{1,34}(\s|$)/g) ?? [summary.motivation];
+    motivationLines.slice(0, 4).forEach((line, index) => {
+      lines.push(text(318, 198 - index * 16, 10, line.trim(), index === 0 ? cream : zinc));
+    });
+    lines.push(
+      text(
+        318,
+        124,
+        9,
+        `Ultimo entrenamiento: ${
+          summary.last_training
+            ? new Date(summary.last_training).toLocaleDateString("es-AR")
+            : "sin datos"
+        }`,
+        zinc
+      )
+    );
+
+    lines.push(
+      text(
+        44,
+        78,
+        8,
+        "Mini Espacio | Seguimiento de progreso | Entrenamiento, constancia y evolucion real.",
+        zinc
+      )
+    );
+
+    const content = lines.join("\n");
+    const contentBytes = new TextEncoder().encode(content);
+    const objects = [
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+      `<< /Length ${contentBytes.length} >>\nstream\n${content}\nendstream`,
+    ];
+
+    let pdf = "%PDF-1.4\n";
+    const offsets = [0];
+    objects.forEach((object, index) => {
+      offsets.push(pdf.length);
+      pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    });
+    const xrefOffset = pdf.length;
+    pdf += `xref\n0 ${objects.length + 1}\n`;
+    pdf += "0000000000 65535 f \n";
+    offsets.slice(1).forEach((offset) => {
+      pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+    });
+    pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+    return new Blob([pdf], { type: "application/pdf" });
+  }
+
+  async function fetchProgressReport() {
+    const { data } = await api.get<ClientProgressSummary>(
+      `/routines/clients/${client.id}/progress-summary`
+    );
+    const blob = buildClientProgressPdf(data);
     const safeName = client.full_name.toLowerCase().replace(/\s+/g, "-");
     const filename = `progreso-${safeName}.pdf`;
     return { blob, filename };
@@ -156,10 +378,11 @@ export default function UserCard({
         `Se descargo el reporte de progreso de ${client.full_name}.`
       );
     } catch (error: any) {
-      await alertError(
-        "No se pudo generar el PDF",
-        error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos."
-      );
+      toast.fire({
+        icon: "error",
+        title: "No se pudo generar el PDF",
+        text: error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos.",
+      });
     } finally {
       setDownloadingReport(false);
     }
@@ -245,10 +468,11 @@ export default function UserCard({
         "Descargamos el reporte y abrimos WhatsApp con el mensaje preparado. En algunos navegadores el archivo se adjunta manualmente."
       );
     } catch (error: any) {
-      await alertError(
-        "No se pudo preparar el reporte",
-        error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos."
-      );
+      toast.fire({
+        icon: "error",
+        title: "No se pudo preparar el reporte",
+        text: error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos.",
+      });
     } finally {
       setSharingReport(false);
     }
