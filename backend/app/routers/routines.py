@@ -227,6 +227,253 @@ def _build_simple_pdf(lines: list[str]) -> bytes:
     return bytes(pdf)
 
 
+def _pdf_text(
+    commands: list[str],
+    *,
+    x: float,
+    y: float,
+    size: int,
+    text: str,
+    color: tuple[float, float, float] = (1, 1, 1),
+    font: str = "F1",
+):
+    commands.append(
+        f"BT /{font} {size} Tf {color[0]:.3f} {color[1]:.3f} {color[2]:.3f} rg 1 0 0 1 {x:.1f} {y:.1f} Tm ({_pdf_escape(text)}) Tj ET"
+    )
+
+
+def _pdf_rect(
+    commands: list[str],
+    *,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    fill: tuple[float, float, float],
+):
+    commands.append(f"{fill[0]:.3f} {fill[1]:.3f} {fill[2]:.3f} rg {x:.1f} {y:.1f} {w:.1f} {h:.1f} re f")
+
+
+def _build_styled_progress_pdf(
+    *,
+    gym_name: str,
+    client_name: str,
+    join_date: datetime,
+    attendance_count: int,
+    log_count: int,
+    unique_days: int,
+    unique_exercises: int,
+    total_volume: float,
+    last_training: datetime | None,
+    best_log: models.WorkoutLog | None,
+    top_improvements: list[tuple[str, float, float, float]],
+    motivation: str,
+    score: int,
+    chart_title: str,
+    chart_points: list[tuple[str, float]],
+) -> bytes:
+    commands: list[str] = []
+
+    amber = (0.980, 0.800, 0.082)
+    cream = (1.000, 0.969, 0.929)
+    orange = (0.976, 0.451, 0.086)
+    emerald = (0.204, 0.827, 0.600)
+    white = (0.980, 0.980, 0.980)
+    zinc_950 = (0.043, 0.043, 0.043)
+    zinc_900 = (0.090, 0.090, 0.102)
+    zinc_800 = (0.145, 0.145, 0.165)
+    zinc_500 = (0.635, 0.635, 0.659)
+
+    _pdf_rect(commands, x=0, y=0, w=595, h=842, fill=zinc_950)
+    _pdf_rect(commands, x=44, y=770, w=110, h=26, fill=amber)
+    _pdf_text(commands, x=58, y=779, size=11, text="REPORTE GYM", color=zinc_950, font="F1")
+    _pdf_text(commands, x=44, y=732, size=24, text=gym_name[:32], color=white, font="F1")
+    _pdf_text(commands, x=44, y=707, size=17, text="PROGRESO Y CRECIMIENTO", color=cream, font="F1")
+    _pdf_text(
+        commands,
+        x=44,
+        y=688,
+        size=10,
+        text=f"Cliente: {client_name} | Alta: {join_date.strftime('%d/%m/%Y')} | Emitido: {now_ar().strftime('%d/%m/%Y %H:%M')}",
+        color=zinc_500,
+        font="F1",
+    )
+
+    cards = [
+        ("ASISTENCIAS", str(attendance_count), "presencias registradas"),
+        ("RUTINAS", str(log_count), "cargas acumuladas"),
+        ("DIAS ACTIVOS", str(unique_days), "jornadas con avances"),
+        ("VOLUMEN", f"{int(total_volume):,}".replace(",", "."), "carga total estimada"),
+    ]
+    start_x = 44
+    start_y = 595
+    card_w = 118
+    card_h = 70
+    gap = 14
+    for index, (label, value, hint) in enumerate(cards):
+        x = start_x + index * (card_w + gap)
+        _pdf_rect(commands, x=x, y=start_y, w=card_w, h=card_h, fill=zinc_800)
+        _pdf_text(commands, x=x + 10, y=start_y + 50, size=8, text=label, color=zinc_500, font="F1")
+        _pdf_text(commands, x=x + 10, y=start_y + 28, size=18, text=value[:12], color=white, font="F1")
+        _pdf_text(commands, x=x + 10, y=start_y + 11, size=8, text=hint[:22], color=zinc_500, font="F1")
+
+    _pdf_rect(commands, x=44, y=505, w=507, h=72, fill=zinc_800)
+    _pdf_text(commands, x=58, y=553, size=13, text="INDICE GENERAL DE PROGRESO", color=white, font="F1")
+    _pdf_text(
+        commands,
+        x=58,
+        y=537,
+        size=9,
+        text="Una lectura simple del momento actual: constancia, asistencia y mejoras de carga.",
+        color=zinc_500,
+        font="F1",
+    )
+    _pdf_rect(commands, x=58, y=518, w=320, h=10, fill=zinc_900)
+    _pdf_rect(
+        commands,
+        x=58,
+        y=518,
+        w=max(26, 3.2 * score),
+        h=10,
+        fill=emerald if score >= 65 else amber,
+    )
+    _pdf_text(commands, x=465, y=535, size=24, text=f"{score}/100", color=white, font="F1")
+
+    _pdf_rect(commands, x=44, y=278, w=507, h=205, fill=zinc_800)
+    _pdf_text(commands, x=58, y=455, size=13, text="METRICA DE CRECIMIENTO", color=white, font="F1")
+    _pdf_text(commands, x=58, y=439, size=9, text=chart_title[:84], color=zinc_500, font="F1")
+
+    graph_x = 62
+    graph_y = 306
+    graph_w = 470
+    graph_h = 102
+    commands.append(f"0.250 0.250 0.270 RG {graph_x:.1f} {graph_y:.1f} m {graph_x:.1f} {graph_y + graph_h:.1f} l S")
+    commands.append(f"0.250 0.250 0.270 RG {graph_x:.1f} {graph_y:.1f} m {graph_x + graph_w:.1f} {graph_y:.1f} l S")
+
+    if chart_points:
+        max_value = max(point[1] for point in chart_points) or 1
+        step = graph_w / max(len(chart_points), 1)
+        bar_w = min(38, step * 0.56)
+        for index, (label, value) in enumerate(chart_points):
+            bar_h = max(8, (value / max_value) * graph_h)
+            x = graph_x + index * step + (step - bar_w) / 2
+            fill = amber if index % 2 == 0 else orange
+            _pdf_rect(commands, x=x, y=graph_y, w=bar_w, h=bar_h, fill=fill)
+            _pdf_text(commands, x=x + 2, y=graph_y - 12, size=8, text=label[:8], color=zinc_500, font="F1")
+            _pdf_text(commands, x=x + 2, y=graph_y + bar_h + 5, size=8, text=f"{value:g}", color=white, font="F1")
+    else:
+        _pdf_text(
+            commands,
+            x=74,
+            y=354,
+            size=10,
+            text="Todavia no hay suficientes datos para graficar un crecimiento confiable.",
+            color=zinc_500,
+            font="F1",
+        )
+
+    _pdf_rect(commands, x=44, y=104, w=247, h=150, fill=zinc_800)
+    _pdf_text(commands, x=58, y=228, size=13, text="DESTACADOS DE FUERZA", color=white, font="F1")
+    if best_log:
+        _pdf_text(
+            commands,
+            x=58,
+            y=204,
+            size=10,
+            text=f"Mejor marca: {best_log.exercise.name[:22]} - {best_log.weight_kg:g} kg",
+            color=cream,
+            font="F1",
+        )
+    else:
+        _pdf_text(commands, x=58, y=204, size=10, text="Mejor marca: sin registros todavia", color=cream, font="F1")
+    if top_improvements:
+        for index, (name, start_weight, end_weight, delta) in enumerate(top_improvements[:3]):
+            _pdf_text(
+                commands,
+                x=58,
+                y=178 - index * 18,
+                size=9,
+                text=f"+{delta:g} kg en {name[:18]} ({start_weight:g} -> {end_weight:g})",
+                color=zinc_500,
+                font="F1",
+            )
+    else:
+        _pdf_text(
+            commands,
+            x=58,
+            y=178,
+            size=9,
+            text="Aun no hay mejoras comparativas suficientes.",
+            color=zinc_500,
+            font="F1",
+        )
+    _pdf_text(
+        commands,
+        x=58,
+        y=124,
+        size=9,
+        text=f"Ejercicios trabajados: {unique_exercises} | Ultimo entreno: {last_training.strftime('%d/%m/%Y') if last_training else 'sin datos'}",
+        color=zinc_500,
+        font="F1",
+    )
+
+    _pdf_rect(commands, x=304, y=104, w=247, h=150, fill=zinc_800)
+    _pdf_text(commands, x=318, y=228, size=13, text="MENSAJE DE ALIENTO", color=white, font="F1")
+    wrapped = textwrap.wrap(motivation, width=32)[:4]
+    for index, line in enumerate(wrapped):
+        _pdf_text(commands, x=318, y=198 - index * 16, size=10, text=line, color=cream if index == 0 else zinc_500, font="F1")
+    _pdf_text(
+        commands,
+        x=318,
+        y=124,
+        size=9,
+        text="Cada carga registrada convierte el esfuerzo en avance visible.",
+        color=zinc_500,
+        font="F1",
+    )
+
+    _pdf_text(
+        commands,
+        x=44,
+        y=78,
+        size=8,
+        text="Mini Espacio | Seguimiento de progreso | Entrenamiento, constancia y evolucion real.",
+        color=zinc_500,
+        font="F1",
+    )
+
+    content_stream = "\n".join(commands).encode("latin-1", "replace")
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        f"<< /Length {len(content_stream)} >>\nstream\n".encode("latin-1")
+        + content_stream
+        + b"\nendstream",
+    ]
+
+    pdf = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf.extend(f"{index} 0 obj\n".encode("latin-1"))
+        pdf.extend(obj)
+        pdf.extend(b"\nendobj\n")
+
+    xref_offset = len(pdf)
+    pdf.extend(f"xref\n0 {len(objects) + 1}\n".encode("latin-1"))
+    pdf.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        pdf.extend(f"{offset:010d} 00000 n \n".encode("latin-1"))
+    pdf.extend(
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF".encode(
+            "latin-1"
+        )
+    )
+    return bytes(pdf)
+
+
 def _motivation_for_metrics(log_count: int, attendance_count: int, improvements: int) -> str:
     if improvements >= 3:
         return "Gran momento: ya se nota una evolucion clara en varios ejercicios. Segui asi."
@@ -586,6 +833,23 @@ def client_progress_report(
         motivation,
     ) = _collect_progress_snapshot(db, client_id)
     top_improvements = improvements[:3]
+    score = _progress_score(len(logs), attendance_count, len(top_improvements))
+
+    if top_improvements:
+        target_name = top_improvements[0][0]
+        chart_history = [
+            log for log in logs if log.exercise.name == target_name
+        ][-6:]
+        chart_title = f"Crecimiento reciente en {target_name}"
+        chart_points = [
+            (log.performed_at.strftime("%d/%m"), log.weight_kg) for log in chart_history
+        ]
+    else:
+        recent_chart_logs = logs[-6:]
+        chart_title = "Ultimas cargas registradas"
+        chart_points = [
+            (log.performed_at.strftime("%d/%m"), log.weight_kg) for log in recent_chart_logs
+        ]
 
     lines: list[str] = []
 
@@ -651,7 +915,25 @@ def client_progress_report(
     add_line(motivation)
     add_line("Segui registrando cada entrenamiento: ver el progreso ayuda a sostener la motivacion.")
 
-    pdf_bytes = _build_simple_pdf(lines)
+    pdf_bytes = _build_styled_progress_pdf(
+        gym_name=gym_name,
+        client_name=client.full_name,
+        join_date=client.join_date,
+        attendance_count=attendance_count,
+        log_count=len(logs),
+        unique_days=unique_days,
+        unique_exercises=unique_exercises,
+        total_volume=total_volume,
+        last_training=last_training,
+        best_log=best_log,
+        top_improvements=top_improvements,
+        motivation=motivation,
+        score=score,
+        chart_title=chart_title,
+        chart_points=chart_points,
+    )
+    if not pdf_bytes:
+        pdf_bytes = _build_simple_pdf(lines)
     filename = f"progreso-{client.full_name.lower().replace(' ', '-')}.pdf"
     return Response(
         content=pdf_bytes,
