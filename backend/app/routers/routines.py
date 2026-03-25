@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 import textwrap
 from uuid import uuid4
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session, joinedload
@@ -19,6 +20,8 @@ router = APIRouter(
     tags=["routines"],
     dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
+
+log = logging.getLogger("request")
 
 
 def _day_ids_for_muscle_group(muscle_group: str) -> list[str]:
@@ -915,24 +918,28 @@ def client_progress_report(
     add_line(motivation)
     add_line("Segui registrando cada entrenamiento: ver el progreso ayuda a sostener la motivacion.")
 
-    pdf_bytes = _build_styled_progress_pdf(
-        gym_name=gym_name,
-        client_name=client.full_name,
-        join_date=client.join_date,
-        attendance_count=attendance_count,
-        log_count=len(logs),
-        unique_days=unique_days,
-        unique_exercises=unique_exercises,
-        total_volume=total_volume,
-        last_training=last_training,
-        best_log=best_log,
-        top_improvements=top_improvements,
-        motivation=motivation,
-        score=score,
-        chart_title=chart_title,
-        chart_points=chart_points,
-    )
-    if not pdf_bytes:
+    try:
+        pdf_bytes = _build_styled_progress_pdf(
+            gym_name=gym_name,
+            client_name=client.full_name,
+            join_date=client.join_date,
+            attendance_count=attendance_count,
+            log_count=len(logs),
+            unique_days=unique_days,
+            unique_exercises=unique_exercises,
+            total_volume=total_volume,
+            last_training=last_training,
+            best_log=best_log,
+            top_improvements=top_improvements,
+            motivation=motivation,
+            score=score,
+            chart_title=chart_title,
+            chart_points=chart_points,
+        )
+        if not pdf_bytes:
+            pdf_bytes = _build_simple_pdf(lines)
+    except Exception as exc:
+        log.exception("Error generando PDF enriquecido de progreso para client_id=%s", client_id)
         pdf_bytes = _build_simple_pdf(lines)
     filename = f"progreso-{client.full_name.lower().replace(' ', '-')}.pdf"
     return Response(
