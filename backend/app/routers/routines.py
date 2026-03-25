@@ -237,6 +237,92 @@ def _motivation_for_metrics(log_count: int, attendance_count: int, improvements:
     return "Buen comienzo. Lo importante es sostener el ritmo y seguir registrando cada entrenamiento."
 
 
+def _collect_progress_snapshot(
+    db: Session, client_id: str
+) -> tuple[
+    models.Client,
+    list[models.WorkoutLog],
+    int,
+    models.Payment | None,
+    str,
+    list[tuple[str, float, float, float]],
+    models.WorkoutLog | None,
+    list[models.WorkoutLog],
+    float,
+    int,
+    int,
+    datetime | None,
+    str,
+]:
+    client = _get_client_or_404(db, client_id)
+    logs = (
+        db.query(models.WorkoutLog)
+        .options(joinedload(models.WorkoutLog.day), joinedload(models.WorkoutLog.exercise))
+        .filter(models.WorkoutLog.client_id == client_id)
+        .order_by(models.WorkoutLog.performed_at.asc())
+        .all()
+    )
+    attendance_count = (
+        db.query(models.Attendance)
+        .filter(models.Attendance.client_id == client_id)
+        .count()
+    )
+    latest_payment = (
+        db.query(models.Payment)
+        .filter(models.Payment.client_id == client_id)
+        .order_by(models.Payment.created_at.desc())
+        .first()
+    )
+    settings = db.query(models.AppSettings).first()
+    gym_name = settings.gym_name if settings and settings.gym_name else "Mini Espacio"
+
+    exercise_histories: dict[str, list[models.WorkoutLog]] = defaultdict(list)
+    for log in logs:
+        exercise_histories[log.exercise_id].append(log)
+
+    improvements: list[tuple[str, float, float, float]] = []
+    for history in exercise_histories.values():
+        if len(history) < 2:
+            continue
+        first_weight = history[0].weight_kg or 0
+        last_weight = history[-1].weight_kg or 0
+        delta = last_weight - first_weight
+        if delta > 0:
+            improvements.append(
+                (
+                    history[-1].exercise.name,
+                    first_weight,
+                    last_weight,
+                    delta,
+                )
+            )
+
+    improvements.sort(key=lambda item: item[3], reverse=True)
+    best_log = max(logs, key=lambda item: item.weight_kg, default=None)
+    recent_logs = list(reversed(logs[-5:]))
+    total_volume = sum((log.sets_count or 0) * (log.reps or 0) * log.weight_kg for log in logs)
+    unique_days = len({log.day_id for log in logs})
+    unique_exercises = len(exercise_histories)
+    last_training = logs[-1].performed_at if logs else None
+    motivation = _motivation_for_metrics(len(logs), attendance_count, len(improvements[:3]))
+
+    return (
+        client,
+        logs,
+        attendance_count,
+        latest_payment,
+        gym_name,
+        improvements,
+        best_log,
+        recent_logs,
+        total_volume,
+        unique_days,
+        unique_exercises,
+        last_training,
+        motivation,
+    )
+
+
 @router.get("/catalog", response_model=list[schemas.RoutineCatalogGroup])
 def routine_catalog(db: Session = Depends(get_db)):
     _ensure_seed_data(db)
@@ -484,60 +570,22 @@ def client_progress_report(
     db: Session = Depends(get_db),
 ):
     _ensure_seed_data(db)
-    client = _get_client_or_404(db, client_id)
-
-    logs = (
-        db.query(models.WorkoutLog)
-        .options(joinedload(models.WorkoutLog.day), joinedload(models.WorkoutLog.exercise))
-        .filter(models.WorkoutLog.client_id == client_id)
-        .order_by(models.WorkoutLog.performed_at.asc())
-        .all()
-    )
-    attendance_count = (
-        db.query(models.Attendance)
-        .filter(models.Attendance.client_id == client_id)
-        .count()
-    )
-    latest_payment = (
-        db.query(models.Payment)
-        .filter(models.Payment.client_id == client_id)
-        .order_by(models.Payment.created_at.desc())
-        .first()
-    )
-    settings = db.query(models.AppSettings).first()
-    gym_name = settings.gym_name if settings and settings.gym_name else "Mini Espacio"
-
-    exercise_histories: dict[str, list[models.WorkoutLog]] = defaultdict(list)
-    for log in logs:
-        exercise_histories[log.exercise_id].append(log)
-
-    improvements: list[tuple[str, float, float, float]] = []
-    for history in exercise_histories.values():
-        if len(history) < 2:
-            continue
-        first_weight = history[0].weight_kg or 0
-        last_weight = history[-1].weight_kg or 0
-        delta = last_weight - first_weight
-        if delta > 0:
-          improvements.append(
-              (
-                  history[-1].exercise.name,
-                  first_weight,
-                  last_weight,
-                  delta,
-              )
-          )
-
-    improvements.sort(key=lambda item: item[3], reverse=True)
+    (
+        client,
+        logs,
+        attendance_count,
+        latest_payment,
+        gym_name,
+        improvements,
+        best_log,
+        recent_logs,
+        total_volume,
+        unique_days,
+        unique_exercises,
+        last_training,
+        motivation,
+    ) = _collect_progress_snapshot(db, client_id)
     top_improvements = improvements[:3]
-
-    best_log = max(logs, key=lambda item: item.weight_kg, default=None)
-    recent_logs = list(reversed(logs[-5:]))
-    total_volume = sum((log.sets_count or 0) * (log.reps or 0) * log.weight_kg for log in logs)
-    unique_days = len({log.day_id for log in logs})
-    unique_exercises = len(exercise_histories)
-    last_training = logs[-1].performed_at if logs else None
-    motivation = _motivation_for_metrics(len(logs), attendance_count, len(top_improvements))
 
     lines: list[str] = []
 
@@ -609,6 +657,54 @@ def client_progress_report(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/clients/{client_id}/progress-summary", response_model=schemas.ClientProgressSummary)
+def client_progress_summary(
+    client_id: str,
+    db: Session = Depends(get_db),
+):
+    _ensure_seed_data(db)
+    (
+        client,
+        logs,
+        attendance_count,
+        _latest_payment,
+        gym_name,
+        improvements,
+        best_log,
+        _recent_logs,
+        total_volume,
+        unique_days,
+        unique_exercises,
+        last_training,
+        motivation,
+    ) = _collect_progress_snapshot(db, client_id)
+
+    top_improvement = improvements[0] if improvements else None
+
+    return schemas.ClientProgressSummary(
+        client_id=client.id,
+        client_name=client.full_name,
+        gym_name=gym_name,
+        log_count=len(logs),
+        attendance_count=attendance_count,
+        unique_days=unique_days,
+        unique_exercises=unique_exercises,
+        total_volume=total_volume,
+        last_training=last_training,
+        best_exercise_name=best_log.exercise.name if best_log else None,
+        best_weight_kg=best_log.weight_kg if best_log else None,
+        top_improvement=schemas.ProgressImprovement(
+            exercise_name=top_improvement[0],
+            start_weight=top_improvement[1],
+            end_weight=top_improvement[2],
+            delta_weight=top_improvement[3],
+        )
+        if top_improvement
+        else None,
+        motivation=motivation,
     )
 
 

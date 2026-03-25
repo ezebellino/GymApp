@@ -107,3 +107,26 @@ export type WorkoutLog = {
   note?: string | null;
   performed_at: string;
 };
+
+export type ProgressImprovement = {
+  exercise_name: string;
+  start_weight: number;
+  end_weight: number;
+  delta_weight: number;
+};
+
+export type ClientProgressSummary = {
+  client_id: string;
+  client_name: string;
+  gym_name: string;
+  log_count: number;
+  attendance_count: number;
+  unique_days: number;
+  unique_exercises: number;
+  total_volume: number;
+  last_training?: string | null;
+  best_exercise_name?: string | null;
+  best_weight_kg?: number | null;
+  top_improvement?: ProgressImprovement | null;
+  motivation: string;
+};

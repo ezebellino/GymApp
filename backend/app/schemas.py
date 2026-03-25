@@ -282,6 +282,29 @@ class RoutineDayProgress(BaseSchema):
     last_performed_at: Optional[datetime] = None
 
 
+class ProgressImprovement(BaseSchema):
+    exercise_name: str
+    start_weight: float
+    end_weight: float
+    delta_weight: float
+
+
+class ClientProgressSummary(BaseSchema):
+    client_id: str
+    client_name: str
+    gym_name: str
+    log_count: int
+    attendance_count: int
+    unique_days: int
+    unique_exercises: int
+    total_volume: float
+    last_training: Optional[datetime] = None
+    best_exercise_name: Optional[str] = None
+    best_weight_kg: Optional[float] = None
+    top_improvement: Optional[ProgressImprovement] = None
+    motivation: str
+
+
 class SettingsBase(BaseSchema):
     gym_name: Annotated[str, Field(min_length=1, max_length=100)]
     admin_name: Optional[Annotated[str, Field(max_length=120)]] = None

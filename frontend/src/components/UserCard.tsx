@@ -11,7 +11,13 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { AppSettings, Client, Payment, Role } from "@/types";
+import type {
+  AppSettings,
+  Client,
+  ClientProgressSummary,
+  Payment,
+  Role,
+} from "@/types";
 import NewPaymentDialog from "./NewPaymentDialog";
 import AttendanceCalendar from "./AttendanceCalendar";
 import LastPayments from "./LastPayments";
@@ -171,9 +177,41 @@ export default function UserCard({
     setSharingReport(true);
     try {
       const { blob, filename } = await fetchProgressReport();
-      const message =
+      let message =
         `Hola ${client.full_name}, te compartimos tu reporte de progreso de Mini Espacio. ` +
         `Segui asi, tu constancia ya esta mostrando resultados.`;
+
+      try {
+        const { data } = await api.get<ClientProgressSummary>(
+          `/routines/clients/${client.id}/progress-summary`
+        );
+        const highlights: string[] = [];
+
+        if (data.top_improvement) {
+          highlights.push(
+            `subiste ${data.top_improvement.delta_weight} kg en ${data.top_improvement.exercise_name}`
+          );
+        }
+        if (typeof data.best_weight_kg === "number" && data.best_exercise_name) {
+          highlights.push(
+            `tu mejor marca actual es ${data.best_weight_kg} kg en ${data.best_exercise_name}`
+          );
+        }
+        if (data.attendance_count > 0) {
+          highlights.push(`ya llevas ${data.attendance_count} asistencias registradas`);
+        }
+
+        const summaryText = highlights.length
+          ? `Lo mas lindo de este proceso: ${highlights.slice(0, 2).join(" y ")}. `
+          : "";
+
+        message =
+          `Hola ${client.full_name}, te compartimos tu reporte de progreso de ${data.gym_name}. ` +
+          summaryText +
+          `${data.motivation}`;
+      } catch {
+        // keep the generic fallback message
+      }
 
       const file = new File([blob], filename, { type: "application/pdf" });
       const canNativeShare =
