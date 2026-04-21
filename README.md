@@ -193,3 +193,47 @@ Ezequiel Bellino
 ## Licencia
 
 MIT
+
+## Deploy completo en Railway
+
+### 1. Crear proyecto y servicios
+
+En Railway crea un proyecto con:
+
+- PostgreSQL (plugin de Railway)
+- servicio `backend` apuntando a la carpeta `backend/`
+- servicio `frontend` apuntando a la carpeta `frontend/`
+
+> Cada carpeta ya incluye su propio `railway.json`.
+
+### 2. Variables del backend
+
+En el servicio `backend`, configura:
+
+- `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (referencia al plugin)
+- `SECRET_KEY` = clave segura
+- `ALGORITHM` = `HS256`
+- `ACCESS_TOKEN_EXPIRE_MINUTES` = `600` (o el valor que prefieras)
+- `CORS_ORIGINS` = `http://localhost:5173,https://<frontend>.up.railway.app`
+
+Notas:
+
+- El backend ejecuta migraciones al iniciar (`alembic upgrade head`) y luego levanta FastAPI.
+- También soporta `DATABASE_URL` con prefijo `postgres://` de Railway.
+
+### 3. Variables del frontend
+
+En el servicio `frontend`, configura:
+
+- `VITE_API_URL` = `https://<backend>.up.railway.app`
+
+### 4. Orden recomendado de despliegue
+
+1. Deploy del `backend`
+2. Verificar `GET https://<backend>.up.railway.app/health`
+3. Deploy del `frontend`
+4. Validar login y llamadas API desde la URL pública del frontend
+
+### 5. Dominio custom (opcional)
+
+Si luego agregas dominios propios, actualiza `CORS_ORIGINS` con esos dominios también.
