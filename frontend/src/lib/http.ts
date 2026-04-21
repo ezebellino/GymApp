@@ -1,8 +1,14 @@
 import axios from "axios";
 import { alertError } from "./alerts";
 
+const apiBaseURL =
+  import.meta.env.VITE_API_URL ??
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://127.0.0.1:8000"
+    : "https://backend-production-7264e.up.railway.app");
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "https://gymapp-backend-xe0n.onrender.com",
+  baseURL: apiBaseURL,
 });
 
 api.interceptors.request.use((config) => {
