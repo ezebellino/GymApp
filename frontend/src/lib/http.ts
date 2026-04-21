@@ -11,7 +11,12 @@ const api = axios.create({
   baseURL: apiBaseURL,
 });
 
+const slashEndpoints = new Set(["/clients", "/attendance", "/payments"]);
+
 api.interceptors.request.use((config) => {
+  if (config.url && slashEndpoints.has(config.url)) {
+    config.url = `${config.url}/`;
+  }
   const token = localStorage.getItem("access_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
