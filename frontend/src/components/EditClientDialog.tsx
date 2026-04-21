@@ -33,6 +33,10 @@ export default function EditClientDialog({
   const [phone, setPhone] = useState(client.phone ?? "");
   const [isActive, setIsActive] = useState(client.is_active ?? true);
   const [saving, setSaving] = useState(false);
+  const [portalEmail, setPortalEmail] = useState("");
+  const [portalPassword, setPortalPassword] = useState("");
+  const [portalActive, setPortalActive] = useState(true);
+  const [savingPortal, setSavingPortal] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -40,8 +44,31 @@ export default function EditClientDialog({
       setEmail(client.email ?? "");
       setPhone(client.phone ?? "");
       setIsActive(!!client.is_active);
+      setPortalEmail("");
+      setPortalPassword("");
+      setPortalActive(true);
+      void loadPortalAccess();
     }
   }, [open, client]);
+
+  async function loadPortalAccess() {
+    try {
+      const { data } = await api.get<{
+        user_id: string;
+        client_id: string;
+        full_name: string;
+        email: string;
+        is_active: boolean;
+      } | null>(`/clients/${client.id}/portal-access`);
+
+      if (data) {
+        setPortalEmail(data.email ?? "");
+        setPortalActive(!!data.is_active);
+      }
+    } catch {
+      // no-op: no bloquea la edición del cliente
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -66,6 +93,39 @@ export default function EditClientDialog({
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function savePortalAccess() {
+    if (!portalEmail.trim() || !portalPassword.trim()) {
+      await alertError(
+        "Faltan datos de acceso",
+        "Completá email y contraseña para habilitar el acceso del cliente."
+      );
+      return;
+    }
+
+    setSavingPortal(true);
+    try {
+      await api.post(`/clients/${client.id}/portal-access`, {
+        email: portalEmail.trim(),
+        password: portalPassword,
+        full_name: fullName.trim(),
+        is_active: portalActive,
+      });
+
+      setPortalPassword("");
+      await alertSuccessAutoClose(
+        "Acceso del cliente actualizado",
+        "El cliente ya puede iniciar sesión en su vista de usuario."
+      );
+    } catch (error: any) {
+      await alertError(
+        "No se pudo configurar el acceso",
+        error?.response?.data?.detail ?? "Error desconocido"
+      );
+    } finally {
+      setSavingPortal(false);
     }
   }
 
@@ -149,6 +209,40 @@ export default function EditClientDialog({
               </div>
             </div>
             <Switch checked={isActive} onCheckedChange={setIsActive} />
+          </div>
+
+          <div className="space-y-3 rounded-[24px] border border-amber-200/10 bg-white/[0.03] p-4">
+            <p className="text-sm font-medium text-zinc-200">Acceso del cliente (vista USER)</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                className="border-white/10 bg-zinc-900/70"
+                type="email"
+                value={portalEmail}
+                onChange={(e) => setPortalEmail(e.target.value)}
+                placeholder="cliente@login.com"
+              />
+              <Input
+                className="border-white/10 bg-zinc-900/70"
+                type="password"
+                value={portalPassword}
+                onChange={(e) => setPortalPassword(e.target.value)}
+                placeholder="Contraseña (mínimo 6)"
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-900/40 p-3">
+              <p className="text-xs text-zinc-400">Habilitar cuenta para login del cliente</p>
+              <Switch checked={portalActive} onCheckedChange={setPortalActive} />
+            </div>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={savePortalAccess}
+                disabled={savingPortal}
+                className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
+              >
+                {savingPortal ? "Guardando acceso..." : "Guardar acceso USER"}
+              </Button>
+            </div>
           </div>
         </div>
 

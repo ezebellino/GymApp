@@ -26,6 +26,7 @@ type NavItem = {
 };
 
 const items: NavItem[] = [
+  { to: "/my-routine", label: "Mi rutina", icon: Dumbbell },
   { to: "/routines", label: "Rutinas", icon: Dumbbell },
   { to: "/clients", label: "Clientes", icon: Users },
   { to: "/attendance", label: "Asistencias", icon: CalendarCheck2 },
@@ -36,13 +37,17 @@ const items: NavItem[] = [
 ];
 
 function roleLabel(role: string) {
-  return role === "owner" ? "DueÃ±o" : "Coach";
+  if (role === "owner") return "Dueño";
+  if (role === "coach") return "Coach";
+  return "Usuario";
 }
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const role = (localStorage.getItem("user_role") as string) || "coach";
   const allowed = items.filter((item) => {
+    if (role === "user") return item.to === "/my-routine";
+    if (item.to === "/my-routine") return false;
     if (item.to === "/reports" && role !== "owner") return false;
     return true;
   });
@@ -107,35 +112,39 @@ export default function Sidebar() {
                 Atajos
               </p>
               <p className="mt-1 text-sm text-zinc-300">
-                Acciones de operaciÃ³n diaria
+                Acciones de operación diaria
               </p>
             </div>
 
             <div className="space-y-2">
               <Button
                 variant="outline"
-                onClick={() => navigate("/routines")}
+                onClick={() => navigate(role === "user" ? "/my-routine" : "/routines")}
                 className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
               >
                 <Dumbbell className="h-4 w-4" />
-                Ir a rutinas
+                {role === "user" ? "Mi rutina" : "Ir a rutinas"}
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => navigate("/clients")}
-                className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
-              >
-                <Plus className="h-4 w-4" />
-                Gestionar clientes
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => navigate("/attendance")}
-                className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
-              >
-                <Search className="h-4 w-4" />
-                Buscar y seguir
-              </Button>
+              {role !== "user" && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate("/clients")}
+                    className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Gestionar clientes
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate("/attendance")}
+                    className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
+                  >
+                    <Search className="h-4 w-4" />
+                    Buscar y seguir
+                  </Button>
+                </>
+              )}
             </div>
           </section>
 
@@ -147,8 +156,9 @@ export default function Sidebar() {
               Vista {roleLabel(role)}
             </p>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
-              Usa rutinas como punto de partida y desde aca movete rapido entre
-              clientes, asistencias y seguimiento.
+              {role === "user"
+                ? "Registrá tu avance, revisá tu rutina por día y seguí tu historial personal."
+                : "Usá rutinas como punto de partida y movete rápido entre clientes, asistencias y seguimiento."}
             </p>
           </section>
         </div>

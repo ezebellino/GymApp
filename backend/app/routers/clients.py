@@ -5,16 +5,15 @@ from typing import List, Optional, Literal, Annotated
 from sqlalchemy import or_, func
 from pydantic import Field
 
-from ..security import optional_bearer
 from .. import models, schemas
 from ..deps import get_db
-from ..auth import get_current_user, require_role
+from ..auth import get_current_user, hash_password, require_role
 from ..models import UserRole
 
 router = APIRouter(
     prefix="/clients",
     tags=["clients"],
-    dependencies=[Depends(optional_bearer)] # Permite acceso público para listar clientes (con paginación y búsqueda básica)
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))]
 )
 
 @router.get("/", response_model=List[schemas.ClientOut])
@@ -165,3 +164,83 @@ def client_status(client_id: str, db: Session = Depends(get_db)):
         last_payment_month=last_m,
         last_payment_year=last_y,
     )
+
+
+@router.get("/{client_id}/portal-access", response_model=schemas.ClientPortalAccessOut | None)
+def get_client_portal_access(client_id: str, db: Session = Depends(get_db)):
+    client = db.get(models.Client, client_id)
+    if not client:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Client not found")
+
+    user = (
+        db.query(models.User)
+        .filter(models.User.client_id == client_id, models.User.role == UserRole.user)
+        .first()
+    )
+    if not user:
+        return None
+
+    return schemas.ClientPortalAccessOut(
+        user_id=user.id,
+        client_id=client_id,
+        full_name=user.full_name,
+        email=user.email,
+        is_active=user.is_active,
+    )
+
+
+@router.post("/{client_id}/portal-access", response_model=schemas.ClientPortalAccessOut, status_code=201)
+def upsert_client_portal_access(
+    client_id: str,
+    payload: schemas.ClientPortalAccessCreate,
+    db: Session = Depends(get_db),
+):
+    client = db.get(models.Client, client_id)
+    if not client:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Client not found")
+
+    email = payload.email.strip().lower()
+    taken_by_other = (
+        db.query(models.User)
+        .filter(models.User.email == email, models.User.client_id != client_id)
+        .first()
+    )
+    if taken_by_other:
+        raise HTTPException(status_code=400, detail="Email ya registrado por otro usuario")
+
+    user = (
+        db.query(models.User)
+        .filter(models.User.client_id == client_id, models.User.role == UserRole.user)
+        .first()
+    )
+
+    full_name = (payload.full_name or "").strip() or client.full_name
+    if user:
+        user.full_name = full_name
+        user.email = email
+        user.is_active = payload.is_active
+        user.password_hash = hash_password(payload.password)
+        user.email_verified = True
+    else:
+        user = models.User(
+            full_name=full_name,
+            email=email,
+            password_hash=hash_password(payload.password),
+            email_verified=True,
+            role=UserRole.user,
+            client_id=client_id,
+            is_active=payload.is_active,
+        )
+        db.add(user)
+
+    db.commit()
+    db.refresh(user)
+
+    return schemas.ClientPortalAccessOut(
+        user_id=user.id,
+        client_id=client_id,
+        full_name=user.full_name,
+        email=user.email,
+        is_active=user.is_active,
+    )
+

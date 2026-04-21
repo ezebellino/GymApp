@@ -18,10 +18,17 @@ from ..utils import now_ar
 router = APIRouter(
     prefix="/routines",
     tags=["routines"],
-    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
 
 log = logging.getLogger("request")
+
+
+def _get_user_client_or_403(db: Session, user: models.User) -> models.Client:
+    if user.role != UserRole.user:
+        raise HTTPException(status_code=403, detail="Solo disponible para clientes")
+    if not user.client_id:
+        raise HTTPException(status_code=400, detail="Tu cuenta no esta vinculada a un cliente")
+    return _get_client_or_404(db, user.client_id)
 
 
 def _day_ids_for_muscle_group(muscle_group: str) -> list[str]:
@@ -573,7 +580,11 @@ def _collect_progress_snapshot(
     )
 
 
-@router.get("/catalog", response_model=list[schemas.RoutineCatalogGroup])
+@router.get(
+    "/catalog",
+    response_model=list[schemas.RoutineCatalogGroup],
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def routine_catalog(db: Session = Depends(get_db)):
     _ensure_seed_data(db)
 
@@ -600,7 +611,11 @@ def routine_catalog(db: Session = Depends(get_db)):
     ]
 
 
-@router.get("/days", response_model=list[schemas.RoutineDayOut])
+@router.get(
+    "/days",
+    response_model=list[schemas.RoutineDayOut],
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def routine_days(db: Session = Depends(get_db)):
     _ensure_seed_data(db)
 
@@ -613,7 +628,11 @@ def routine_days(db: Session = Depends(get_db)):
     return [_serialize_day(day) for day in days]
 
 
-@router.get("/exercises", response_model=list[schemas.RoutineExerciseManageOut])
+@router.get(
+    "/exercises",
+    response_model=list[schemas.RoutineExerciseManageOut],
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def routine_exercises(db: Session = Depends(get_db)):
     _ensure_seed_data(db)
 
@@ -630,6 +649,7 @@ def routine_exercises(db: Session = Depends(get_db)):
     "/exercises",
     response_model=schemas.RoutineExerciseManageOut,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role(UserRole.owner))],
 )
 def create_routine_exercise(
     payload: schemas.RoutineExerciseCreate,
@@ -659,7 +679,11 @@ def create_routine_exercise(
     return _serialize_manage_exercise(created)
 
 
-@router.put("/exercises/{exercise_id}", response_model=schemas.RoutineExerciseManageOut)
+@router.put(
+    "/exercises/{exercise_id}",
+    response_model=schemas.RoutineExerciseManageOut,
+    dependencies=[Depends(require_role(UserRole.owner))],
+)
 def update_routine_exercise(
     exercise_id: str,
     payload: schemas.RoutineExerciseUpdate,
@@ -697,7 +721,11 @@ def update_routine_exercise(
     return _serialize_manage_exercise(refreshed)
 
 
-@router.put("/days/{day_id}/selection", response_model=schemas.RoutineDayOut)
+@router.put(
+    "/days/{day_id}/selection",
+    response_model=schemas.RoutineDayOut,
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def update_day_selection(
     day_id: str,
     payload: schemas.RoutineDaySelectionUpdate,
@@ -742,7 +770,11 @@ def update_day_selection(
     return _serialize_day(refreshed_day)
 
 
-@router.get("/clients/{client_id}/overview", response_model=list[schemas.RoutineDayProgress])
+@router.get(
+    "/clients/{client_id}/overview",
+    response_model=list[schemas.RoutineDayProgress],
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def client_routine_overview(client_id: str, db: Session = Depends(get_db)):
     _ensure_seed_data(db)
     _get_client_or_404(db, client_id)
@@ -776,7 +808,11 @@ def client_routine_overview(client_id: str, db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/clients/{client_id}/logs", response_model=list[schemas.WorkoutLogOut])
+@router.get(
+    "/clients/{client_id}/logs",
+    response_model=list[schemas.WorkoutLogOut],
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def client_workout_logs(
     client_id: str,
     day_id: str | None = Query(default=None),
@@ -814,7 +850,10 @@ def client_workout_logs(
     ]
 
 
-@router.get("/clients/{client_id}/progress-report")
+@router.get(
+    "/clients/{client_id}/progress-report",
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def client_progress_report(
     client_id: str,
     db: Session = Depends(get_db),
@@ -949,7 +988,11 @@ def client_progress_report(
     )
 
 
-@router.get("/clients/{client_id}/progress-summary", response_model=schemas.ClientProgressSummary)
+@router.get(
+    "/clients/{client_id}/progress-summary",
+    response_model=schemas.ClientProgressSummary,
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def client_progress_summary(
     client_id: str,
     db: Session = Depends(get_db),
@@ -1001,6 +1044,7 @@ def client_progress_summary(
     "/clients/{client_id}/logs",
     response_model=schemas.WorkoutLogOut,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
 def create_workout_log(
     client_id: str,
@@ -1077,7 +1121,11 @@ def create_workout_log(
     )
 
 
-@router.patch("/clients/{client_id}/logs/{log_id}", response_model=schemas.WorkoutLogOut)
+@router.patch(
+    "/clients/{client_id}/logs/{log_id}",
+    response_model=schemas.WorkoutLogOut,
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def update_workout_log(
     client_id: str,
     log_id: str,
@@ -1124,7 +1172,11 @@ def update_workout_log(
     )
 
 
-@router.delete("/clients/{client_id}/logs/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/clients/{client_id}/logs/{log_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def delete_workout_log(
     client_id: str,
     log_id: str,
@@ -1147,3 +1199,108 @@ def delete_workout_log(
     db.delete(log)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/my/client",
+    response_model=schemas.ClientOut,
+    dependencies=[Depends(require_role(UserRole.user))],
+)
+def my_client(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return _get_user_client_or_403(db, current_user)
+
+
+@router.get(
+    "/my/days",
+    response_model=list[schemas.RoutineDayOut],
+    dependencies=[Depends(require_role(UserRole.user))],
+)
+def my_routine_days(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    _get_user_client_or_403(db, current_user)
+    _ensure_seed_data(db)
+
+    days = (
+        db.query(models.TrainingDay)
+        .options(joinedload(models.TrainingDay.exercises).joinedload(models.TrainingDayExercise.exercise))
+        .order_by(models.TrainingDay.day_order.asc())
+        .all()
+    )
+    return [_serialize_day(day) for day in days]
+
+
+@router.get(
+    "/my/overview",
+    response_model=list[schemas.RoutineDayProgress],
+    dependencies=[Depends(require_role(UserRole.user))],
+)
+def my_routine_overview(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    client = _get_user_client_or_403(db, current_user)
+    return client_routine_overview(client.id, db)
+
+
+@router.get(
+    "/my/logs",
+    response_model=list[schemas.WorkoutLogOut],
+    dependencies=[Depends(require_role(UserRole.user))],
+)
+def my_workout_logs(
+    day_id: str | None = Query(default=None),
+    limit: int = Query(default=40, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    client = _get_user_client_or_403(db, current_user)
+    return client_workout_logs(client.id, day_id, limit, db)
+
+
+@router.post(
+    "/my/logs",
+    response_model=schemas.WorkoutLogOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role(UserRole.user))],
+)
+def create_my_workout_log(
+    payload: schemas.WorkoutLogCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    client = _get_user_client_or_403(db, current_user)
+    return create_workout_log(client.id, payload, db, current_user)
+
+
+@router.patch(
+    "/my/logs/{log_id}",
+    response_model=schemas.WorkoutLogOut,
+    dependencies=[Depends(require_role(UserRole.user))],
+)
+def update_my_workout_log(
+    log_id: str,
+    payload: schemas.WorkoutLogUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    client = _get_user_client_or_403(db, current_user)
+    return update_workout_log(client.id, log_id, payload, db, current_user)
+
+
+@router.delete(
+    "/my/logs/{log_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_role(UserRole.user))],
+)
+def delete_my_workout_log(
+    log_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    client = _get_user_client_or_403(db, current_user)
+    return delete_workout_log(client.id, log_id, db)

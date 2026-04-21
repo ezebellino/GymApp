@@ -19,7 +19,8 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
         "sub": user.id, 
         "name": user.full_name, 
         "email": user.email, 
-        "role": user.role
+        "role": user.role.value if hasattr(user.role, "value") else user.role,
+        "client_id": user.client_id,
         })
     return {"access_token": token, "token_type": "bearer"}
 

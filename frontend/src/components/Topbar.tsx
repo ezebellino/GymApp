@@ -59,6 +59,7 @@ export default function Topbar() {
     setIsAuthed(!!localStorage.getItem("access_token"));
 
     const onKey = (e: KeyboardEvent) => {
+      if (role === "user") return;
       const mod = navigator.platform.includes("Mac") ? e.metaKey : e.ctrlKey;
       if (mod && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -68,7 +69,7 @@ export default function Topbar() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [location.pathname]);
+  }, [location.pathname, role]);
 
   const handleLogout = async () => {
     localStorage.removeItem("access_token");
@@ -77,8 +78,8 @@ export default function Topbar() {
     setMobileMenuOpen(false);
 
     await Swal.fire({
-      title: "SesiÃ³n cerrada",
-      text: "SerÃ¡s redirigido al login.",
+      title: "Sesión cerrada",
+      text: "Serás redirigido al login.",
       icon: "success",
       timer: 1400,
       showConfirmButton: false,
@@ -104,15 +105,17 @@ export default function Topbar() {
           />
         </div>
 
-        <div className="hidden flex-1 justify-center lg:flex">
-          <Button
-            variant="outline"
-            className="w-72 border-amber-200/10 bg-white/[0.03] text-amber-50 hover:border-amber-300/20 hover:bg-white/[0.06]"
-            onClick={openGlobalSearch}
-          >
-            Buscar cliente (Ctrl/Cmd + K)
-          </Button>
-        </div>
+        {role !== "user" && (
+          <div className="hidden flex-1 justify-center lg:flex">
+            <Button
+              variant="outline"
+              className="w-72 border-amber-200/10 bg-white/[0.03] text-amber-50 hover:border-amber-300/20 hover:bg-white/[0.06]"
+              onClick={openGlobalSearch}
+            >
+              Buscar cliente (Ctrl/Cmd + K)
+            </Button>
+          </div>
+        )}
 
         <div className="hidden items-center gap-3 lg:flex">
           {isAuthed && role === "owner" && (
@@ -143,7 +146,7 @@ export default function Topbar() {
               onClick={() => navigate("/login")}
               className="border-amber-200/10 text-amber-50 hover:bg-white/[0.06]"
             >
-              Iniciar sesiÃ³n
+              Iniciar sesión
             </Button>
           )}
         </div>
@@ -178,63 +181,76 @@ export default function Topbar() {
       {mobileMenuOpen && isAuthed && (
         <div className="space-y-3 border-t border-amber-200/10 bg-[#120f0d]/95 px-4 pb-3 pt-2 lg:hidden">
           <div className="space-y-2">
-            <Button
-              variant="outline"
-              className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-              onClick={() => go("/dashboard")}
-            >
-              <LayoutDashboard className="mr-2 h-4 w-4" />
-              Dashboard
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-              onClick={() => go("/clients")}
-            >
-              <Users className="mr-2 h-4 w-4" />
-              Clientes
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-              onClick={() => go("/payments")}
-            >
-              <CreditCard className="mr-2 h-4 w-4" />
-              Pagos
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-              onClick={() => go("/attendance")}
-            >
-              <CalendarCheck2 className="mr-2 h-4 w-4" />
-              Asistencias
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-              onClick={() => go("/routines")}
-            >
-              <Dumbbell className="mr-2 h-4 w-4" />
-              Rutinas
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-              onClick={() => go("/settings")}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              Ajustes
-            </Button>
-            {role === "owner" && (
+            {role === "user" ? (
               <Button
                 variant="outline"
                 className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-                onClick={() => go("/reports")}
+                onClick={() => go("/my-routine")}
               >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Reportes
+                <Dumbbell className="mr-2 h-4 w-4" />
+                Mi rutina
               </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                  onClick={() => go("/dashboard")}
+                >
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
+                  Dashboard
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                  onClick={() => go("/clients")}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Clientes
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                  onClick={() => go("/payments")}
+                >
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Pagos
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                  onClick={() => go("/attendance")}
+                >
+                  <CalendarCheck2 className="mr-2 h-4 w-4" />
+                  Asistencias
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                  onClick={() => go("/routines")}
+                >
+                  <Dumbbell className="mr-2 h-4 w-4" />
+                  Rutinas
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                  onClick={() => go("/settings")}
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  Ajustes
+                </Button>
+                {role === "owner" && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                    onClick={() => go("/reports")}
+                  >
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Reportes
+                  </Button>
+                )}
+              </>
             )}
           </div>
 

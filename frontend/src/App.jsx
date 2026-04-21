@@ -16,6 +16,7 @@ const Reports = lazy(() => import("./pages/Reports"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Login = lazy(() => import("./pages/Login"));
 const NewCoachPage = lazy(() => import("./pages/NewCoach"));
+const UserRoutine = lazy(() => import("./pages/UserRoutine"));
 
 function PageLoader() {
   return (
@@ -30,6 +31,7 @@ function PageLoader() {
 export default function App() {
   const location = useLocation();
   const isAuthRoute = location.pathname.startsWith("/login");
+  const role = localStorage.getItem("user_role");
 
   useEffect(() => {
     syncThemeFromSettings();
@@ -55,11 +57,19 @@ export default function App() {
           <main className="app-main-shell-bg min-h-screen px-4 pb-6 pt-14 lg:pl-64">
             <Suspense fallback={<PageLoader />}>
               <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/" element={<Navigate to={role === "user" ? "/my-routine" : "/dashboard"} replace />} />
+                <Route
+                  path="/my-routine"
+                  element={
+                    <ProtectedRoute roles={["user"]}>
+                      <UserRoutine />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/dashboard"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["owner", "coach"]}>
                       <Dashboard />
                     </ProtectedRoute>
                   }
@@ -67,7 +77,7 @@ export default function App() {
                 <Route
                   path="/clients"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["owner", "coach"]}>
                       <Clients />
                     </ProtectedRoute>
                   }
@@ -75,7 +85,7 @@ export default function App() {
                 <Route
                   path="/payments"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["owner", "coach"]}>
                       <Payments />
                     </ProtectedRoute>
                   }
@@ -83,7 +93,7 @@ export default function App() {
                 <Route
                   path="/attendance"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["owner", "coach"]}>
                       <Attendance />
                     </ProtectedRoute>
                   }
@@ -91,7 +101,7 @@ export default function App() {
                 <Route
                   path="/routines"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["owner", "coach"]}>
                       <Routines />
                     </ProtectedRoute>
                   }
@@ -99,7 +109,7 @@ export default function App() {
                 <Route
                   path="/reports"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["owner", "coach"]}>
                       <Reports />
                     </ProtectedRoute>
                   }
@@ -107,7 +117,7 @@ export default function App() {
                 <Route
                   path="/settings"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute roles={["owner", "coach"]}>
                       <Settings />
                     </ProtectedRoute>
                   }
@@ -120,7 +130,7 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<Navigate to={role === "user" ? "/my-routine" : "/dashboard"} replace />} />
               </Routes>
             </Suspense>
             <Footer />

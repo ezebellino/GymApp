@@ -85,7 +85,7 @@ export default function Login() {
         localStorage.setItem("user_name", payload.name ?? payload.email ?? "Usuario");
         localStorage.setItem(
           "user_role",
-          payload.role === "owner" || payload.role === "coach"
+          payload.role === "owner" || payload.role === "coach" || payload.role === "user"
             ? payload.role
             : "coach"
         );

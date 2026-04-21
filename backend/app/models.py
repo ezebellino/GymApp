@@ -12,6 +12,7 @@ Base = declarative_base()
 class UserRole(str, enum.Enum):
     owner = "owner"
     coach = "coach"
+    user = "user"
 
 class User(Base):
     __tablename__ = "users"
@@ -21,6 +22,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     email_verified = Column(Boolean, default=False)
     role = Column(Enum(UserRole), default=UserRole.coach, nullable=False)
+    client_id = Column(String, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, unique=True, index=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

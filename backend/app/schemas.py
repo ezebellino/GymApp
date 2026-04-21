@@ -8,7 +8,7 @@ from sqlalchemy import func
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator, field_serializer
 
 
-Role = Literal["owner", "coach"]
+Role = Literal["owner", "coach", "user"]
 ThemePreference = Literal["dark-gold", "dark-copper", "dark-olive"]
 
 
@@ -24,6 +24,7 @@ class UserBase(BaseSchema):
     full_name: str = Field(min_length=1, max_length=120)
     email: Annotated[str, Field(min_length=1, max_length=120)]
     role: Role
+    client_id: Optional[str] = None
     is_active: bool = True
 
 
@@ -36,6 +37,7 @@ class UserUpdate(BaseSchema):
     full_name: Optional[str] = Field(None, min_length=1, max_length=120)
     email: Optional[Annotated[str, Field(min_length=1, max_length=120)]] = None
     role: Optional[Role] = None
+    client_id: Optional[str] = None
     is_active: Optional[bool] = None
     password: Optional[str] = Field(None, min_length=6, max_length=100)
 
@@ -43,6 +45,21 @@ class UserUpdate(BaseSchema):
 class UserOut(UserBase):
     id: str
     email_verified: bool
+
+
+class ClientPortalAccessCreate(BaseSchema):
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=100)
+    full_name: Optional[str] = Field(None, min_length=1, max_length=120)
+    is_active: bool = True
+
+
+class ClientPortalAccessOut(BaseSchema):
+    user_id: str
+    client_id: str
+    full_name: str
+    email: str
+    is_active: bool
 
 
 class ClientBase(BaseSchema):
