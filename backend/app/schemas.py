@@ -47,6 +47,21 @@ class UserOut(UserBase):
     email_verified: bool
 
 
+class ClientRegisterIn(BaseSchema):
+    full_name: Annotated[str, Field(min_length=1, max_length=120)]
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=100)
+    phone: Optional[str] = Field(None, max_length=30)
+
+    @field_validator("full_name", "phone", mode="before")
+    @classmethod
+    def normalize_registration_strings(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
+
 class ClientPortalAccessCreate(BaseSchema):
     email: EmailStr
     password: str = Field(min_length=6, max_length=100)

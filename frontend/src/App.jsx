@@ -15,6 +15,7 @@ const Routines = lazy(() => import("./pages/Routines"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Login = lazy(() => import("./pages/Login"));
+const RegisterClient = lazy(() => import("./pages/RegisterClient"));
 const NewCoachPage = lazy(() => import("./pages/NewCoach"));
 const UserRoutine = lazy(() => import("./pages/UserRoutine"));
 
@@ -30,7 +31,8 @@ function PageLoader() {
 
 export default function App() {
   const location = useLocation();
-  const isAuthRoute = location.pathname.startsWith("/login");
+  const isAuthRoute =
+    location.pathname.startsWith("/login") || location.pathname.startsWith("/register-client");
   const role = localStorage.getItem("user_role");
 
   useEffect(() => {
@@ -143,6 +145,7 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/register-client" element={<RegisterClient />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </Suspense>

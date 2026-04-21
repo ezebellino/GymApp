@@ -268,6 +268,14 @@ export default function Login() {
             </div>
           </div>
 
+          <button
+            type="button"
+            onClick={() => navigate("/register-client")}
+            className="mt-4 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-zinc-200 transition hover:bg-white/[0.06]"
+          >
+            Soy cliente y quiero crear mi acceso
+          </button>
+
           <p className="mt-6 text-center text-xs text-zinc-500">
             {new Date().getFullYear()} Mini Espacio
           </p>
