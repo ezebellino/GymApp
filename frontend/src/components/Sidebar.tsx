@@ -37,7 +37,7 @@ const items: NavItem[] = [
 ];
 
 function roleLabel(role: string) {
-  if (role === "owner") return "DueÒo";
+  if (role === "owner") return "Due√±o";
   if (role === "coach") return "Coach";
   return "Usuario";
 }
@@ -112,7 +112,7 @@ export default function Sidebar() {
                 Atajos
               </p>
               <p className="mt-1 text-sm text-zinc-300">
-                Acciones de operaciÛn diaria
+                Acciones de operaci√≥n diaria
               </p>
             </div>
 
@@ -157,8 +157,8 @@ export default function Sidebar() {
             </p>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
               {role === "user"
-                ? "Registr· tu avance, revis· tu rutina por dÌa y seguÌ tu historial personal."
-                : "Us· rutinas como punto de partida y movete r·pido entre clientes, asistencias y seguimiento."}
+                ? "Registr√° tu avance, revis√° tu rutina por d√≠a y segu√≠ tu historial personal."
+                : "Us√° rutinas como punto de partida y movete r√°pido entre clientes, asistencias y seguimiento."}
             </p>
           </section>
         </div>

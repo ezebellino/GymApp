@@ -78,8 +78,8 @@ export default function Topbar() {
     setMobileMenuOpen(false);
 
     await Swal.fire({
-      title: "Sesión cerrada",
-      text: "Serás redirigido al login.",
+      title: "SesiÃ³n cerrada",
+      text: "SerÃ¡s redirigido al login.",
       icon: "success",
       timer: 1400,
       showConfirmButton: false,
@@ -146,7 +146,7 @@ export default function Topbar() {
               onClick={() => navigate("/login")}
               className="border-amber-200/10 text-amber-50 hover:bg-white/[0.06]"
             >
-              Iniciar sesión
+              Iniciar sesiÃ³n
             </Button>
           )}
         </div>

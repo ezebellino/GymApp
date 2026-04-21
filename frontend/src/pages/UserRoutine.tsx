@@ -79,7 +79,7 @@ export default function UserRoutine() {
         console.error("Error cargando rutina del cliente", error);
         await alertError(
           "No se pudo cargar tu rutina",
-          "Tu cuenta todavía puede no estar vinculada a un cliente."
+          "Tu cuenta todavÃ­a puede no estar vinculada a un cliente."
         );
       } finally {
         setLoading(false);
@@ -146,12 +146,12 @@ export default function UserRoutine() {
         [exerciseId]: emptyDraft(),
       }));
       await refreshDayLogs(selectedDayId);
-      await alertSuccessAutoClose("Registro guardado", "Tu progreso quedó cargado.");
+      await alertSuccessAutoClose("Registro guardado", "Tu progreso quedÃ³ cargado.");
     } catch (error) {
       console.error("Error guardando progreso", error);
       await alertError(
         "No se pudo guardar",
-        "Revisá los datos del ejercicio e intentá nuevamente."
+        "RevisÃ¡ los datos del ejercicio e intentÃ¡ nuevamente."
       );
     } finally {
       setSavingExerciseId(null);
@@ -178,12 +178,12 @@ export default function UserRoutine() {
               Hola {client?.full_name ?? ""}
             </h1>
             <p className="mt-2 text-sm text-zinc-300">
-              Elegí el día, cargá tus ejercicios y mantené tu progreso actualizado.
+              ElegÃ­ el dÃ­a, cargÃ¡ tus ejercicios y mantenÃ© tu progreso actualizado.
             </p>
           </div>
 
           <div className="min-w-[240px]">
-            <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-zinc-500">Día</label>
+            <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-zinc-500">DÃ­a</label>
             <select
               className="w-full rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-amber-400/25"
               value={selectedDayId}
@@ -191,7 +191,7 @@ export default function UserRoutine() {
             >
               {days.map((day) => (
                 <option key={day.id} value={day.id}>
-                  {day.name} · {day.muscle_groups.join(" / ")}
+                  {day.name} Â· {day.muscle_groups.join(" / ")}
                 </option>
               ))}
             </select>
@@ -203,18 +203,18 @@ export default function UserRoutine() {
         <CardHeader className="border-b border-amber-200/10 pb-5">
           <CardTitle className="flex items-center gap-2 text-zinc-100">
             <Dumbbell className="h-5 w-5" />
-            Rutina del día
+            Rutina del dÃ­a
           </CardTitle>
           <p className="text-sm text-zinc-400">
             {selectedDayProgress
-              ? `${selectedDayProgress.log_count} registros en ${selectedDayProgress.day_name}. Último: ${formatDateTime(selectedDayProgress.last_performed_at)}`
-              : "Sin actividad cargada todavía para este día."}
+              ? `${selectedDayProgress.log_count} registros en ${selectedDayProgress.day_name}. Ãšltimo: ${formatDateTime(selectedDayProgress.last_performed_at)}`
+              : "Sin actividad cargada todavÃ­a para este dÃ­a."}
           </p>
         </CardHeader>
         <CardContent className="space-y-4 pt-6">
           {activeExercises.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 p-6 text-sm text-zinc-400">
-              No hay ejercicios activos para este día.
+              No hay ejercicios activos para este dÃ­a.
             </div>
           ) : (
             activeExercises.map((exercise) => {
@@ -288,7 +288,7 @@ export default function UserRoutine() {
         <CardHeader className="border-b border-amber-200/10 pb-5">
           <CardTitle className="flex items-center gap-2 text-zinc-100">
             <History className="h-5 w-5" />
-            Historial reciente del día
+            Historial reciente del dÃ­a
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
@@ -309,7 +309,7 @@ export default function UserRoutine() {
                   {logs.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-10 text-center text-zinc-400">
-                        Todavía no registraste ejercicios en este día.
+                        TodavÃ­a no registraste ejercicios en este dÃ­a.
                       </td>
                     </tr>
                   ) : (

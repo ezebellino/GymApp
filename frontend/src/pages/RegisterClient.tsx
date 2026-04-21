@@ -23,7 +23,7 @@ export default function RegisterClient() {
     event.preventDefault();
 
     if (password !== confirmPassword) {
-      await alertError("Las contraseÒas no coinciden", "Revis· ambos campos e intent· de nuevo.");
+      await alertError("Las contrase√±as no coinciden", "Revis√° ambos campos e intent√° de nuevo.");
       return;
     }
 
@@ -51,12 +51,12 @@ export default function RegisterClient() {
         localStorage.setItem("user_role", payload.role === "user" ? "user" : "user");
       }
 
-      await alertSuccess("Cuenta creada", "Ya podÈs cargar tu progreso en Mi rutina.");
+      await alertSuccess("Cuenta creada", "Ya pod√©s cargar tu progreso en Mi rutina.");
       navigate("/my-routine", { replace: true });
     } catch (error: any) {
       await alertError(
         "No se pudo crear la cuenta",
-        error?.response?.data?.detail ?? "Intent· nuevamente en unos minutos."
+        error?.response?.data?.detail ?? "Intent√° nuevamente en unos minutos."
       );
     } finally {
       setLoading(false);
@@ -104,7 +104,7 @@ export default function RegisterClient() {
             <Input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="TelÈfono (opcional)"
+              placeholder="Tel√©fono (opcional)"
               className="h-12 border-amber-200/10 bg-zinc-900/70"
             />
             <Input
@@ -113,7 +113,7 @@ export default function RegisterClient() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              placeholder="ContraseÒa (mÌnimo 6)"
+              placeholder="Contrase√±a (m√≠nimo 6)"
               className="h-12 border-amber-200/10 bg-zinc-900/70"
             />
             <Input
@@ -122,7 +122,7 @@ export default function RegisterClient() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               minLength={6}
-              placeholder="Repetir contraseÒa"
+              placeholder="Repetir contrase√±a"
               className="h-12 border-amber-200/10 bg-zinc-900/70"
             />
           </div>
