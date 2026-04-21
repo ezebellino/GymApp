@@ -7,7 +7,8 @@ RUN npm ci
 
 COPY . .
 RUN npm run build
+RUN npm install -g serve
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npm run preview -- --host 0.0.0.0 --port ${PORT:-3000}"]
+CMD ["sh", "-c", "serve -s dist -l ${PORT:-3000}"]
