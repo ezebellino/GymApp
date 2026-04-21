@@ -39,11 +39,9 @@ export default function App() {
     };
 
     window.addEventListener("app-settings:updated", handleThemeUpdate);
-    window.addEventListener("app-theme:updated", handleThemeUpdate);
 
     return () => {
       window.removeEventListener("app-settings:updated", handleThemeUpdate);
-      window.removeEventListener("app-theme:updated", handleThemeUpdate);
     };
   }, []);
 
