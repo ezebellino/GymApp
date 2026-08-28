@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "python-testing-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "autoskills-registry",
+      "computedHash": "07b87d62993c0b6159a91d18fc8723b7f4c13d5000c0984266c207493ce641ff"
+    }
+  }
+}
