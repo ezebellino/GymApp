@@ -1,8 +1,11 @@
-.PHONY: help setup setup-backend setup-frontend dev backend frontend migrate stop clean
+.PHONY: help setup setup-backend setup-frontend dev backend frontend migrate stop clean \
+	docker-up docker-down docker-build docker-logs docker-ps docker-clean
 
 VENV := backend/.venv
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
+BACKEND_HOST := 127.0.0.1
+BACKEND_PORT := 8001
 
 help: ## Muestra los comandos disponibles
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -23,7 +26,7 @@ migrate: ## Corre las migraciones de alembic
 	cd backend && ../$(PYTHON) -m alembic upgrade head
 
 backend: ## Levanta solo el backend (uvicorn --reload)
-	cd backend && ../$(PYTHON) -m uvicorn app.main:app --reload
+	cd backend && ../$(PYTHON) -m uvicorn app.main:app --reload --host $(BACKEND_HOST) --port $(BACKEND_PORT)
 
 frontend: ## Levanta solo el frontend (vite dev)
 	cd frontend && npm run dev
@@ -40,3 +43,23 @@ stop: ## Mata procesos de uvicorn/vite que hayan quedado colgados
 
 clean: ## Borra el virtualenv y node_modules
 	rm -rf $(VENV) frontend/node_modules
+
+docker-up: ## Levanta todo (db + backend + frontend) en Docker
+	@test -f backend/.env.docker || cp backend/.env.docker.example backend/.env.docker
+	@test -f frontend/.env.docker || cp frontend/.env.docker.example frontend/.env.docker
+	docker compose up --build
+
+docker-down: ## Baja los contenedores (mantiene los volúmenes/datos)
+	docker compose down
+
+docker-build: ## Reconstruye las imágenes sin levantar los servicios
+	docker compose build
+
+docker-logs: ## Sigue los logs de todos los servicios
+	docker compose logs -f
+
+docker-ps: ## Muestra el estado de los servicios
+	docker compose ps
+
+docker-clean: ## Baja los contenedores y borra volúmenes (incluye la DB)
+	docker compose down -v
