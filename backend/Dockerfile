@@ -17,5 +17,6 @@ COPY . .
 
 EXPOSE 8000
 
-# Railway assigns PORT at runtime; --reload is development-only and must not run in production.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+# Keep the web process focused on serving HTTP. Database migrations must not block
+# Railway's healthcheck during container startup.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
