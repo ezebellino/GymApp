@@ -82,6 +82,17 @@
     --background: oklch(0.16 0.01 70);
     --foreground: oklch(0.96 0.01 80);
   }
+
+  /* Evita que el autocompletado del navegador pinte los inputs de blanco */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-text-fill-color: var(--foreground);
+    -webkit-box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset;
+    box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset;
+    transition: background-color 9999s ease-in-out 0s;
+  }
 }
 
 @layer utilities {

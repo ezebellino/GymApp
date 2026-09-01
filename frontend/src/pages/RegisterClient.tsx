@@ -93,7 +93,7 @@ export default function RegisterClient() {
               onChange={(e) => setFullName(e.target.value)}
               required
               placeholder="Nombre y apellido"
-              className="h-12 border-amber-200/10 bg-zinc-900/70"
+              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
             />
             <Input
               type="email"
@@ -101,13 +101,13 @@ export default function RegisterClient() {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="Email"
-              className="h-12 border-amber-200/10 bg-zinc-900/70"
+              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
             />
             <Input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="Teléfono (opcional)"
-              className="h-12 border-amber-200/10 bg-zinc-900/70"
+              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
             />
             <Input
               type="password"
@@ -116,7 +116,7 @@ export default function RegisterClient() {
               required
               minLength={6}
               placeholder="Contraseña (mínimo 6)"
-              className="h-12 border-amber-200/10 bg-zinc-900/70"
+              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
             />
             <Input
               type="password"
@@ -125,7 +125,7 @@ export default function RegisterClient() {
               required
               minLength={6}
               placeholder="Repetir contraseña"
-              className="h-12 border-amber-200/10 bg-zinc-900/70"
+              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
             />
           </div>
 

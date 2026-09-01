@@ -121,7 +121,7 @@ export default function Login() {
               type="text"
               required
               placeholder="manga_aguirre"
-              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:ring-amber-400"
+              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
             />
           </div>
 
@@ -134,7 +134,7 @@ export default function Login() {
                 type={showPwd ? "text" : "password"}
                 required
                 placeholder="Tu contrasena"
-                className="h-12 border-amber-200/10 bg-zinc-900/70 pr-10 focus-visible:ring-orange-400"
+                className="h-12 border-amber-200/10 bg-zinc-900/70 pr-10 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
               />
               <button
                 type="button"
@@ -166,7 +166,7 @@ export default function Login() {
           onClick={() => navigate("/register-client")}
           className="mt-4 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-zinc-200 transition hover:bg-white/[0.06]"
         >
-          Registrar cuenta
+          Registrar Cuenta
         </button>
       </form>
     </div>
