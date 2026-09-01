@@ -135,7 +135,7 @@ export default function RegisterClient() {
             type="submit"
           >
             <UserPlus className="h-4 w-4" />
-            {loading ? "Creando cuenta..." : "Crear cuenta y entrar"}
+            {loading ? "Creando cuenta..." : "Registrar Cuenta"}
           </Button>
         </form>
       </div>
