@@ -141,7 +141,7 @@ export default function App() {
       )}
 
       {isAuthRoute && (
-        <main className="app-main-shell-bg min-h-screen flex items-center justify-center">
+        <main className="min-h-screen flex items-center justify-center bg-zinc-950">
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<Login />} />

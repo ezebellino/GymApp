@@ -64,7 +64,7 @@ export default function RegisterClient() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0b0b0b] px-6 py-12">
+    <div className="w-full px-6 py-12">
       <div className="mx-auto w-full max-w-lg">
         <button
           type="button"
@@ -77,13 +77,16 @@ export default function RegisterClient() {
 
         <form
           onSubmit={onSubmit}
-          className="rounded-4xl border border-amber-200/10 bg-zinc-900/75 p-8 shadow-[0_30px_90px_-45px_rgba(249,115,22,0.45)] backdrop-blur-xl sm:p-10"
+          className="rounded-4xl border border-amber-200/10 bg-zinc-900/95 p-8 sm:p-10"
         >
-          <p className="text-sm uppercase tracking-[0.24em] text-zinc-500">Registro de cliente</p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-50">Crear acceso personal</h1>
-          <p className="mt-2 text-sm text-zinc-400">
-            Vas a ingresar directo a tu vista de usuario para cargar ejercicios y ver tu rutina.
-          </p>
+          <div className="flex items-center gap-3">
+            <img
+              src="/mini-espacio-logo.svg"
+              alt="Gym App"
+              className="h-12 w-12 rounded-full object-cover ring-1 ring-white/10"
+            />
+            <p className="text-lg font-semibold tracking-tight text-zinc-50">Gym App</p>
+          </div>
 
           <div className="mt-8 space-y-4">
             <Input
