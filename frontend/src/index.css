@@ -82,17 +82,24 @@
     --background: oklch(0.16 0.01 70);
     --foreground: oklch(0.96 0.01 80);
   }
+}
 
-  /* Evita que el autocompletado del navegador pinte los inputs de blanco */
-  input:-webkit-autofill,
-  input:-webkit-autofill:hover,
-  input:-webkit-autofill:focus,
-  input:-webkit-autofill:active {
-    -webkit-text-fill-color: var(--foreground);
-    -webkit-box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset;
-    box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset;
-    transition: background-color 9999s ease-in-out 0s;
-  }
+/* Evita que el autocompletado del navegador pinte los inputs de blanco.
+   Fuera de @layer a propósito: las utilidades de Tailwind (ej. shadow-xs
+   del componente Input) viven en la layer "utilities", que en Tailwind v4
+   siempre gana sobre "base" sin importar especificidad. Una regla sin
+   layer tiene prioridad sobre cualquier regla en layer, así que esto
+   asegura que el fix de autofill no sea pisado. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--foreground) !important;
+  caret-color: var(--foreground);
+  -webkit-box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset !important;
+  box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset !important;
+  background-color: transparent !important;
+  transition: background-color 9999s ease-in-out 0s;
 }
 
 @layer utilities {
