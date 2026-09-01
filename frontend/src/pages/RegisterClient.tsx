@@ -5,7 +5,7 @@ import { ArrowLeft, UserPlus } from "lucide-react";
 import api from "@/lib/http";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { alertError, alertSuccess } from "@/lib/alerts";
+import { alertError } from "@/lib/alerts";
 
 type TokenResp = { access_token: string; token_type: string };
 type TokenPayload = { name?: string; email?: string; role?: string };
@@ -51,7 +51,6 @@ export default function RegisterClient() {
         localStorage.setItem("user_role", payload.role === "user" ? "user" : "user");
       }
 
-      await alertSuccess("Cuenta creada", "Ya podés cargar tu progreso en Mi rutina.");
       navigate("/my-routine", { replace: true });
     } catch (error: any) {
       await alertError(

@@ -5,7 +5,7 @@ import { Eye, EyeOff, LogIn } from "lucide-react";
 import api from "@/lib/http";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { alertError, alertSuccess } from "@/lib/alerts";
+import { alertError } from "@/lib/alerts";
 
 type TokenResp = { access_token: string; token_type: string };
 type TokenPayload = {
@@ -77,7 +77,6 @@ export default function Login() {
         );
       }
 
-      await alertSuccess("Bienvenido", "Inicio de sesion correcto.");
       navigate("/", { replace: true });
     } catch (err: any) {
       console.error("Error al hacer login", err);
