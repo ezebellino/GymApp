@@ -75,17 +75,21 @@ Flujo (comandos definidos una sola vez en `.agents/commands/`: `/opsx:<x>` en Cl
 `/opsx-<x>` en Codex):
 
 1. `/opsx:propose "<qué querés construir>"` — crea `openspec/changes/<nombre>/` con
-   `proposal.md`, `design.md` y `tasks.md`.
+   `proposal.md`, `specs/`, `design.md` y `tasks.md`. Cada artifact lo escribe su rol dueño:
+   Product Owner el proposal y las specs, Arquitecto el design y las tasks.
 2. Revisar y ajustar los artifacts generados si hace falta.
-3. `/opsx:apply` — implementa las tasks del change.
-4. `/opsx:sync` — sincroniza las delta specs a `openspec/specs/` (sin archivar).
-5. `/opsx:archive` — cuando el change está implementado y validado, lo archiva y actualiza specs
-   principales.
+3. `/opsx:apply` — el rol Dev implementa las tasks del change.
+4. `/opsx:verify` — **gate**: Code Reviewer revisa el diff y QA verifica los escenarios de la
+   spec; el veredicto queda en `verification.md` dentro del change. OpenSpec solo tiene gates
+   antes de implementar (`apply.requires`), así que este cubre el después.
+5. `/opsx:sync` — sincroniza las delta specs a `openspec/specs/` (sin archivar).
+6. `/opsx:archive` — con veredicto PASA, archiva el change y actualiza las specs principales.
 
 Para explorar una idea antes de comprometerse a una propuesta formal: `/opsx:explore`.
 
-No archives un change sin correr los tests/lint relevantes y sin que el usuario haya confirmado
-que el comportamiento es el esperado.
+No archives un change sin `verification.md` con veredicto PASA y sin que el usuario haya
+confirmado que el comportamiento es el esperado. El usuario puede saltear el gate, pero tiene que
+decirlo explícitamente y el resumen del archive debe registrarlo.
 
 ## Convenciones generales
 

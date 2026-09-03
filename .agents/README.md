@@ -16,6 +16,7 @@ acá, funciona en los dos.
 ├── bin/sync.py                materializa .claude/ y .codex/ desde acá
 ├── skills/                    ← ruta NATIVA de Codex ($REPO_ROOT/.agents/skills)
 │   ├── openspec-*/            flujo de OpenSpec (cuerpo canónico, generado por openspec)
+│   ├── verify-change/         gate de verificación previo a archivar (propia)
 │   ├── run-app/               levantar la app en Docker
 │   ├── role-*/                los 5 roles de proceso (ver abajo)
 │   └── <autoskills>/          traídas por autoskills (skills-lock.json) — no editar a mano
@@ -73,6 +74,10 @@ agente para que recargue skills y comandos.
 
 Cada rol es **a la vez** una skill (invocable en cualquier proveedor) y un subagente
 (aislamiento de contexto y permisos, en el proveedor que lo soporte).
+
+Los comandos `/opsx:*` delegan en ellos: `propose` reparte entre Product Owner y Arquitecto,
+`apply` implementa con Dev, y `verify` corre Code Reviewer + QA y deja el veredicto en
+`verification.md` del change (gate previo a `archive`).
 
 ## Cosas que muerden
 
