@@ -1,7 +1,7 @@
 ---
 name: dev
 description: Dev: implementa las tasks de un change ya disenado. Unico rol que escribe codigo de aplicacion.
-model: inherit
+model: sonnet
 ---
 
 <!-- GENERADO por .agents/bin/sync.py desde .agents/registry.json - NO EDITAR A MANO -->

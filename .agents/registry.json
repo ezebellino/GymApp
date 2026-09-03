@@ -19,8 +19,8 @@
       "name": "product-owner",
       "skill": "role-product-owner",
       "description": "Product Owner: escribe y revisa proposal.md y specs de un change de OpenSpec (el QUE y el POR QUE). No escribe codigo de aplicacion.",
-      "claude": { "tools": "Read, Grep, Glob, Write, Edit, Bash", "model": "opus" },
-      "codex":  { "sandbox_mode": "workspace-write", "model_reasoning_effort": "high" }
+      "claude": { "tools": "Read, Grep, Glob, Write, Edit, Bash", "model": "sonnet" },
+      "codex":  { "sandbox_mode": "workspace-write", "model_reasoning_effort": "medium" }
     },
     {
       "name": "architect",
@@ -36,7 +36,7 @@
       "name": "dev",
       "skill": "role-dev",
       "description": "Dev: implementa las tasks de un change ya disenado. Unico rol que escribe codigo de aplicacion.",
-      "claude": { "model": "inherit" },
+      "claude": { "model": "sonnet" },
       "codex":  { "sandbox_mode": "workspace-write", "model_reasoning_effort": "medium" }
     },
     {

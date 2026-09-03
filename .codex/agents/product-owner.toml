@@ -2,7 +2,7 @@
 
 name = "product_owner"
 description = "Product Owner: escribe y revisa proposal.md y specs de un change de OpenSpec (el QUE y el POR QUE). No escribe codigo de aplicacion."
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Adopta el rol definido en .agents/skills/role-product-owner/SKILL.md

@@ -2,7 +2,7 @@
 name: product-owner
 description: Product Owner: escribe y revisa proposal.md y specs de un change de OpenSpec (el QUE y el POR QUE). No escribe codigo de aplicacion.
 tools: Read, Grep, Glob, Write, Edit, Bash
-model: opus
+model: sonnet
 ---
 
 <!-- GENERADO por .agents/bin/sync.py desde .agents/registry.json - NO EDITAR A MANO -->
