@@ -1,0 +1,12 @@
+# GENERADO por .agents/bin/sync.py desde .agents/registry.json - NO EDITAR A MANO
+
+name = "code_reviewer"
+description = "Code Reviewer: revisa el diff con contexto fresco antes de mergear o archivar. Solo lectura."
+model_reasoning_effort = "high"
+sandbox_mode = "read-only"
+developer_instructions = """
+Adopta el rol definido en .agents/skills/role-code-reviewer/SKILL.md
+
+Lee ese archivo COMPLETO antes de actuar y respeta sus reglas y sus limites.
+Es la unica fuente de verdad del rol, compartida con los demas proveedores.
+"""
