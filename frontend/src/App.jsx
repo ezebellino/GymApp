@@ -1,10 +1,12 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Toaster } from "sileo";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { syncThemeFromSettings } from "./lib/theme";
+import "sileo/styles.css";
 import "./index.css";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -51,6 +53,8 @@ export default function App() {
 
   return (
     <div className="app-shell-bg min-h-screen text-zinc-100">
+      <Toaster position="top-right" theme="dark" />
+
       {!isAuthRoute && (
         <>
           <Sidebar />

@@ -34,7 +34,8 @@ la UI.
 
 #### Scenario: Credenciales inválidas
 - **WHEN** el usuario ingresa usuario o contraseña inválidos
-- **THEN** el sistema muestra una alerta de error ("Credenciales invalidas") sin redirigir
+- **THEN** el sistema muestra un toast de error ("Credenciales invalidas", ver capability
+  `toast-notifications`) sin redirigir ni bloquear el formulario
 
 ### Requirement: Link a registro de cuenta
 El formulario SHALL mostrar un link con el texto "Registrar cuenta" que navega a

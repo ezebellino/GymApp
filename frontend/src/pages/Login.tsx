@@ -5,7 +5,7 @@ import { Eye, EyeOff, LogIn } from "lucide-react";
 import api from "@/lib/http";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { alertError } from "@/lib/alerts";
+import { toastError } from "@/lib/toast";
 
 type TokenResp = { access_token: string; token_type: string };
 type TokenPayload = {
@@ -83,9 +83,9 @@ export default function Login() {
       const status = err?.response?.status;
 
       if (status === 400 || status === 401) {
-        await alertError("Credenciales invalidas", "Verifica usuario y contrasena.");
+        toastError("Credenciales invalidas", "Verifica usuario y contrasena.");
       } else {
-        await alertError(
+        toastError(
           "Error de conexion",
           "No se pudo contactar al servidor. Intenta de nuevo en unos minutos."
         );
