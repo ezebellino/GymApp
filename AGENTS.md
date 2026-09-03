@@ -101,8 +101,12 @@ decirlo explícitamente y el resumen del archive debe registrarlo.
   `.env.docker.example` como plantilla. Los `.env*` reales ya están en `.gitignore`.
 - **Migraciones**: cualquier cambio a `backend/app/models.py` requiere una migración Alembic
   nueva (`backend/AGENTS.md` tiene el comando). No edites migraciones ya aplicadas en producción.
-- **No asumas test suite**: hoy no hay tests automatizados en `backend/` ni `frontend/`. Si
-  agregás uno, documentalo en el `AGENTS.md` correspondiente y en el `Makefile`.
+- **Tests**: hay una suite automatizada mínima y ejecutable. `make test` corre las dos apps
+  (sigue de largo aunque una falle, para dar el cuadro completo), `make test-backend` corre solo
+  pytest (`backend/tests/`) y `make test-frontend` solo Vitest
+  (`frontend/src/**/__tests__/*.test.tsx`). Ninguna requiere levantar la app ni Docker. Cubre el
+  piso, no el techo: auth + autorización por rol en backend y render de las 4 vistas con spec en
+  frontend. Si agregás tests, documentalo en el `AGENTS.md` de esa app.
 
 ## Configuración de agentes: `.agents/` es la única fuente de verdad
 

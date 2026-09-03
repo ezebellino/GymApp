@@ -53,9 +53,11 @@ python scripts/create_owner.py     # crea usuario owner inicial
 - **Modelos**: cualquier cambio en `app/models.py` necesita una migración Alembic nueva. Revisá
   el autogenerate (`alembic revision --autogenerate`) siempre a mano antes de aplicar — a veces
   genera drops o cambios de tipo no deseados.
-- **Auth**: roles son `Dueño` y `Coach`, más un portal de cliente self-service (ver
-  `routers/auth.py` y `routers/coaches.py`). Los endpoints protegidos usan dependencias de
-  `deps.py` — no reimplementes chequeo de token a mano en un router nuevo.
+- **Auth**: el enum `models.UserRole` tiene **tres** roles — `owner` (Dueño), `coach` (Coach) y
+  `user` (Cliente, el portal self-service). Los nombres en español son solo de producto; en
+  código y en la API se usan los del enum (ver `routers/auth.py` y `routers/coaches.py`). Los
+  endpoints protegidos usan dependencias de `deps.py` — no reimplementes chequeo de token a mano
+  en un router nuevo.
 - **CORS**: origins permitidos vienen de `CORS_ORIGINS` en `.env` (coma-separado). Si agregás un
   dominio de frontend nuevo, actualizá `.env.example` y `.env.docker.example` también.
 - **Logs**: `app/logging_conf.py` escribe a `backend/logs/` (access/app/error). No commitear
@@ -63,6 +65,20 @@ python scripts/create_owner.py     # crea usuario owner inicial
 - **Scripts**: son ejecutables sueltos pensados para correrse una vez (seed, import, fix de
   datos) — no son parte del arranque normal de la app. Si escribís uno nuevo, ponelo en
   `scripts/` con un nombre descriptivo, no lo mezcles con `app/`.
-- **Tests**: no hay suite de tests todavía. Si el usuario pide agregar tests, usá pytest (hay una
-  skill `python-testing-patterns` en `.agents/skills/`) y documentá el comando acá y en el
-  Makefile una vez exista.
+- **Tests**: hay suite con pytest en `backend/tests/` (`test_auth.py`, `test_roles.py`,
+  `test_health.py`). Se corre con `make test-backend` desde la raíz, o
+  `cd backend && .venv/bin/python -m pytest` (el venv vive en `backend/.venv`). Config en
+  `backend/pytest.ini`; las
+  dependencias de test viven en `backend/requirements-dev.txt` (`-r requirements.txt` + pytest),
+  que instala `make setup-backend` — el `Dockerfile` y Railway siguen usando solo
+  `requirements.txt`, así que pytest no entra en la imagen de producción.
+  - **La base de test es SQLite de archivo** en un directorio temporal, con el esquema creado por
+    `Base.metadata.create_all()` (las migraciones son Postgres-only y no corren en SQLite).
+    `tests/conftest.py` pisa `DATABASE_URL` **antes** de importar `app`, así que el `.env` real
+    nunca se toca. Consecuencia: no se pueden testear los endpoints que usan `date_trunc`
+    (reportes y KPIs de pagos) — quedan fuera de cobertura a propósito.
+  - **No exportes `CORS_ORIGINS` como variable de entorno en formato coma-separado** (ni en tu
+    shell ni en CI): `Settings.CORS_ORIGINS` es `list[str]` y pydantic-settings intenta parsear
+    JSON antes de que corra el `field_validator` que soporta ese formato, así que el import de
+    `Settings` falla con `SettingsError`. Usá formato JSON o no la setees.
+  - Hay una skill `python-testing-patterns` en `.agents/skills/` con patrones de pytest.
