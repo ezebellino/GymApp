@@ -48,5 +48,23 @@ npm run lint            # eslint (dentro de frontend/)
   está.
 - **Roles**: la UI difiere por rol (Dueño, Coach, portal cliente) — revisar `src/auth/` y las
   rutas protegidas en `App.jsx` antes de agregar una vista nueva.
-- **Tests**: no hay suite de tests todavía (solo ESLint). Si el usuario pide agregar tests,
-  proponé Vitest + Testing Library (consistente con el ecosistema Vite) y documentalo acá.
+- **Tests**: Vitest + Testing Library sobre jsdom. Se corre con `make test-frontend` desde la
+  raíz o `npm run test` acá (`npm run test:watch` para iterar). Los tests viven junto al código
+  que prueban, en `src/**/__tests__/*.test.tsx`; los helpers en `src/test/`.
+  - Config en `frontend/vitest.config.js`, que **combina `vite.config.js` con `mergeConfig`**: si
+    existe un `vitest.config.*`, Vitest ignora el `vite.config.*` por completo, y sin el merge se
+    pierden el alias `@ -> ./src` y el plugin de React. No metas la clave `test` en
+    `vite.config.js`: esa es la config de build de producción.
+  - `globals: false`: los tests importan explícitamente de `vitest`
+    (`import { describe, it, expect, vi } from "vitest"`).
+  - `src/test/setup.ts` registra los matchers de jest-dom, polyfillea `matchMedia` y
+    `ResizeObserver` (jsdom no los trae y los necesitan vaul y cmdk/Radix), y en `afterEach` hace
+    `cleanup()` + `localStorage.clear()`.
+  - **Aislamiento de red**: los tests mockean el módulo entero con `vi.mock("@/lib/http")` usando
+    el helper `src/test/apiMock.ts`, que resuelve por ruta. No uses `vi.spyOn(api, "get")`:
+    cualquier llamada no prevista se iría a XHR real de jsdom y dispararía los interceptores de
+    `lib/http` (el 401 redirige a `/login`) y SweetAlert2. Las suites corren sin backend.
+  - `src/test/renderWithProviders.tsx` envuelve en `MemoryRouter` y reexporta las utilidades de
+    RTL. Hoy no hace falta más provider que ese.
+  - Cobertura actual: un test de render por cada vista con spec (`Login`, `RegisterClient`,
+    `Dashboard`, `Settings`). No hay tests de interacción ni E2E.

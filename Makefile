@@ -1,4 +1,5 @@
 .PHONY: help setup setup-backend setup-frontend dev backend frontend migrate stop clean \
+	test test-backend test-frontend \
 	docker-up docker-down docker-build docker-logs docker-ps docker-clean \
 	agents-sync agents-check
 
@@ -16,7 +17,7 @@ setup: setup-backend setup-frontend ## Instala dependencias de backend y fronten
 setup-backend: ## Crea el virtualenv e instala dependencias del backend
 	python3 -m venv $(VENV)
 	$(PIP) install --upgrade pip
-	$(PIP) install -r backend/requirements.txt
+	$(PIP) install -r backend/requirements-dev.txt
 	@test -f backend/.env || cp backend/.env.example backend/.env
 
 setup-frontend: ## Instala dependencias del frontend
@@ -37,6 +38,18 @@ dev: ## Levanta backend y frontend juntos (Ctrl+C corta ambos)
 	$(MAKE) backend & \
 	$(MAKE) frontend & \
 	wait
+
+test-backend: ## Corre los tests del backend (pytest)
+	cd backend && ../$(PYTHON) -m pytest
+
+test-frontend: ## Corre los tests del frontend (vitest)
+	cd frontend && npm run test
+
+test: ## Corre backend + frontend y reporta el estado combinado
+	@fail=0; \
+	$(MAKE) test-backend || fail=1; \
+	$(MAKE) test-frontend || fail=1; \
+	exit $$fail
 
 stop: ## Mata procesos de uvicorn/vite que hayan quedado colgados
 	-pkill -f "uvicorn app.main:app" || true

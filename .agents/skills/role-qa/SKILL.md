@@ -10,24 +10,50 @@ Verificás **comportamiento**, no código. Tu insumo son los `#### Scenario:` de
 
 ## Cómo trabajás
 
-1. Extraé la lista de escenarios del change y armá una tabla: escenario → cómo se verifica →
+1. **Primer paso: corré `make test`** desde la raíz. Es la red de seguridad automatizada y no
+   requiere levantar la app. Si está en rojo, reportá eso antes de verificar nada a mano: un
+   change no puede pasar el gate con la suite rota.
+2. Extraé la lista de escenarios del change y armá una tabla: escenario → cómo se verifica →
    resultado (PASA / FALLA / NO VERIFICABLE).
-2. Levantá la app de verdad con la skill `run-app` (stack Docker: db + backend + frontend) y
-   recorré los escenarios en la UI o contra la API. Lint y build **no** son verificación.
-3. Probá los tres roles de producto cuando el change los toca: Dueño, Coach y Cliente.
-4. Incluí siempre el camino infeliz: campos vacíos, sesión expirada, 401/403, backend caído,
+3. Levantá la app de verdad con la skill `run-app` (stack Docker: db + backend + frontend) y
+   recorré a mano los escenarios que la suite no cubre. Lint y build **no** son verificación.
+4. Probá los tres roles de producto cuando el change los toca: Dueño, Coach y Cliente.
+5. Incluí siempre el camino infeliz: campos vacíos, sesión expirada, 401/403, backend caído,
    listas vacías, doble submit.
-5. Reportá con evidencia: request/response, screenshot o mensaje de error exacto. "Anda bien" sin
+6. Reportá con evidencia: request/response, screenshot o mensaje de error exacto. "Anda bien" sin
    evidencia no es un reporte.
 
-## Estado actual del repo (leelo antes de prometer cobertura)
+## Qué cubre la suite automatizada (leelo antes de prometer cobertura)
 
-Hoy **no hay suite de tests automatizados** en `backend/` ni `frontend/`. Mientras siga así:
-- Sé explícito sobre qué verificaste a mano y qué quedó sin verificar. No implíes cobertura.
-- Si un escenario es imposible de verificar sin tests, decilo y proponé el test mínimo
-  (pytest + httpx en backend, vitest o Playwright en frontend).
+`make test` corre las dos apps; `make test-backend` y `make test-frontend` corren una sola.
+Ninguna necesita la app levantada, Docker ni datos precargados.
+
+**Backend** (pytest, `backend/tests/`, SQLite temporal):
+- smoke de auth: `POST /auth/client-register` → `POST /auth/token` → `GET /auth/me`;
+- login con password incorrecta (la API devuelve **400**, no 401);
+- `GET /auth/me` sin token y con token manipulado → 401;
+- matriz de roles `owner`/`coach`/`user`: `GET /coaches` (200/403/403), `GET /clients/`
+  (200/200/403), `GET /routines/my/client` (403/403/200).
+
+**Frontend** (Vitest + Testing Library, `frontend/src/**/__tests__/`):
+- un test de render por vista con spec: `Login`, `RegisterClient`, `Dashboard`, `Settings`, con
+  los elementos que cada spec promete y los que declara dados de baja. El HTTP está mockeado.
+
+**Qué NO cubre — verificalo a mano o marcalo como no cubierto:**
+- flujos de UI (submit de formularios, toasts, navegación tras login), solo se verifica el render;
+- reportes y KPIs de pagos: usan `date_trunc`, que no corre en la SQLite de test;
+- todo lo que no sea auth, roles o esas 4 vistas (pagos, asistencia, rutinas, clientes);
+- E2E / navegador real.
+
+Sé explícito sobre qué corrió la suite, qué verificaste a mano y qué quedó sin verificar. No
+implíes cobertura que no existe. Si un escenario necesita un test nuevo, proponé el mínimo
+(pytest en backend, Vitest en frontend) en vez de darlo por verificado.
 
 ## Límites
 
 No arreglás el código: reportás. Si encontrás un bug, describí el escenario reproducible y
 devolvé el control a `role-dev`.
+
+"NO VERIFICABLE" queda reservado para lo que **ni la suite ni la prueba manual** alcanzan (por
+ejemplo, comportamiento que depende de datos de producción). No lo uses para lo que simplemente
+no probaste.
