@@ -71,7 +71,8 @@ Los cambios no triviales (nueva feature, cambio de contrato de API, cambio de mo
 se proponen primero como *change* de OpenSpec antes de tocar código. Esto evita divagar y
 mantiene las specs (`openspec/specs/`) como fuente de verdad del comportamiento actual.
 
-Flujo (slash commands ya configurados en `.claude/commands/opsx/` y `.codex/skills/`):
+Flujo (comandos definidos una sola vez en `.agents/commands/`: `/opsx:<x>` en Claude Code,
+`/opsx-<x>` en Codex):
 
 1. `/opsx:propose "<qué querés construir>"` — crea `openspec/changes/<nombre>/` con
    `proposal.md`, `design.md` y `tasks.md`.
@@ -99,10 +100,46 @@ que el comportamiento es el esperado.
 - **No asumas test suite**: hoy no hay tests automatizados en `backend/` ni `frontend/`. Si
   agregás uno, documentalo en el `AGENTS.md` correspondiente y en el `Makefile`.
 
+## Configuración de agentes: `.agents/` es la única fuente de verdad
+
+Los colaboradores usan proveedores distintos (Claude Code, Codex). Para no mantener dos copias de
+todo, **skills, comandos y roles se escriben una sola vez en `.agents/`** y cada proveedor los ve
+por symlink o por un wrapper generado.
+
+```
+.agents/skills/     skills (ruta nativa de Codex; Claude Code la ve por symlink en .claude/skills)
+.agents/commands/   comandos: /opsx:apply en Claude Code, /opsx-apply en Codex
+.agents/skills/role-*/  los 5 roles de proceso (product-owner, architect, dev, code-reviewer, qa)
+.agents/registry.json   qué se linkea + config por proveedor de cada rol
+```
+
+**Reglas**:
+- **Nunca edites archivos dentro de `.claude/` o `.codex/`**: son symlinks o generados y se
+  sobrescriben. Editá en `.agents/` y corré `make agents-sync`.
+- Después de tocar `.agents/`, `make agents-check` no debe reportar drift (útil en CI).
+- Un comando no repite el cuerpo de una skill: delega en ella.
+
+Detalle completo, tabla de equivalencias por proveedor y cosas que muerden: [.agents/README.md](.agents/README.md).
+
+## Roles de proceso
+
+Los cambios no triviales se hacen por roles, cada uno con su propio alcance. Como skill funcionan
+en cualquier proveedor; como subagente (`.claude/agents/`, `.codex/agents/`) suman aislamiento de
+contexto y permisos.
+
+| Rol | Dueño de | Escribe código |
+|---|---|---|
+| `role-product-owner` | `proposal.md`, `specs/**` | no |
+| `role-architect` | `design.md`, `tasks.md` | no |
+| `role-dev` | la implementación | sí (el único) |
+| `role-code-reviewer` | review del diff | no |
+| `role-qa` | verificación de escenarios | no |
+
 ## Skills disponibles
 
-Este repo usa `autoskills` (ver `skills-lock.json` en raíz, `backend/` y `frontend/`) para traer
-skills de comunidad relevantes por stack (React, shadcn, Tailwind, testing en Python, a11y, SEO,
-deploy a Vercel, etc.) a `.agents/skills/`, `backend/.agents/skills/` y
-`frontend/.agents/skills/`. Se cargan automáticamente según el contexto — no hace falta invocarlas
-a mano salvo que el usuario lo pida explícitamente.
+Además de las propias, este repo usa `autoskills` (ver `skills-lock.json` en raíz, `backend/` y
+`frontend/`) para traer skills de comunidad por stack (React, shadcn, Tailwind, testing en Python,
+a11y, SEO, deploy a Vercel, etc.) a `.agents/skills/`, `backend/.agents/skills/` y
+`frontend/.agents/skills/`. Codex las carga solo; Claude Code las ve por los symlinks de
+`.claude/skills`. Las de `frontend/` y `backend/` se cargan cuando arrancás el agente dentro de
+esa carpeta.

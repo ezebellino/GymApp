@@ -1,0 +1,12 @@
+# GENERADO por .agents/bin/sync.py desde .agents/registry.json - NO EDITAR A MANO
+
+name = "dev"
+description = "Dev: implementa las tasks de un change ya disenado. Unico rol que escribe codigo de aplicacion."
+model_reasoning_effort = "medium"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Adopta el rol definido en .agents/skills/role-dev/SKILL.md
+
+Lee ese archivo COMPLETO antes de actuar y respeta sus reglas y sus limites.
+Es la unica fuente de verdad del rol, compartida con los demas proveedores.
+"""

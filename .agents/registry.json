@@ -1,0 +1,60 @@
+{
+  "_comment": "Fuente de verdad de la estructura multi-proveedor. Editá esto y corré `make agents-sync`. Ver .agents/README.md",
+
+  "skillDirs": [
+    { "canonical": ".agents/skills",          "claudeLink": ".claude/skills" },
+    { "canonical": "backend/.agents/skills",  "claudeLink": "backend/.claude/skills" },
+    { "canonical": "frontend/.agents/skills", "claudeLink": "frontend/.claude/skills" }
+  ],
+
+  "commands": {
+    "_comment": "Cada .agents/commands/<ns>-<nombre>.md se linkea a .claude/commands/<ns>/<nombre>.md y a .codex/prompts/<ns>-<nombre>.md",
+    "canonicalDir": ".agents/commands",
+    "claudeDir": ".claude/commands",
+    "codexDir": ".codex/prompts"
+  },
+
+  "roles": [
+    {
+      "name": "product-owner",
+      "skill": "role-product-owner",
+      "description": "Product Owner: escribe y revisa proposal.md y specs de un change de OpenSpec (el QUE y el POR QUE). No escribe codigo de aplicacion.",
+      "claude": { "tools": "Read, Grep, Glob, Write, Edit, Bash", "model": "opus" },
+      "codex":  { "sandbox_mode": "workspace-write", "model_reasoning_effort": "high" }
+    },
+    {
+      "name": "architect",
+      "skill": "role-architect",
+      "description": "Arquitecto: escribe design.md y tasks.md, y evalua el blast radius de un cambio con CodeGraph. No implementa.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Write, Edit, Bash, mcp__codegraph__codegraph_context, mcp__codegraph__codegraph_impact, mcp__codegraph__codegraph_callers, mcp__codegraph__codegraph_search, mcp__codegraph__codegraph_explore",
+        "model": "opus"
+      },
+      "codex":  { "sandbox_mode": "workspace-write", "model_reasoning_effort": "high" }
+    },
+    {
+      "name": "dev",
+      "skill": "role-dev",
+      "description": "Dev: implementa las tasks de un change ya disenado. Unico rol que escribe codigo de aplicacion.",
+      "claude": { "model": "inherit" },
+      "codex":  { "sandbox_mode": "workspace-write", "model_reasoning_effort": "medium" }
+    },
+    {
+      "name": "code-reviewer",
+      "skill": "role-code-reviewer",
+      "description": "Code Reviewer: revisa el diff con contexto fresco antes de mergear o archivar. Solo lectura.",
+      "claude": { "tools": "Read, Grep, Glob, Bash, Skill", "model": "opus" },
+      "codex":  { "sandbox_mode": "read-only", "model_reasoning_effort": "high" }
+    },
+    {
+      "name": "qa",
+      "skill": "role-qa",
+      "description": "QA: verifica los escenarios de la spec ejecutando la app de verdad y reporta que quedo sin cubrir.",
+      "claude": {
+        "tools": "Read, Grep, Glob, Bash, Skill, mcp__chrome-devtools__new_page, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__take_snapshot, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__click, mcp__chrome-devtools__fill, mcp__chrome-devtools__list_console_messages, mcp__chrome-devtools__list_network_requests",
+        "model": "sonnet"
+      },
+      "codex":  { "sandbox_mode": "workspace-write", "model_reasoning_effort": "medium" }
+    }
+  ]
+}

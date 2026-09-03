@@ -1,5 +1,6 @@
 .PHONY: help setup setup-backend setup-frontend dev backend frontend migrate stop clean \
-	docker-up docker-down docker-build docker-logs docker-ps docker-clean
+	docker-up docker-down docker-build docker-logs docker-ps docker-clean \
+	agents-sync agents-check
 
 VENV := backend/.venv
 PYTHON := $(VENV)/bin/python
@@ -63,3 +64,9 @@ docker-ps: ## Muestra el estado de los servicios
 
 docker-clean: ## Baja los contenedores y borra volúmenes (incluye la DB)
 	docker compose down -v
+
+agents-sync: ## Sincroniza .claude/ y .codex/ desde .agents/ (symlinks + wrappers de roles)
+	python3 .agents/bin/sync.py
+
+agents-check: ## Verifica que .claude/ y .codex/ esten en sync con .agents/ (para CI)
+	python3 .agents/bin/sync.py --check
