@@ -9,7 +9,6 @@ import {
   MessageSquareText,
   Phone,
   Settings2,
-  Wallet,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,10 +50,6 @@ const DEFAULT_SETTINGS: AppSettings = {
     "Bienvenido a Mini Espacio. Ante dudas sobre pagos, asistencias o rutinas, consulta en recepción.",
 };
 
-function roleLabel(role: Role) {
-  return role === "owner" ? "Dueño" : "Coach";
-}
-
 function normalizeSettings(settings: AppSettings): AppSettings {
   return {
     ...settings,
@@ -81,28 +76,19 @@ function normalizeSettings(settings: AppSettings): AppSettings {
   };
 }
 
-function InfoCard({
-  title,
-  description,
-  icon: Icon,
-}: {
-  title: string;
-  description: string;
-  icon: typeof Building2;
-}) {
-  return (
-    <div className="rounded-[24px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.08),rgba(255,255,255,0.02)_50%,rgba(249,115,22,0.09))] p-5">
-      <div className="flex items-start gap-4">
-        <div className="rounded-2xl bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(255,247,237,0.08),rgba(249,115,22,0.22))] p-3 text-amber-50">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
-          <p className="mt-2 text-sm leading-6 text-zinc-400">{description}</p>
-        </div>
-      </div>
-    </div>
-  );
+function buildReminderPreviewMessage(settings: AppSettings) {
+  const template =
+    settings.payment_reminder_message || DEFAULT_SETTINGS.payment_reminder_message;
+
+  return template
+    .replaceAll("{client_name}", "Cliente de ejemplo")
+    .replaceAll("{gym_name}", settings.gym_name || "el gimnasio")
+    .replaceAll(
+      "{amount}",
+      `${settings.currency} ${settings.default_fee.toLocaleString("es-AR")}`
+    )
+    .replaceAll("{grace_days}", String(settings.late_fee_grace_days))
+    .replaceAll("{payment_alias}", settings.payment_alias || "sin alias definido");
 }
 
 function ToggleCard({
@@ -217,6 +203,23 @@ export default function SettingsPage() {
     return methods.length ? methods.join(" y ") : "sin medios configurados";
   }, [settings.allow_cash, settings.allow_transfer]);
 
+  function openReminderPreview() {
+    const digits = (settings.whatsapp_phone ?? "").replace(/\D/g, "");
+    if (!digits) return;
+
+    const normalizedPhone = digits.startsWith("54") ? digits : `54${digits}`;
+    const message = encodeURIComponent(buildReminderPreviewMessage(settings));
+    window.open(
+      `https://wa.me/${normalizedPhone}?text=${message}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
+  function focusWhatsappField() {
+    document.getElementById("whatsapp_phone")?.focus();
+  }
+
   if (loading) {
     return (
       <div className="grid min-h-screen place-items-center text-zinc-400">
@@ -227,62 +230,17 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-4 lg:grid-cols-[1.45fr_0.95fr]">
-        <div className="rounded-[28px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.11))] p-6 shadow-[0_20px_80px_-40px_rgba(249,115,22,0.42)]">
-          <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
-            Ajustes del negocio
-          </div>
-          <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-            Convertí la configuración en una herramienta de operación real.
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-            Acá definís la información que el equipo necesita para cobrar, atender
-            consultas y sostener una rutina diaria más ordenada.
-          </p>
+      <section className="rounded-[28px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.11))] p-6 shadow-[0_20px_80px_-40px_rgba(249,115,22,0.42)]">
+        <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
+          Ajustes del negocio
         </div>
-
-        <div className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-6 backdrop-blur-xl">
-          <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-            Contexto operativo
-          </p>
-          <div className="mt-4 space-y-4">
-            <div>
-              <p className="text-sm text-zinc-400">Perfil activo</p>
-              <p className="text-lg font-semibold text-zinc-100">
-                {roleLabel(role)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-zinc-400">Cuota base actual</p>
-              <p className="text-lg font-semibold text-zinc-100">
-                {settings.currency} {settings.default_fee.toLocaleString("es-AR")}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.05),rgba(249,115,22,0.12))] p-4 text-sm text-amber-50">
-              {canEdit
-                ? `Hoy tenés configurado ${paymentMethodsSummary} y ${settings.late_fee_grace_days} días de tolerancia para cobranzas.`
-                : "Podés consultar la configuración vigente del gimnasio, sus medios de cobro y el mensaje operativo actual."}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <InfoCard
-          title="Identidad y contacto"
-          description="Centraliza nombre comercial, direccion y canales para que recepcion y coaches manejen la misma informacion."
-          icon={Building2}
-        />
-        <InfoCard
-          title="Cobranza operativa"
-          description="Define cuota base, tolerancia y metodos de pago para que el criterio comercial sea consistente."
-          icon={Wallet}
-        />
-        <InfoCard
-          title="Recordatorio mensual"
-          description="Personaliza el mensaje de pago para WhatsApp usando placeholders simples y deja trazabilidad del último envío."
-          icon={MessageSquareText}
-        />
+        <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+          Convertí la configuración en una herramienta de operación real.
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
+          Acá definís la información que el equipo necesita para cobrar, atender
+          consultas y sostener una rutina diaria más ordenada.
+        </p>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
@@ -364,6 +322,7 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <label className="text-sm text-zinc-400">WhatsApp</label>
                   <Input
+                    id="whatsapp_phone"
                     value={settings.whatsapp_phone ?? ""}
                     disabled={!canEdit}
                     onChange={(e) => updateField("whatsapp_phone", e.target.value)}
@@ -578,6 +537,17 @@ export default function SettingsPage() {
                   responder dudas y sostener la experiencia diaria del gimnasio.
                 </p>
               </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={openReminderPreview}
+                disabled={!settings.whatsapp_phone}
+                className="w-full border-amber-200/10 bg-white/[0.04] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <MessageSquareText className="mr-2 h-4 w-4" />
+                Ver recordatorio en WhatsApp
+              </Button>
             </CardContent>
           </Card>
 
@@ -651,9 +621,19 @@ export default function SettingsPage() {
               </p>
               <p>
                 WhatsApp principal:{" "}
-                <span className="font-medium text-zinc-100">
-                  {settings.whatsapp_phone || "No cargado"}
-                </span>
+                {settings.whatsapp_phone ? (
+                  <span className="font-medium text-zinc-100">
+                    {settings.whatsapp_phone}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={focusWhatsappField}
+                    className="font-medium text-amber-200 underline-offset-2 hover:underline"
+                  >
+                    Completar WhatsApp
+                  </button>
+                )}
               </p>
               <p>
                 Recordatorio mensual:{" "}

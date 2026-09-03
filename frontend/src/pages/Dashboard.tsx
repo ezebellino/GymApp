@@ -1,6 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle,
   ArrowRight,
   CalendarCheck2,
   CheckCircle2,
@@ -9,7 +8,6 @@ import {
   MessageCircle,
   Plus,
   Search,
-  ShieldCheck,
   UserPlus2,
   Users,
 } from "lucide-react";
@@ -51,14 +49,6 @@ type NewClientPayload = {
   full_name: string;
   email: string | null;
   phone: string | null;
-};
-
-type BusinessAlert = {
-  tone: "warning" | "neutral" | "positive";
-  title: string;
-  description: string;
-  cta: string;
-  onClick: () => void;
 };
 
 type Kpi = {
@@ -120,25 +110,6 @@ const methodLabel = (method?: string | null) => {
   if (method === "transfer") return "Transferencia";
   return method || "-";
 };
-
-function roleLabel(role: Role) {
-  return role === "owner" ? "Dueño" : "Coach";
-}
-
-const alertToneClasses: Record<BusinessAlert["tone"], string> = {
-  warning:
-    "border-amber-300/25 bg-[linear-gradient(135deg,rgba(250,204,21,0.18),rgba(255,247,237,0.04),rgba(249,115,22,0.18))]",
-  neutral:
-    "border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.05),rgba(250,204,21,0.03),rgba(249,115,22,0.08))]",
-  positive:
-    "border-orange-300/20 bg-[linear-gradient(135deg,rgba(249,115,22,0.14),rgba(255,247,237,0.04),rgba(250,204,21,0.16))]",
-};
-
-const alertIcons = {
-  warning: AlertTriangle,
-  neutral: ShieldCheck,
-  positive: CheckCircle2,
-} as const;
 
 function sanitizeUserName(value: string) {
   return value.replace(/^(dueño|dueno|coach)\s+/i, "").trim();
@@ -582,151 +553,45 @@ export default function Dashboard() {
     },
   ];
 
-  const businessAlerts: BusinessAlert[] = useMemo(() => {
-    const alerts: BusinessAlert[] = [];
-
-    if (clientsWithoutPayment > 0) {
-      alerts.push({
-        tone: "warning",
-        title: `${clientsWithoutPayment} cliente${clientsWithoutPayment === 1 ? "" : "s"} sin pago este mes`,
-        description:
-          "Conviene revisar cobros pendientes para sostener la facturacion y evitar atrasos.",
-        cta: "Ir a pagos",
-        onClick: () => navigate("/payments"),
-      });
-    }
-
-    if (checkinsToday === 0) {
-      alerts.push({
-        tone: "neutral",
-        title: "Todavía no hay check-ins hoy",
-        description:
-          "Puede ser un buen momento para validar ingresos o revisar la operación de la jornada.",
-        cta: "Ver asistencias",
-        onClick: () => navigate("/attendance"),
-      });
-    }
-
-    if (revenueMonth > 0 && clientsWithoutPayment === 0) {
-      alerts.push({
-        tone: "positive",
-        title: "Cobranza del mes bien encaminada",
-        description:
-          "No se detectan clientes activos pendientes en la muestra actual y la facturacion ya esta en movimiento.",
-        cta: "Revisar dashboard",
-        onClick: () => navigate("/dashboard"),
-      });
-    }
-
-    if (alerts.length === 0) {
-      alerts.push({
-        tone: "neutral",
-        title: "Todo bajo control",
-        description:
-          "No aparecen alertas prioritarias. Podés enfocarte en altas, seguimiento y operación diaria.",
-        cta: "Ir a clientes",
-        onClick: () => navigate("/clients"),
-      });
-    }
-
-    return alerts.slice(0, 3);
-  }, [checkinsToday, clientsWithoutPayment, navigate, revenueMonth]);
-
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <section className="grid gap-4 lg:grid-cols-[1.5fr_0.9fr]">
-        <div className="rounded-[32px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.14))] p-6 shadow-[0_25px_90px_-55px_rgba(249,115,22,0.58)]">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
-                Centro operativo
-              </div>
-              <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-                Bienvenido {displayName}
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-                Mini Espacio concentra el seguimiento diario del gimnasio y te
-                invita a pasar rapido a rutinas para cargar avances y dejar todo
-                el dia bien registrado.
-              </p>
-            </div>
-
-            <div className="rounded-[24px] border border-white/10 bg-black/10 p-4 md:min-w-[280px]">
-              <div className="flex items-center gap-3">
-                <img
-                  src="/mini-espacio-logo.svg"
-                  alt="Mini Espacio"
-                  className="h-14 w-14 rounded-full object-cover ring-1 ring-white/10"
-                />
-                <div>
-                  <p className="text-sm font-semibold text-zinc-100">Mini Espacio</p>
-                  <p className="text-xs uppercase tracking-[0.22em] text-amber-100/80">
-                    Entrenamiento personalizado
-                  </p>
-                </div>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-zinc-300">
-                Vista {roleLabel(role)} lista para operar el gimnasio, cuidar la
-                experiencia del cliente y sostener el seguimiento del día.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Button
-              onClick={() => navigate("/routines")}
-              className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
-            >
-              <Dumbbell className="mr-2 h-4 w-4" />
-              Ir a rutinas
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setSearchOpen(true)}
-              className="border-amber-200/10 bg-white/[0.04] hover:bg-white/[0.08]"
-            >
-              <Search className="mr-2 h-4 w-4" />
-              Abrir buscador
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setNewClientOpen(true)}
-              className="border-amber-200/10 bg-white/[0.04] hover:bg-white/[0.08]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Crear cliente
-            </Button>
-          </div>
+      <section className="rounded-[32px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.14))] p-6 shadow-[0_25px_90px_-55px_rgba(249,115,22,0.58)]">
+        <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
+          Centro operativo
         </div>
+        <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+          Bienvenido {displayName}
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
+          Mini Espacio concentra el seguimiento diario del gimnasio y te
+          invita a pasar rapido a rutinas para cargar avances y dejar todo
+          el dia bien registrado.
+        </p>
 
-        <div className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-6 backdrop-blur-xl">
-          <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-            Estado de sesión
-          </p>
-          <div className="mt-4 space-y-4">
-            <div>
-              <p className="text-sm text-zinc-400">Rol actual</p>
-              <p className="text-lg font-semibold text-zinc-100">
-                {roleLabel(role)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-zinc-400">Periodo visible</p>
-              <p className="text-lg font-semibold text-zinc-100">
-                {new Date().toLocaleDateString("es-AR", {
-                  month: "long",
-                  year: "numeric",
-                })}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.05),rgba(249,115,22,0.12))] p-4 text-sm text-amber-50">
-              Hoy llevas <span className="font-semibold">{checkinsToday}</span>{" "}
-              check-ins registrados y{" "}
-              <span className="font-semibold">{clientsWithoutPayment}</span>{" "}
-              cliente{clientsWithoutPayment === 1 ? "" : "s"} pendiente
-              {clientsWithoutPayment === 1 ? "" : "s"} de cobro.
-            </div>
-          </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Button
+            onClick={() => navigate("/routines")}
+            className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
+          >
+            <Dumbbell className="mr-2 h-4 w-4" />
+            Ir a rutinas
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setSearchOpen(true)}
+            className="border-amber-200/10 bg-white/[0.04] hover:bg-white/[0.08]"
+          >
+            <Search className="mr-2 h-4 w-4" />
+            Abrir buscador
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setNewClientOpen(true)}
+            className="border-amber-200/10 bg-white/[0.04] hover:bg-white/[0.08]"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Crear cliente
+          </Button>
         </div>
       </section>
 
@@ -752,51 +617,6 @@ export default function Dashboard() {
             </div>
           </div>
         ))}
-      </section>
-
-      <section className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-zinc-100">
-              Alertas de negocio
-            </h2>
-            <p className="mt-1 text-sm text-zinc-400">
-              Prioridades para atender la operación diaria del gimnasio.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          {businessAlerts.map((alert) => {
-            const Icon = alertIcons[alert.tone];
-            return (
-              <button
-                key={alert.title}
-                type="button"
-                onClick={alert.onClick}
-                className={`${alertToneClasses[alert.tone]} rounded-[24px] border p-5 text-left transition hover:translate-y-[-1px]`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="mb-4 inline-flex rounded-2xl bg-black/15 p-3 text-amber-50">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-zinc-100">
-                      {alert.title}
-                    </h3>
-                    <p className="mt-2 text-sm leading-6 text-zinc-300">
-                      {alert.description}
-                    </p>
-                    <span className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-amber-100">
-                      {alert.cta}
-                      <ArrowRight className="h-4 w-4" />
-                    </span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
