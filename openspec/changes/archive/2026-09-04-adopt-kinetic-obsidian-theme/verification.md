@@ -1,7 +1,8 @@
 # Verificación: adopt-kinetic-obsidian-theme
 
 **Fecha**: 2026-09-04
-**Veredicto**: PASA CON RESERVAS
+**Veredicto**: PASA CON RESERVAS al momento del archive; **PASA** tras los fixes de la sección
+"Fixes aplicados" más abajo (mismo día, misma rama).
 **Diff verificado**: working tree sin commitear (vs `main`, misma rama actual) — backend
 (`models.py`, `routers/auth.py`, `schemas.py`, migración `9812b6c09a1a`, `tests/test_theme.py`) y
 frontend (tokens/CSS, `lib/theme.ts`, `stores/theme.ts`, `services/me*`, `Topbar.tsx`,
@@ -95,3 +96,42 @@ reservas que quedan, a decisión del usuario antes de archivar:
   invisible en light). Ambos son arreglos acotados si se quieren resolver ahora.
 - **Menores** (4-9): quedan a criterio del usuario/PO para este mismo change o como follow-up
   explícito, no bloquean el archive por sí solos.
+
+## Fixes aplicados (2026-09-04, post-archive, misma rama `feat/kinetic-obsidian-theme`)
+
+El usuario pidió arrancar con los hallazgos antes del merge. Los 8 que quedaban abiertos (2-9) se
+resolvieron:
+
+- **2 (mayor, AA del ámbar)**: se separó `--primary` (fondo/backgrounds, sin cambios — ya pasaba
+  AA con `--on-primary`) de `--primary-strong`, que en light mode pasa de `#d97706` (duplicado de
+  `--primary`) a `#92400e` — AA-safe como texto/ícono (7.1:1 sobre blanco, 5.75:1 sobre
+  `--surface-2`, ~6:1 sobre los fondos tintados `bg-primary/10-15`). Los 58 usos de `text-primary`
+  en `.tsx` (icons + labels de pills) pasan a `text-primary-strong`. `docs/design/design.md`
+  actualizado con el valor y la distinción fondo/texto.
+- **3 (mayor, `text-emerald-100`)**: `UserCard.tsx:665` pasa a `text-emerald-800
+  dark:text-emerald-100` (adaptado por modo vía el `dark:` custom-variant, igual que el resto del
+  sistema de tokens).
+- **4 (menor, gradiente hex de Login/RegisterClient)**: el gradiente literal se movió a una clase
+  nueva `.auth-cta-gradient` en `index.css` (único lugar permitido para hex crudo, dec. 4);
+  mismo valor, mismo look, ya no vive en el `className` del `.tsx`.
+- **5 (menor, `.app-shell-bg` gris en light)**: `--shell-gradient-start/end` ahora se definen por
+  modo — en dark siguen mezclando hacia negro (deepen), en light usan `--canvas`/`--surface-1`
+  tal cual, sin wash gris.
+- **6 (menor, `muted-foreground` en `--surface-2`)**: `--muted-foreground` en light pasa de
+  `#64748b` a `#475569` (7.58:1 sobre blanco, 6.15:1 sobre `--surface-2`). `design.md` actualizado.
+- **7 (menor, ARIA ambiguo del toggle)**: el `aria-label` pasa de nombrar la acción ("Cambiar a
+  modo claro") a nombrar el estado actual ("Modo Oscuro"/"Modo Claro"), coherente con
+  `aria-pressed`.
+- **8 (menor, botón "Registrar Cuenta" sin superficie)**: `Login.tsx` pasa de `bg-surface-2/5` a
+  `bg-surface-2` sólido con `hover:opacity-80`.
+- **9 (menor, código muerto `THEME_MODES`)**: se conectó en `Topbar.tsx` para derivar el label del
+  `aria-label` del toggle (fix 7), en vez de eliminarlo.
+
+Verificado tras el fix: `npm run lint`, `make test-frontend` (16/16, incluye el test de `Topbar`
+actualizado al nuevo `aria-label`), `npm run build`, `make test-backend` (21/21, sin tocar), gate
+`grep -rE '\b(zinc|amber|orange|lime)-[0-9]{2,3}\b' frontend/src` → 0 resultados, y verificación
+visual con la app corriendo (Docker) en `/login`, `/dashboard`, `/clients` y `/settings` en light
+mode: pills y badges legibles, CTA de Login con su gradiente de siempre, botón "Registrar Cuenta"
+con superficie visible, canvas del shell sin wash gris.
+
+**Veredicto actualizado: PASA.**

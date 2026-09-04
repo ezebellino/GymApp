@@ -65,7 +65,7 @@ export default function Sidebar() {
               />
               <div>
                 <p className="text-sm font-semibold text-foreground">Mini Espacio</p>
-                <p className="text-xs uppercase tracking-[0.22em] text-primary/70">
+                <p className="text-xs uppercase tracking-[0.22em] text-primary-strong/70">
                   Entrenamiento personalizado
                 </p>
               </div>
@@ -82,7 +82,7 @@ export default function Sidebar() {
                       "group flex select-none items-center gap-3 rounded-xl border px-3 py-2 transition-all duration-200",
                       "border-border bg-surface-2/40",
                       "hover:border-primary/30 hover:bg-surface-2/70",
-                      isActive ? "warm-glow border-primary/40 bg-surface-2 text-primary" : "",
+                      isActive ? "warm-glow border-primary/40 bg-surface-2 text-primary-strong" : "",
                     ].join(" ")
                   }
                 >
@@ -106,7 +106,7 @@ export default function Sidebar() {
           </div>
 
           <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-1/70 p-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-primary">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-primary-strong">
               <UserRound size={18} />
             </div>
             <div className="min-w-0">

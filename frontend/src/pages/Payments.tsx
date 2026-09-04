@@ -82,7 +82,7 @@ function StatCard({
           </p>
           <p className="mt-1 text-body-sm text-muted-foreground">{hint}</p>
         </div>
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary-strong">
           <Icon size={18} />
         </div>
       </div>
@@ -256,7 +256,7 @@ export default function PaymentsPage() {
     <div className="space-y-8">
       <section className="grid gap-4 lg:grid-cols-[1.45fr_0.95fr]">
         <div className="hero-aura rounded-xl border border-border p-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
             Pagos
           </div>
           <h1 className="warm-accent-text font-display mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
@@ -279,7 +279,7 @@ export default function PaymentsPage() {
                 {q.trim() ? `"${q.trim()}"` : "Sin filtro"}
               </p>
             </div>
-            <div className="rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-primary">
+            <div className="rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-primary-strong">
               Esta pagina muestra {rows.length} movimiento{rows.length === 1 ? "" : "s"} cargado{rows.length === 1 ? "" : "s"}.
             </div>
             <div className="rounded-xl border border-border bg-surface-2/30 p-4 text-sm text-muted-foreground">
@@ -394,12 +394,12 @@ export default function PaymentsPage() {
                     Se enviará a clientes activos con WhatsApp cargado y cuota pendiente del mes.
                   </p>
                 </div>
-                <p className="text-xs uppercase tracking-[0.18em] text-primary/80">
+                <p className="text-xs uppercase tracking-[0.18em] text-primary-strong/80">
                   {reminderTargetsCount} pendiente{reminderTargetsCount === 1 ? "" : "s"}
                 </p>
               </div>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="@container mt-4 grid gap-3 @lg:grid-cols-2 @4xl:grid-cols-3">
                 {pendingClients.map((client) => (
                   <div
                     key={client.id}
@@ -494,7 +494,7 @@ export default function PaymentsPage() {
                       <td className="p-4">
                         {payment.method ? (
                           payment.method === "cash" ? (
-                            <Badge className="border-primary/30 bg-primary/10 text-primary">
+                            <Badge className="border-primary/30 bg-primary/10 text-primary-strong">
                               efectivo
                             </Badge>
                           ) : payment.method === "transfer" ? (

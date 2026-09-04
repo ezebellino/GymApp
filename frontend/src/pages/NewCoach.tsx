@@ -23,12 +23,12 @@ function PasswordRule({ label, ok }: { label: string; ok: boolean }) {
     <div
       className={`rounded-xl border px-3 py-3 text-xs transition ${
         ok
-          ? "border-primary/30 bg-primary/10 text-primary"
+          ? "border-primary/30 bg-primary/10 text-primary-strong"
           : "border-border bg-surface-2/20 text-muted-foreground"
       }`}
     >
       <div className="flex items-center gap-2">
-        <BadgeCheck className={`h-4 w-4 ${ok ? "text-primary" : "text-muted-foreground"}`} />
+        <BadgeCheck className={`h-4 w-4 ${ok ? "text-primary-strong" : "text-muted-foreground"}`} />
         <span>{label}</span>
       </div>
     </div>
@@ -94,7 +94,7 @@ export default function NewCoachPage() {
     <div className="space-y-6">
       <section className="grid gap-4 lg:grid-cols-[1.35fr_0.85fr]">
         <div className="hero-aura rounded-xl border border-border p-6">
-          <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
+          <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
             Equipo y accesos
           </div>
           <h1 className="warm-accent-text font-display mt-4 text-3xl font-extrabold md:text-headline-hero">
@@ -150,7 +150,7 @@ export default function NewCoachPage() {
             <form onSubmit={onSubmit} className="space-y-6">
               <div className="rounded-xl border border-primary/20 bg-primary/10 p-4">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-full bg-primary/15 p-3 text-primary">
+                  <div className="rounded-full bg-primary/15 p-3 text-primary-strong">
                     <ShieldCheck className="h-5 w-5" />
                   </div>
                   <div>

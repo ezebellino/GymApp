@@ -150,8 +150,15 @@ The palette leverages high-contrast luminescence against matte architectural dar
 ### Light Theme (Ambient Daylight State)
 - **Base Canvas (`#F8FAFC`):** Crisp cool white delivering pristine visual ergonomics.
 - **Surface Card (`#FFFFFF`):** High-clarity white containers with micro-borders (`#E2E8F0`).
-- **Brand Primary Tone (`#D97706`):** Deep golden amber optimized for strict WCAG AA+ contrast on light substrates.
-- **Text Hierarchies:** Deep Slate (`#0F172A`) for bold readability paired with muted Slate (`#64748B`) for contextual descriptors.
+- **Brand Primary Tone (`#D97706`):** Deep golden amber for solid backgrounds (buttons, active
+  fills) paired with dark on-primary text — that pairing clears WCAG AA. On its own, as text or
+  icon color over a light surface, `#D97706` falls short of AA (3.18:1 on white); use **Primary
+  Strong (`#92400E`)** instead for that case (`--primary-strong` in light mode, mapped to the
+  `text-primary-strong`/`bg-primary-strong` tokens) — same amber family, dark enough to clear AA
+  as foreground text/icons on white, `--surface-2`, and the low-opacity accent tints.
+- **Text Hierarchies:** Deep Slate (`#0F172A`) for bold readability paired with muted Slate
+  (`#475569`) for contextual descriptors — darkened one step from the initial `#64748B` pick,
+  which fell short of AA (3.86:1) against `--surface-2` cards.
 
 ## Typography
 

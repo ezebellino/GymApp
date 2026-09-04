@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import type { Role } from "@/types";
 import { useSessionStore } from "@/stores/session";
 import { useThemeStore } from "@/stores/theme";
+import { THEME_MODES } from "@/lib/theme";
 import { useUpdateMyThemeMutation } from "@/services/me.queries";
 import { alertError } from "@/lib/alerts";
 
@@ -42,7 +43,13 @@ export default function Topbar() {
   const updateMyThemeMutation = useUpdateMyThemeMutation();
 
   const isDark = themeMode === "dark";
-  const nextThemeLabel = isDark ? "claro" : "oscuro";
+  // Estado, no acción: un lector de pantalla anuncia "Modo Oscuro, presionado" /
+  // "Modo Claro, no presionado" -- coherente con `aria-pressed`, a diferencia de
+  // un label de acción ("Cambiar a modo claro") que junto con `aria-pressed`
+  // sonaba contradictorio (hallazgo de verification.md, adopt-kinetic-obsidian-theme).
+  const currentThemeLabel =
+    THEME_MODES.find((m) => m.id === themeMode)?.label ?? themeMode;
+  const themeToggleAriaLabel = `Modo ${currentThemeLabel}`;
 
   // Se aplica al instante (setMode ya aplica + cachea via `stores/theme.ts`) y
   // se manda el PATCH en paralelo. Si el PATCH falla, el modo queda aplicado
@@ -138,7 +145,7 @@ export default function Topbar() {
               size="icon"
               className={outlineButtonClass}
               onClick={handleToggleTheme}
-              aria-label={`Cambiar a modo ${nextThemeLabel}`}
+              aria-label={themeToggleAriaLabel}
               aria-pressed={isDark}
             >
               {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
@@ -186,7 +193,7 @@ export default function Topbar() {
             size="icon"
             className={outlineButtonClass}
             onClick={handleToggleTheme}
-            aria-label={`Cambiar a modo ${nextThemeLabel}`}
+            aria-label={themeToggleAriaLabel}
             aria-pressed={isDark}
           >
             {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}

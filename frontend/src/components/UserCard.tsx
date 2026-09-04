@@ -483,7 +483,7 @@ export default function UserCard({
       <CardHeader className="border-b border-border bg-surface-2/40 pb-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
+            <div className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
               Ficha del cliente
             </div>
             <CardTitle className="mt-4 text-2xl text-foreground">
@@ -493,7 +493,7 @@ export default function UserCard({
               <span>Alta: {new Date(client.join_date).toLocaleDateString("es-AR")}</span>
               <span className="text-muted-foreground">•</span>
               {client.is_active ? (
-                <Badge className="border-primary/30 bg-primary/10 text-primary hover:bg-primary/10">
+                <Badge className="border-primary/30 bg-primary/10 text-primary-strong hover:bg-primary/10">
                   Activo
                 </Badge>
               ) : (
@@ -509,12 +509,12 @@ export default function UserCard({
 
           <div className="min-w-[190px] space-y-2 text-sm">
             <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-2/30 px-3 py-2 text-muted-foreground">
-              <Phone className="h-4 w-4 text-primary" />
+              <Phone className="h-4 w-4 text-primary-strong" />
               <span className="break-all">{client.phone || "Sin teléfono"}</span>
             </div>
             {viewerRole === "owner" ? (
               <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-2/30 px-3 py-2 text-muted-foreground">
-                <Mail className="h-4 w-4 text-primary" />
+                <Mail className="h-4 w-4 text-primary-strong" />
                 <span className="break-all">{client.email ?? "Sin email"}</span>
               </div>
             ) : null}
@@ -535,7 +535,7 @@ export default function UserCard({
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">Registradas en el historial reciente</p>
               </div>
-              <div className="rounded-full bg-primary/15 p-3 text-primary">
+              <div className="rounded-full bg-primary/15 p-3 text-primary-strong">
                 <CalendarClock className="h-5 w-5" />
               </div>
             </div>
@@ -567,7 +567,7 @@ export default function UserCard({
                   </>
                 )}
               </div>
-              <div className="rounded-full bg-primary/15 p-3 text-primary">
+              <div className="rounded-full bg-primary/15 p-3 text-primary-strong">
                 <Wallet className="h-5 w-5" />
               </div>
             </div>
@@ -579,7 +579,7 @@ export default function UserCard({
 
           <div className="rounded-xl border border-border bg-canvas/60 p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-              <BadgeCheck className="h-4 w-4 text-primary" />
+              <BadgeCheck className="h-4 w-4 text-primary-strong" />
               Últimos pagos
             </div>
             <LastPayments clientId={client.id} />
@@ -609,7 +609,7 @@ export default function UserCard({
               variant="outline"
               className={
                 quickPaymentMethod === "cash"
-                  ? "border-primary/30 bg-primary/10 text-primary"
+                  ? "border-primary/30 bg-primary/10 text-primary-strong"
                   : "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70"
               }
               onClick={() => setQuickPaymentMethod("cash")}
@@ -621,7 +621,7 @@ export default function UserCard({
               variant="outline"
               className={
                 quickPaymentMethod === "transfer"
-                  ? "border-primary/30 bg-primary/10 text-primary"
+                  ? "border-primary/30 bg-primary/10 text-primary-strong"
                   : "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70"
               }
               onClick={() => setQuickPaymentMethod("transfer")}
@@ -662,7 +662,7 @@ export default function UserCard({
           <Button
             size="sm"
             variant="outline"
-            className="border-emerald-500/20 bg-emerald-500/8 text-emerald-100 hover:bg-emerald-500/15 disabled:opacity-60"
+            className="border-emerald-500/20 bg-emerald-500/8 text-emerald-800 hover:bg-emerald-500/15 disabled:opacity-60 dark:text-emerald-100"
             onClick={handleShareProgressReport}
             disabled={sharingReport || !client.phone}
           >

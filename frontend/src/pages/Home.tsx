@@ -37,7 +37,7 @@ export default function Home() {
               transition={{ delay: 0.3, duration: 0.6 }}
               className="mb-4 flex justify-center"
             >
-              <Dumbbell className="h-12 w-12 text-primary drop-shadow-[0_0_12px_rgba(251,191,36,0.45)]" />
+              <Dumbbell className="h-12 w-12 text-primary-strong drop-shadow-[0_0_12px_rgba(251,191,36,0.45)]" />
             </motion.div>
 
             <h1 className="warm-accent-text mb-2 text-3xl font-semibold">
@@ -45,7 +45,7 @@ export default function Home() {
             </h1>
             <p className="text-muted-foreground">
               Bienvenido al sistema de gestión de{" "}
-              <span className="font-medium text-primary">Mini Espacio</span>.
+              <span className="font-medium text-primary-strong">Mini Espacio</span>.
             </p>
 
             <p className="mt-3 text-sm text-muted-foreground">
@@ -59,7 +59,7 @@ export default function Home() {
               transition={{ delay: 1.2, duration: 0.8 }}
               className="mt-4 flex justify-center"
             >
-              <Sparkles className="h-6 w-6 animate-pulse text-primary" />
+              <Sparkles className="h-6 w-6 animate-pulse text-primary-strong" />
             </motion.div>
           </CardContent>
         </Card>

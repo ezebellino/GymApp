@@ -82,7 +82,7 @@ function StatCard({
           <p className="font-display mt-2 text-metric-kpi font-extrabold tabular-nums text-foreground">{value}</p>
           <p className="mt-1 text-body-sm text-muted-foreground">{hint}</p>
         </div>
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary-strong">
           <Icon size={18} />
         </div>
       </div>
@@ -130,7 +130,7 @@ export default function Clients() {
     <div className="space-y-8">
       <section className="grid gap-4 lg:grid-cols-[1.45fr_0.95fr]">
         <div className="hero-aura rounded-xl border border-border p-6">
-          <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
+          <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
             Clientes
           </div>
           <h1 className="warm-accent-text font-display mt-4 text-3xl font-extrabold md:text-headline-hero">
@@ -282,7 +282,7 @@ export default function Clients() {
                     </td>
                     <td className="p-4">
                       {client.is_active ? (
-                        <Badge className="border-primary/30 bg-primary/10 text-primary">
+                        <Badge className="border-primary/30 bg-primary/10 text-primary-strong">
                           Activo
                         </Badge>
                       ) : (
@@ -314,7 +314,7 @@ export default function Clients() {
                           type="button"
                           onClick={() => openPaymentReminder(client)}
                           disabled={!client.phone}
-                          className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary-strong transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <MessageCircle className="h-3.5 w-3.5" />
                           WhatsApp

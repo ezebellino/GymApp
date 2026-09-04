@@ -56,7 +56,7 @@ export default function AttendanceCalendar({ clientId, monthsBack = 3 }: Props) 
       <div className="border-b border-border bg-surface-2/40 px-4 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
               <CalendarDays className="h-3.5 w-3.5" />
               Asistencia reciente
             </div>
@@ -84,7 +84,7 @@ export default function AttendanceCalendar({ clientId, monthsBack = 3 }: Props) 
             Día con asistencia
           </span>
           <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2/20 px-3 py-1">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <Sparkles className="h-3.5 w-3.5 text-primary-strong" />
             Vista de seguimiento
           </span>
         </div>
@@ -99,7 +99,7 @@ export default function AttendanceCalendar({ clientId, monthsBack = 3 }: Props) 
             weekday: "flex-1 rounded-md text-[0.78rem] font-medium uppercase tracking-[0.18em] text-muted-foreground",
             day: "relative w-full h-full p-0 text-center aspect-square select-none",
             today:
-              "rounded-lg border border-primary/30 bg-primary/10 text-primary",
+              "rounded-lg border border-primary/30 bg-primary/10 text-primary-strong",
             disabled: "opacity-100",
           }}
           modifiers={{ attended: dates }}
@@ -131,7 +131,7 @@ export default function AttendanceCalendar({ clientId, monthsBack = 3 }: Props) 
         {!loading && !err && attendanceCount > 0 ? (
           <div className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-2 font-medium text-foreground">
-              <Flame className="h-3.5 w-3.5 text-primary" />
+              <Flame className="h-3.5 w-3.5 text-primary-strong" />
               Historial con actividad
             </span>
             <span className="ml-2">

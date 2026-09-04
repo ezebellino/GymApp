@@ -121,7 +121,7 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
                   </p>
                 </div>
                 <div className="hidden items-center gap-2 rounded-full border border-border bg-surface-2/40 px-3 py-1 text-xs text-muted-foreground md:flex">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  <Sparkles className="h-3.5 w-3.5 text-primary-strong" />
                   ESC para cerrar
                 </div>
               </div>
@@ -155,7 +155,7 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
                           </div>
                         </div>
                         <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2/40 px-2.5 py-1 text-xs text-muted-foreground">
-                          <Search className="h-3.5 w-3.5 text-primary" />
+                          <Search className="h-3.5 w-3.5 text-primary-strong" />
                           {stats[client.id]?.attendanceCount ?? 0} asis.
                         </div>
                       </div>

@@ -638,7 +638,7 @@ export default function RoutinesPage() {
       <section className="hero-aura rounded-xl border border-border p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
               Rutinas simples
             </div>
             <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
@@ -660,7 +660,7 @@ export default function RoutinesPage() {
               />
               <div>
                 <p className="text-sm font-semibold text-foreground">Mini Espacio</p>
-                <p className="text-xs uppercase tracking-[0.22em] text-primary/80">
+                <p className="text-xs uppercase tracking-[0.22em] text-primary-strong/80">
                   Entrenamiento personalizado
                 </p>
               </div>
@@ -720,7 +720,7 @@ export default function RoutinesPage() {
                           {day.muscle_groups.join(" + ")}
                         </p>
                       </div>
-                      <div className="rounded-xl bg-primary/15 p-3 text-primary">
+                      <div className="rounded-xl bg-primary/15 p-3 text-primary-strong">
                         <Dumbbell className="h-5 w-5" />
                       </div>
                     </div>

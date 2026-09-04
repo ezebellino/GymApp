@@ -282,7 +282,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <section className="hero-aura rounded-xl border border-border p-6">
-        <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
+        <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
           Centro operativo
         </div>
         <h1 className="warm-accent-text font-display mt-4 text-3xl font-extrabold md:text-headline-hero">
@@ -318,13 +318,13 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="@container grid grid-cols-1 gap-4 @lg:grid-cols-2 @3xl:grid-cols-3">
         {kpisStatus.isPending ? (
-          <div className="rounded-xl border border-border bg-surface-2/20 p-6 text-center text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
+          <div className="rounded-xl border border-border bg-surface-2/20 p-6 text-center text-sm text-muted-foreground @lg:col-span-2 @3xl:col-span-3">
             Cargando indicadores...
           </div>
         ) : kpisStatus.isError ? (
-          <div className="sm:col-span-2 lg:col-span-3">
+          <div className="@lg:col-span-2 @3xl:col-span-3">
             <DataError
               title="No se pudieron cargar los indicadores"
               description="Intenta nuevamente en unos segundos."
@@ -347,7 +347,7 @@ export default function Dashboard() {
                   </p>
                   <p className="mt-1 text-body-sm text-muted-foreground">{kpi.hint}</p>
                 </div>
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary-strong">
                   <kpi.icon size={18} />
                 </div>
               </div>
@@ -356,7 +356,7 @@ export default function Dashboard() {
         )}
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
+      <section className="@container grid gap-4 @4xl:grid-cols-3">
         {quickActions.map((action) => (
           <button
             key={action.title}
@@ -366,7 +366,7 @@ export default function Dashboard() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="mb-4 inline-flex rounded-full bg-primary/15 p-3 text-primary">
+                <div className="mb-4 inline-flex rounded-full bg-primary/15 p-3 text-primary-strong">
                   <action.icon className="h-5 w-5" />
                 </div>
                 <h2 className="font-display text-headline-md text-foreground">
@@ -545,7 +545,7 @@ export default function Dashboard() {
                     onClick={() => setQuickPaymentMethod("cash")}
                     className={
                       quickPaymentMethod === "cash"
-                        ? "border-primary/30 bg-primary/10 text-primary"
+                        ? "border-primary/30 bg-primary/10 text-primary-strong"
                         : outlineButtonClass
                     }
                   >
@@ -557,7 +557,7 @@ export default function Dashboard() {
                     onClick={() => setQuickPaymentMethod("transfer")}
                     className={
                       quickPaymentMethod === "transfer"
-                        ? "border-primary/30 bg-primary/10 text-primary"
+                        ? "border-primary/30 bg-primary/10 text-primary-strong"
                         : outlineButtonClass
                     }
                   >
@@ -698,13 +698,13 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="@container mt-4 grid gap-3 @lg:grid-cols-2 @4xl:grid-cols-3">
           {pendingClientsStatus.isPending ? (
-            <div className="rounded-xl border border-border bg-surface-2/20 px-4 py-5 text-sm text-muted-foreground md:col-span-2 xl:col-span-3">
+            <div className="rounded-xl border border-border bg-surface-2/20 px-4 py-5 text-sm text-muted-foreground @lg:col-span-2 @4xl:col-span-3">
               Cargando seguimiento de cobros...
             </div>
           ) : pendingClientsStatus.isError ? (
-            <div className="md:col-span-2 xl:col-span-3">
+            <div className="@lg:col-span-2 @4xl:col-span-3">
               <DataError
                 title="No se pudo cargar el seguimiento de cobros"
                 description="Intenta nuevamente en unos segundos."
@@ -712,7 +712,7 @@ export default function Dashboard() {
               />
             </div>
           ) : pendingClients.length === 0 ? (
-            <div className="rounded-xl border border-border bg-surface-2/20 px-4 py-5 text-sm text-muted-foreground md:col-span-2 xl:col-span-3">
+            <div className="rounded-xl border border-border bg-surface-2/20 px-4 py-5 text-sm text-muted-foreground @lg:col-span-2 @4xl:col-span-3">
               No hay clientes pendientes en la muestra actual.
             </div>
           ) : (

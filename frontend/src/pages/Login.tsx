@@ -153,7 +153,7 @@ export default function Login() {
         </div>
 
         <Button
-          className="mt-8 h-12 w-full gap-2 border border-border bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
+          className="auth-cta-gradient mt-8 h-12 w-full gap-2 border border-border font-medium text-black hover:opacity-95"
           disabled={loading}
           type="submit"
         >
@@ -164,7 +164,7 @@ export default function Login() {
         <button
           type="button"
           onClick={() => navigate("/register-client")}
-          className="mt-4 w-full rounded-xl border border-border bg-surface-2/5 px-4 py-2 text-sm text-foreground transition hover:bg-surface-2/10"
+          className="mt-4 w-full rounded-xl border border-border bg-surface-2 px-4 py-2 text-sm text-foreground transition hover:opacity-80"
         >
           Registrar Cuenta
         </button>

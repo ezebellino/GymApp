@@ -19,7 +19,7 @@ export default function DataError({
 }: DataErrorProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-surface-1/40 px-6 py-10 text-center">
-      <AlertTriangle className="h-6 w-6 text-primary" aria-hidden="true" />
+      <AlertTriangle className="h-6 w-6 text-primary-strong" aria-hidden="true" />
       <div>
         <p className="text-sm font-medium text-foreground">{title}</p>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>

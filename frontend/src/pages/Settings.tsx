@@ -211,7 +211,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-8">
       <section className="hero-aura rounded-xl border border-border p-6">
-        <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
+        <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
           Ajustes del negocio
         </div>
         <h1 className="warm-accent-text font-display mt-4 text-3xl font-extrabold md:text-headline-hero">
@@ -451,24 +451,24 @@ export default function SettingsPage() {
             <CardContent className="space-y-4 pt-6">
               <div className="warm-accent-bg rounded-xl border border-primary/20 p-4">
                 <p className="text-lg font-semibold text-foreground">{settings.gym_name}</p>
-                <p className="mt-1 text-sm text-primary/85">
+                <p className="mt-1 text-sm text-primary-strong/85">
                   Administra: {settings.admin_name || "Sin responsable definido"}
                 </p>
                 <div className="mt-4 space-y-3 text-sm text-muted-foreground">
                   <div className="flex items-start gap-3">
-                    <MapPin className="mt-0.5 h-4 w-4 text-primary" />
+                    <MapPin className="mt-0.5 h-4 w-4 text-primary-strong" />
                     <span>{settings.address || "Sin direccion cargada"}</span>
                   </div>
                   <div className="flex items-start gap-3">
-                    <Mail className="mt-0.5 h-4 w-4 text-primary" />
+                    <Mail className="mt-0.5 h-4 w-4 text-primary-strong" />
                     <span>{settings.contact_email || "Sin email de contacto"}</span>
                   </div>
                   <div className="flex items-start gap-3">
-                    <Phone className="mt-0.5 h-4 w-4 text-primary" />
+                    <Phone className="mt-0.5 h-4 w-4 text-primary-strong" />
                     <span>{settings.contact_phone || "Sin teléfono principal"}</span>
                   </div>
                   <div className="flex items-start gap-3">
-                    <Clock3 className="mt-0.5 h-4 w-4 text-primary" />
+                    <Clock3 className="mt-0.5 h-4 w-4 text-primary-strong" />
                     <span>{settings.business_hours || "Sin horario visible"}</span>
                   </div>
                 </div>
@@ -552,7 +552,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={focusWhatsappField}
-                    className="font-medium text-primary underline-offset-2 hover:underline"
+                    className="font-medium text-primary-strong underline-offset-2 hover:underline"
                   >
                     Completar WhatsApp
                   </button>

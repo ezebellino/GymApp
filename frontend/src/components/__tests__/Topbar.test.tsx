@@ -26,9 +26,9 @@ describe("Topbar - toggle de modo", () => {
   it("el click cambia data-theme, persiste en app_theme y dispara el PATCH", async () => {
     renderWithProviders(<Topbar />);
 
-    // Default del store de tema es "dark" (DEFAULT_THEME_MODE), así que el
-    // botón ofrece pasar a "claro".
-    const toggle = screen.getByRole("button", { name: /cambiar a modo claro/i });
+    // Default del store de tema es "dark" (DEFAULT_THEME_MODE): el aria-label
+    // nombra el estado actual ("Modo Oscuro"), no la acción de cambiarlo.
+    const toggle = screen.getByRole("button", { name: /modo oscuro/i });
 
     fireEvent.click(toggle);
 

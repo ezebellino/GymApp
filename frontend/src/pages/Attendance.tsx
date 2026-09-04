@@ -50,7 +50,7 @@ function StatCard({ title, value, hint, icon: Icon }: StatCardProps) {
           <p className="font-display mt-2 text-metric-kpi font-extrabold tabular-nums text-foreground">{value}</p>
           <p className="mt-1 text-body-sm text-muted-foreground">{hint}</p>
         </div>
-        <div className="rounded-full bg-primary/15 p-3 text-primary">
+        <div className="rounded-full bg-primary/15 p-3 text-primary-strong">
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -106,7 +106,7 @@ export default function AttendancePage() {
     <div className="space-y-8">
       <section className="grid gap-4 lg:grid-cols-[1.45fr_0.95fr]">
         <div className="hero-aura rounded-xl border border-border p-6">
-          <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
+          <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
             Operación diaria
           </div>
           <h1 className="warm-accent-text font-display mt-4 text-3xl font-extrabold md:text-headline-hero">

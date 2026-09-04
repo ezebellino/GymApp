@@ -130,6 +130,10 @@
     --shadow-level-2:
       0 12px 32px -4px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(245, 158, 11, 0.15);
     --hero-aura: radial-gradient(ellipse at top right, rgba(245, 158, 11, 0.15) 0%, transparent 70%);
+    /* `.app-shell-bg` (más abajo): deepen del canvas/surface-1 hacia negro, que en un modo ya casi
+       negro es imperceptible mas alla del gradiente sutil. */
+    --shell-gradient-start: color-mix(in srgb, var(--canvas) 92%, black);
+    --shell-gradient-end: color-mix(in srgb, var(--surface-1) 88%, black);
   }
 
   /* Modo light: "Crisp Slate" (docs/design/design.md, "Light Theme (Ambient Daylight State)"). */
@@ -139,16 +143,26 @@
     --surface-2: #e2e8f0;
     --surface-3: #e2e8f0;
     --foreground: #0f172a;
-    --muted-foreground: #64748b;
+    --muted-foreground: #475569;
     --primary: #d97706;
     --on-primary: #0f172a;
-    --primary-strong: #d97706;
+    /* Variante mas oscura de `--primary`, reservada para texto/iconos sobre superficies claras:
+       `--primary` (#d97706) da 3.18:1 sobre blanco como texto -- no llega a AA -- pero si llega
+       como fondo solido con `--on-primary` encima (5.6:1). `--primary-strong` en light SI es
+       AA-safe como texto/icono (7.1:1 sobre blanco, 5.75:1 sobre --surface-2, ~6:1 sobre los
+       fondos tintados bg-primary/10-15 de los pills). Ver docs/design/design.md. */
+    --primary-strong: #92400e;
     --border-hairline: #e2e8f0;
     --ring: var(--primary);
     --destructive: #dc2626;
     --shadow-level-2:
       0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 1px 2px 0 rgba(15, 23, 42, 0.04);
     --hero-aura: radial-gradient(ellipse at top right, rgba(217, 119, 6, 0.15) 0%, transparent 70%);
+    /* En light mode "deepen hacia negro" ensucia un canvas que ya es casi blanco (ver hallazgo
+       2026-09-04 en verification.md del change adopt-kinetic-obsidian-theme): sin mezcla, el
+       gradiente queda entre el canvas y surface-1 tal cual, sin el wash gris. */
+    --shell-gradient-start: var(--canvas);
+    --shell-gradient-end: var(--surface-1);
   }
 
   /* Patrón oficial de shadcn para Tailwind v4: sin esto, un componente de ui/** que solo pone
@@ -256,6 +270,16 @@ input:autofill:active {
     );
   }
 
+  /* CTA de /login y /register-client (Non-Goal de adopt-kinetic-obsidian-theme: esas dos vistas
+     reciben solo el pase mecánico a tokens, sin rediseño). Gradiente fijo, no ligado al modo --
+     `--foreground` cambia de casi-blanco (dark) a casi-negro (light), y con texto negro encima el
+     tramo del medio tiene que seguir siendo claro en los dos modos. Antes vivía como hex literal
+     inline en el className (`bg-[linear-gradient(...)]`); el único lugar permitido para hex
+     crudo es este archivo (dec. 4 del design). */
+  .auth-cta-gradient {
+    background-image: linear-gradient(90deg, #facc15 0%, #fff7ed 48%, #f97316 100%);
+  }
+
   /* Aura radial del hero operativo (docs/design/design.md, "Elevation & Depth" > "Hero Aura"):
      consume la var `--hero-aura` definida por modo en :root de arriba. No existía como clase
      utilitaria hasta la fase 4 (dec. 4.3 de adopt-kinetic-obsidian-theme); la var ya estaba desde
@@ -265,14 +289,14 @@ input:autofill:active {
     background-image: var(--hero-aura);
   }
 
-  /* Estructura idéntica a la del shell viejo (gradiente vertical canvas -> surface-1, mismos
-     porcentajes de mezcla con negro): solo cambia de dónde sale el color, de los --theme-shell-*
-     de las 3 paletas viejas a los tokens nuevos. */
+  /* Estructura idéntica a la del shell viejo (gradiente vertical canvas -> surface-1): el "deepen"
+     hacia negro solo se aplica en dark (`--shell-gradient-*` arriba); en light el gradiente usa
+     canvas/surface-1 tal cual, sin ensuciarse hacia gris. */
   .app-shell-bg {
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, var(--canvas) 92%, black) 0%,
-      color-mix(in srgb, var(--surface-1) 88%, black) 100%
+      var(--shell-gradient-start) 0%,
+      var(--shell-gradient-end) 100%
     );
   }
 

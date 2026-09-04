@@ -173,7 +173,7 @@ export default function UserRoutine() {
       <section className="hero-aura rounded-xl border border-border p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
+            <p className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
               Vista de usuario
             </p>
             <h1 className="font-display mt-2 text-3xl font-semibold tracking-tight text-foreground">

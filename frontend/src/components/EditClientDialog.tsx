@@ -133,7 +133,7 @@ export default function EditClientDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-border bg-surface-1 text-foreground">
         <DialogHeader>
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
             <ShieldCheck className="h-3.5 w-3.5" />
             Ficha operativa
           </div>
@@ -148,7 +148,7 @@ export default function EditClientDialog({
         <div className="space-y-5 py-2">
           <div className="rounded-xl border border-border bg-surface-2/30 p-4">
             <div className="flex items-start gap-3">
-              <div className="rounded-full bg-primary/15 p-3 text-primary">
+              <div className="rounded-full bg-primary/15 p-3 text-primary-strong">
                 <UserRound className="h-5 w-5" />
               </div>
               <div>
