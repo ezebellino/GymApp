@@ -116,32 +116,31 @@ export default function NewPaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-amber-200/10 bg-zinc-900/80 backdrop-blur-md">
+      <DialogContent className="border-border bg-surface-1">
         <DialogHeader>
-          <DialogTitle className="text-zinc-100">Crear pago</DialogTitle>
-          <DialogDescription className="text-zinc-400">
-            Registrar pago para <span className="text-zinc-200">{clientName}</span>.
+          <DialogTitle className="text-foreground">Crear pago</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            Registrar pago para <span className="text-foreground">{clientName}</span>.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="text-xs text-zinc-400">Monto (ARS)</label>
+            <label className="text-xs text-muted-foreground">Monto (ARS)</label>
             <Input
               type="number"
               min={0}
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
-              className="border-white/10 bg-zinc-900/70 text-gray-100"
             />
           </div>
 
           <div>
-            <label className="text-xs text-zinc-400">Metodo</label>
+            <label className="text-xs text-muted-foreground">Metodo</label>
             <select
               value={method}
               onChange={(e) => setMethod(e.target.value as "cash" | "transfer")}
-              className="w-full rounded-md border border-white/10 bg-zinc-900/70 px-3 py-2 text-sm text-gray-100"
+              className="w-full rounded-md border border-border bg-surface-2/40 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="cash">Efectivo</option>
               <option value="transfer">Transferencia</option>
@@ -150,57 +149,49 @@ export default function NewPaymentDialog({
 
           {method === "transfer" ? (
             <div className="sm:col-span-2">
-              <label className="text-xs text-zinc-400">Canal</label>
+              <label className="text-xs text-muted-foreground">Canal</label>
               <Input
                 placeholder="Mercado Pago, Cuenta DNI, banco, etc."
                 value={methodChannel}
                 onChange={(e) => setMethodChannel(e.target.value)}
-                className="border-white/10 bg-zinc-900/70 text-gray-100"
               />
             </div>
           ) : null}
 
           <div>
-            <label className="text-xs text-zinc-400">Mes</label>
+            <label className="text-xs text-muted-foreground">Mes</label>
             <Input
               type="number"
               min={1}
               max={12}
               value={periodMonth}
               onChange={(e) => setPeriodMonth(Number(e.target.value))}
-              className="border-white/10 bg-zinc-900/70 text-gray-100"
             />
           </div>
 
           <div>
-            <label className="text-xs text-zinc-400">Año</label>
+            <label className="text-xs text-muted-foreground">Año</label>
             <Input
               type="number"
               min={2020}
               max={2100}
               value={periodYear}
               onChange={(e) => setPeriodYear(Number(e.target.value))}
-              className="border-white/10 bg-zinc-900/70 text-gray-100"
             />
           </div>
 
           <div className="sm:col-span-2">
-            <label className="text-xs text-zinc-400">Nota</label>
+            <label className="text-xs text-muted-foreground">Nota</label>
             <Input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="border-white/10 bg-zinc-900/70 text-gray-100"
               placeholder="Comentario interno opcional"
             />
           </div>
         </div>
 
         <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            className="border-white/10 text-gray-100 hover:bg-white/10"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
           <Button
@@ -213,7 +204,6 @@ export default function NewPaymentDialog({
               periodYear < 2020 ||
               periodYear > 2100
             }
-            className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
           >
             {loading ? "Guardando..." : "Crear pago"}
           </Button>

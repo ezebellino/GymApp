@@ -6,6 +6,7 @@ import {
   Dumbbell,
   LayoutDashboard,
   Settings,
+  UserRound,
   Users,
 } from "lucide-react";
 import type { FC } from "react";
@@ -42,6 +43,8 @@ function roleLabel(role: string) {
 
 export default function Sidebar() {
   const role = useSessionStore((s) => s.role) ?? "coach";
+  const userName = useSessionStore((s) => s.userName);
+  const email = useSessionStore((s) => s.email);
   const allowed = items.filter((item) => {
     if (role === "user") return item.to === "/my-routine";
     if (item.to === "/my-routine") return false;
@@ -50,19 +53,19 @@ export default function Sidebar() {
   });
 
   return (
-    <aside className="subtle-scrollbar fixed left-0 top-14 z-40 hidden h-[calc(100vh-3.5rem)] w-64 flex-col overflow-y-auto border-r border-amber-200/10 bg-[#0d0b0a]/84 backdrop-blur-xl lg:flex">
+    <aside className="subtle-scrollbar fixed left-0 top-0 z-40 hidden h-screen w-sidebar flex-col overflow-y-auto border-r border-border bg-surface-1/70 backdrop-blur-xl lg:flex">
       <TooltipProvider delayDuration={80}>
         <nav className="space-y-4 p-4">
-          <section className="rounded-2xl border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(255,247,237,0.03),rgba(249,115,22,0.12))] p-4 shadow-[0_20px_60px_-40px_rgba(249,115,22,0.55)]">
+          <section className="warm-accent-bg warm-glow rounded-xl border border-border p-4">
             <div className="flex items-center gap-3">
               <img
                 src="/mini-espacio-logo.svg"
                 alt="Mini Espacio"
-                className="h-12 w-12 rounded-full object-cover ring-1 ring-white/10"
+                className="h-12 w-12 rounded-full object-cover ring-1 ring-border"
               />
               <div>
-                <p className="text-sm font-semibold text-zinc-50">Mini Espacio</p>
-                <p className="text-xs uppercase tracking-[0.22em] text-amber-100/80">
+                <p className="text-sm font-semibold text-foreground">Mini Espacio</p>
+                <p className="text-xs uppercase tracking-[0.22em] text-primary/70">
                   Entrenamiento personalizado
                 </p>
               </div>
@@ -76,46 +79,50 @@ export default function Sidebar() {
                   to={to}
                   className={({ isActive }) =>
                     [
-                      "group flex select-none items-center gap-10 rounded-xl border px-3 py-2 transition-all duration-200",
-                      "border-white/5 bg-white/[0.03]",
-                      "hover:border-amber-300/20 hover:bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.04),rgba(249,115,22,0.12))]",
-                      "hover:shadow-[0_0_24px_-10px_rgba(249,115,22,0.5)]",
-                      isActive
-                        ? "border-amber-300/25 bg-[linear-gradient(90deg,rgba(250,204,21,0.16),rgba(255,247,237,0.07),rgba(249,115,22,0.16))] shadow-[0_0_28px_-12px_rgba(249,115,22,0.55)]"
-                        : "",
+                      "group flex select-none items-center gap-3 rounded-xl border px-3 py-2 transition-all duration-200",
+                      "border-border bg-surface-2/40",
+                      "hover:border-primary/30 hover:bg-surface-2/70",
+                      isActive ? "warm-glow border-primary/40 bg-surface-2 text-primary" : "",
                     ].join(" ")
                   }
                 >
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] ring-1 ring-inset ring-white/5 group-hover:ring-amber-300/25">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-surface-2 ring-1 ring-inset ring-border group-hover:ring-primary/30">
                     <Icon size={18} />
                   </span>
-                  <span className="text-sm font-medium text-zinc-100">{label}</span>
+                  <span className="text-sm font-medium text-foreground">{label}</span>
                 </NavLink>
               </TooltipTrigger>
-              <TooltipContent
-                side="right"
-                className="border border-amber-200/10 bg-[#161210] text-zinc-100"
-              >
+              <TooltipContent side="right" className="border border-border bg-surface-1 text-foreground">
                 {label}
               </TooltipContent>
             </Tooltip>
           ))}
         </nav>
 
-        <div className="space-y-4 px-4 pb-6">
-          <section className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(180deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03),rgba(249,115,22,0.12))] p-4">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-600">
-              Contexto
-            </p>
-            <p className="mt-2 text-base font-semibold text-zinc-100">
-              Vista {roleLabel(role)}
-            </p>
-            <p className="mt-2 text-sm leading-6 text-zinc-300">
-              {role === "user"
-                ? "Registrá tu avance, revisá tu rutina por día y seguí tu historial personal."
-                : "Usá rutinas como punto de partida y movete rápido entre clientes, asistencias y seguimiento."}
-            </p>
-          </section>
+        <div className="space-y-3 px-4 pb-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2/60 px-3 py-1.5 text-label-caps uppercase text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+            Vista {roleLabel(role)}
+          </div>
+
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-1/70 p-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-primary">
+              <UserRound size={18} />
+            </div>
+            <div className="min-w-0">
+              <p
+                className="truncate text-sm font-medium text-foreground"
+                title={userName ?? undefined}
+              >
+                {userName ?? "Usuario"}
+              </p>
+              {email ? (
+                <p className="truncate text-xs text-muted-foreground" title={email}>
+                  {email}
+                </p>
+              ) : null}
+            </div>
+          </div>
         </div>
       </TooltipProvider>
     </aside>

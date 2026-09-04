@@ -64,6 +64,9 @@ const nfARS = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0,
 });
 
+const outlineButtonClass =
+  "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70";
+
 function parseBucket(bucket: string) {
   const direct = new Date(bucket);
   if (!Number.isNaN(direct.getTime())) return direct;
@@ -98,16 +101,18 @@ function toLabel(bucket: string, mode: "day" | "week" | "month") {
 
 function StatCard({ title, value, hint, icon: Icon }: StatCardProps) {
   return (
-    <div className="rounded-[24px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.07),rgba(255,255,255,0.02)_48%,rgba(249,115,22,0.08))] p-5">
+    <div className="rounded-xl border border-border bg-surface-1 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+          <p className="text-label-caps uppercase text-muted-foreground">
             {title}
           </p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-50">{value}</p>
-          <p className="mt-1 text-sm text-zinc-400">{hint}</p>
+          <p className="font-display mt-2 text-metric-kpi font-extrabold tabular-nums text-foreground">
+            {value}
+          </p>
+          <p className="mt-1 text-body-sm text-muted-foreground">{hint}</p>
         </div>
-        <div className="rounded-2xl bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(255,247,237,0.08),rgba(249,115,22,0.22))] p-3 text-amber-50">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -237,31 +242,31 @@ export default function ReportsPage() {
   return (
     <div className="space-y-8">
       <section className="grid gap-4 lg:grid-cols-[1.45fr_0.95fr]">
-        <div className="rounded-[28px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.11))] p-6 shadow-[0_20px_80px_-40px_rgba(249,115,22,0.42)]">
-          <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
+        <div className="hero-aura rounded-xl border border-border p-6">
+          <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
             Analitica del negocio
           </div>
-          <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+          <h1 className="warm-accent-text font-display mt-4 text-3xl font-extrabold md:text-headline-hero">
             Leé la operación del gimnasio en un solo tablero de reportes.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
+          <p className="mt-3 max-w-2xl text-body-md text-muted-foreground md:text-body-lg">
             Cruza asistencia, ingresos y altas nuevas para entender mejor el
             ritmo comercial y la actividad diaria.
           </p>
         </div>
 
-        <div className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-6 backdrop-blur-xl">
-          <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+        <div className="rounded-xl border border-border bg-surface-1/60 p-6">
+          <p className="text-label-caps uppercase text-muted-foreground">
             Lectura rapida
           </p>
           <div className="mt-4 space-y-4">
             <div>
-              <p className="text-sm text-zinc-400">Mejor tramo de asistencia</p>
-              <p className="text-lg font-semibold text-zinc-100">
+              <p className="text-sm text-muted-foreground">Mejor tramo de asistencia</p>
+              <p className="text-lg font-semibold text-foreground">
                 {strongestAttendanceBucket}
               </p>
             </div>
-            <div className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.05),rgba(249,115,22,0.12))] p-4 text-sm text-amber-50">
+            <div className="rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-foreground">
               Usa esta vista para detectar picos de actividad, comparar ingresos y
               ver si las altas nuevas acompanian el movimiento del gimnasio.
             </div>
@@ -296,12 +301,12 @@ export default function ReportsPage() {
         />
       </section>
 
-      <Card className="rounded-[28px] border-amber-200/10 bg-zinc-900/60 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_30px_-10px_rgba(0,0,0,0.6)] backdrop-blur-xl">
-        <CardHeader className="border-b border-amber-200/10 pb-5">
+      <Card className="rounded-xl border-border bg-surface-1">
+        <CardHeader className="border-b border-border pb-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <CardTitle className="text-zinc-100">Generador de reportes</CardTitle>
-              <p className="mt-2 text-sm leading-6 text-zinc-400">
+              <CardTitle className="text-foreground">Generador de reportes</CardTitle>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Selecciona un rango y analiza asistencia, altas nuevas e ingresos.
               </p>
             </div>
@@ -311,16 +316,16 @@ export default function ReportsPage() {
                 type="date"
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
-                className="border-amber-200/10 bg-zinc-900/70"
+                className="border-border bg-surface-2/40"
               />
               <Input
                 type="date"
                 value={end}
                 onChange={(e) => setEnd(e.target.value)}
-                className="border-amber-200/10 bg-zinc-900/70"
+                className="border-border bg-surface-2/40"
               />
               <select
-                className="rounded-md border border-amber-200/10 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-amber-400/25"
+                className="rounded-md border border-border bg-surface-2/40 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 value={bucket}
                 onChange={(e) => setBucket(e.target.value as "day" | "week" | "month")}
               >
@@ -331,7 +336,6 @@ export default function ReportsPage() {
               <Button
                 onClick={fetchReport}
                 disabled={loading || !start || !end}
-                className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
               >
                 {loading ? "Generando..." : "Generar"}
               </Button>
@@ -341,8 +345,8 @@ export default function ReportsPage() {
 
         <CardContent className="space-y-6 pt-6">
           <div className="grid gap-4 xl:grid-cols-3">
-            <div className="rounded-[24px] border border-amber-200/10 bg-white/[0.03] p-5">
-              <div className="mb-3 flex items-center gap-2 text-zinc-100">
+            <div className="rounded-xl border border-border bg-surface-2/20 p-5">
+              <div className="mb-3 flex items-center gap-2 text-foreground">
                 <BarChart3 className="h-4 w-4" />
                 Asistencia
               </div>
@@ -350,30 +354,30 @@ export default function ReportsPage() {
                 {attendanceChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={attendanceChartData} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
-                      <XAxis dataKey="label" stroke="#a1a1aa" tick={{ fontSize: 11 }} />
-                      <YAxis stroke="#a1a1aa" tick={{ fontSize: 11 }} allowDecimals={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-hairline)" />
+                      <XAxis dataKey="label" stroke="var(--muted-foreground)" tick={{ fontSize: 11 }} />
+                      <YAxis stroke="var(--muted-foreground)" tick={{ fontSize: 11 }} allowDecimals={false} />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "#111111",
-                          border: "1px solid rgba(251,191,36,0.18)",
+                          backgroundColor: "var(--surface-1)",
+                          border: "1px solid var(--border-hairline)",
                           borderRadius: "0.75rem",
-                          color: "#f4f4f5",
+                          color: "var(--foreground)",
                         }}
                       />
-                      <Bar dataKey="count" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="count" fill="var(--primary)" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="grid h-full place-items-center text-sm text-zinc-500">
+                  <div className="grid h-full place-items-center text-sm text-muted-foreground">
                     No hay datos de asistencia.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="rounded-[24px] border border-amber-200/10 bg-white/[0.03] p-5">
-              <div className="mb-3 flex items-center gap-2 text-zinc-100">
+            <div className="rounded-xl border border-border bg-surface-2/20 p-5">
+              <div className="mb-3 flex items-center gap-2 text-foreground">
                 <TrendingUp className="h-4 w-4" />
                 Ingresos
               </div>
@@ -383,41 +387,41 @@ export default function ReportsPage() {
                     <AreaChart data={revenueChartData} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="reportRevenue" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#fb923c" stopOpacity={0.55} />
-                          <stop offset="100%" stopColor="#fb923c" stopOpacity={0} />
+                          <stop offset="0%" stopColor="var(--primary-strong)" stopOpacity={0.55} />
+                          <stop offset="100%" stopColor="var(--primary-strong)" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
-                      <XAxis dataKey="label" stroke="#a1a1aa" tick={{ fontSize: 11 }} />
-                      <YAxis stroke="#a1a1aa" tick={{ fontSize: 11 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-hairline)" />
+                      <XAxis dataKey="label" stroke="var(--muted-foreground)" tick={{ fontSize: 11 }} />
+                      <YAxis stroke="var(--muted-foreground)" tick={{ fontSize: 11 }} />
                       <Tooltip
                         formatter={(value: number) => nfARS.format(value)}
                         contentStyle={{
-                          backgroundColor: "#111111",
-                          border: "1px solid rgba(251,191,36,0.18)",
+                          backgroundColor: "var(--surface-1)",
+                          border: "1px solid var(--border-hairline)",
                           borderRadius: "0.75rem",
-                          color: "#f4f4f5",
+                          color: "var(--foreground)",
                         }}
                       />
                       <Area
                         type="monotone"
                         dataKey="total"
-                        stroke="#fb923c"
+                        stroke="var(--primary-strong)"
                         strokeWidth={2}
                         fill="url(#reportRevenue)"
                       />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="grid h-full place-items-center text-sm text-zinc-500">
+                  <div className="grid h-full place-items-center text-sm text-muted-foreground">
                     No hay datos de ingresos.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="rounded-[24px] border border-amber-200/10 bg-white/[0.03] p-5">
-              <div className="mb-3 flex items-center gap-2 text-zinc-100">
+            <div className="rounded-xl border border-border bg-surface-2/20 p-5">
+              <div className="mb-3 flex items-center gap-2 text-foreground">
                 <Users className="h-4 w-4" />
                 Altas nuevas
               </div>
@@ -425,22 +429,22 @@ export default function ReportsPage() {
                 {clientsChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={clientsChartData} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
-                      <XAxis dataKey="label" stroke="#a1a1aa" tick={{ fontSize: 11 }} />
-                      <YAxis stroke="#a1a1aa" tick={{ fontSize: 11 }} allowDecimals={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-hairline)" />
+                      <XAxis dataKey="label" stroke="var(--muted-foreground)" tick={{ fontSize: 11 }} />
+                      <YAxis stroke="var(--muted-foreground)" tick={{ fontSize: 11 }} allowDecimals={false} />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "#111111",
-                          border: "1px solid rgba(251,191,36,0.18)",
+                          backgroundColor: "var(--surface-1)",
+                          border: "1px solid var(--border-hairline)",
                           borderRadius: "0.75rem",
-                          color: "#f4f4f5",
+                          color: "var(--foreground)",
                         }}
                       />
-                      <Bar dataKey="count" fill="#fde68a" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="count" fill="var(--primary)" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="grid h-full place-items-center text-sm text-zinc-500">
+                  <div className="grid h-full place-items-center text-sm text-muted-foreground">
                     No hay datos de altas nuevas.
                   </div>
                 )}
@@ -448,21 +452,21 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-amber-200/10">
+          <div className="overflow-hidden rounded-xl border border-border">
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-[linear-gradient(90deg,rgba(250,204,21,0.08),rgba(255,247,237,0.04),rgba(249,115,22,0.1))] text-left text-zinc-300">
+                <thead className="text-left text-label-caps uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3">Periodo</th>
-                    <th className="px-4 py-3">Asistencias</th>
-                    <th className="px-4 py-3">Clientes nuevos</th>
-                    <th className="px-4 py-3">Ingresos</th>
+                    <th className="border-b border-border px-4 py-3">Periodo</th>
+                    <th className="border-b border-border px-4 py-3">Asistencias</th>
+                    <th className="border-b border-border px-4 py-3">Clientes nuevos</th>
+                    <th className="border-b border-border px-4 py-3">Ingresos</th>
                   </tr>
                 </thead>
-                <tbody className="bg-zinc-950/30">
+                <tbody className="bg-canvas/30">
                   {!loading && attendanceRows.length === 0 && revenueRows.length === 0 && newClientsRows.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-4 py-10 text-center text-zinc-400">
+                      <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
                         Selecciona un rango y genera el reporte para ver datos.
                       </td>
                     </tr>
@@ -470,7 +474,7 @@ export default function ReportsPage() {
 
                   {loading ? (
                     <tr>
-                      <td colSpan={4} className="px-4 py-10 text-center text-zinc-400">
+                      <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
                         Generando reportes...
                       </td>
                     </tr>
@@ -488,17 +492,17 @@ export default function ReportsPage() {
                         return (
                           <tr
                             key={row.bucket}
-                            className={`border-t border-white/5 ${index % 2 ? "bg-white/[0.03]" : ""} ${bucket === "day" ? "cursor-pointer hover:bg-white/[0.05]" : ""}`}
+                            className={`border-t border-border ${index % 2 ? "bg-surface-2/30" : ""} ${bucket === "day" ? "cursor-pointer hover:bg-surface-2/40" : ""}`}
                             onClick={() => bucket === "day" && openDetail(row.bucket)}
                           >
-                            <td className="px-4 py-3 text-zinc-100">
+                            <td className="px-4 py-3 text-foreground">
                               {toLabel(row.bucket, bucket)}
                             </td>
-                            <td className="px-4 py-3 text-zinc-300">{row.count}</td>
-                            <td className="px-4 py-3 text-zinc-300">
+                            <td className="px-4 py-3 text-muted-foreground">{row.count}</td>
+                            <td className="px-4 py-3 text-muted-foreground">
                               {matchingClients?.count ?? 0}
                             </td>
-                            <td className="px-4 py-3 text-zinc-300">
+                            <td className="px-4 py-3 text-muted-foreground">
                               {nfARS.format(matchingRevenue?.total ?? 0)}
                             </td>
                           </tr>
@@ -516,7 +520,7 @@ export default function ReportsPage() {
                 type="button"
                 onClick={() => setChartOpen(true)}
                 variant="outline"
-                className="border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
+                className={outlineButtonClass}
               >
                 Abrir graficos ampliados
               </Button>
@@ -526,10 +530,10 @@ export default function ReportsPage() {
       </Card>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-2xl border-amber-200/10 bg-zinc-900/95 text-zinc-100">
+        <DialogContent className="max-w-2xl border-border bg-surface-1/95 text-foreground">
           <DialogHeader>
             <DialogTitle>Detalle del día</DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogDescription className="text-muted-foreground">
               {detailDay
                 ? `Clientes que hicieron check-in el ${detailDay.slice(0, 10)}.`
                 : "Seleccioná un día desde la tabla."}
@@ -537,37 +541,37 @@ export default function ReportsPage() {
           </DialogHeader>
 
           {detailLoading ? (
-            <div className="py-8 text-center text-zinc-400">Cargando detalle...</div>
+            <div className="py-8 text-center text-muted-foreground">Cargando detalle...</div>
           ) : detailRows.length === 0 ? (
-            <div className="py-8 text-center text-zinc-400">
+            <div className="py-8 text-center text-muted-foreground">
               No hubo asistencias registradas ese día.
             </div>
           ) : (
-            <div className="warm-scrollbar max-h-[420px] overflow-y-auto rounded-xl border border-white/10">
+            <div className="warm-scrollbar max-h-[420px] overflow-y-auto rounded-xl border border-border">
               <table className="w-full text-sm">
-                <thead className="bg-white/[0.03] text-left text-zinc-400">
+                <thead className="text-left text-label-caps uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3">Hora</th>
-                    <th className="px-4 py-3">Cliente</th>
-                    <th className="px-4 py-3">Contacto</th>
+                    <th className="border-b border-border px-4 py-3">Hora</th>
+                    <th className="border-b border-border px-4 py-3">Cliente</th>
+                    <th className="border-b border-border px-4 py-3">Contacto</th>
                   </tr>
                 </thead>
                 <tbody>
                   {detailRows.map((row, index) => (
                     <tr
                       key={row.id}
-                      className={`border-t border-white/5 ${index % 2 ? "bg-white/[0.03]" : ""}`}
+                      className={`border-t border-border ${index % 2 ? "bg-surface-2/30" : ""}`}
                     >
-                      <td className="px-4 py-3 text-zinc-300">
+                      <td className="px-4 py-3 text-muted-foreground">
                         {new Date(row.checkin_at).toLocaleTimeString("es-AR", {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
                       </td>
-                      <td className="px-4 py-3 text-zinc-100">
+                      <td className="px-4 py-3 text-foreground">
                         {row.client.full_name}
                       </td>
-                      <td className="px-4 py-3 text-zinc-400">
+                      <td className="px-4 py-3 text-muted-foreground">
                         {row.client.phone || row.client.email || "-"}
                       </td>
                     </tr>
@@ -580,17 +584,17 @@ export default function ReportsPage() {
       </Dialog>
 
       <Dialog open={chartOpen} onOpenChange={setChartOpen}>
-        <DialogContent className="max-w-5xl border-amber-200/10 bg-zinc-900/95 text-zinc-100">
+        <DialogContent className="max-w-5xl border-border bg-surface-1/95 text-foreground">
           <DialogHeader>
             <DialogTitle>Graficos ampliados</DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogDescription className="text-muted-foreground">
               Comparativa visual de asistencia, ingresos y altas nuevas.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-4">
-              <h3 className="mb-3 text-sm font-medium text-zinc-100">
+            <div className="rounded-xl border border-border bg-canvas/60 p-4">
+              <h3 className="mb-3 text-sm font-medium text-foreground">
                 Tendencia de asistencia
               </h3>
               <div className="h-72">
@@ -598,25 +602,25 @@ export default function ReportsPage() {
                   <AreaChart data={attendanceChartData}>
                     <defs>
                       <linearGradient id="attendanceExpanded" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#facc15" stopOpacity={0.45} />
-                        <stop offset="100%" stopColor="#facc15" stopOpacity={0} />
+                        <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.45} />
+                        <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
-                    <XAxis dataKey="label" stroke="#a1a1aa" />
-                    <YAxis stroke="#a1a1aa" allowDecimals={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-hairline)" />
+                    <XAxis dataKey="label" stroke="var(--muted-foreground)" />
+                    <YAxis stroke="var(--muted-foreground)" allowDecimals={false} />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "#111111",
-                        border: "1px solid rgba(251,191,36,0.18)",
+                        backgroundColor: "var(--surface-1)",
+                        border: "1px solid var(--border-hairline)",
                         borderRadius: "0.75rem",
-                        color: "#f4f4f5",
+                        color: "var(--foreground)",
                       }}
                     />
                     <Area
                       type="monotone"
                       dataKey="count"
-                      stroke="#facc15"
+                      stroke="var(--primary)"
                       fill="url(#attendanceExpanded)"
                     />
                   </AreaChart>
@@ -624,26 +628,26 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-4">
-              <h3 className="mb-3 text-sm font-medium text-zinc-100">
+            <div className="rounded-xl border border-border bg-canvas/60 p-4">
+              <h3 className="mb-3 text-sm font-medium text-foreground">
                 Ingresos por período
               </h3>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={revenueChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
-                    <XAxis dataKey="label" stroke="#a1a1aa" />
-                    <YAxis stroke="#a1a1aa" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-hairline)" />
+                    <XAxis dataKey="label" stroke="var(--muted-foreground)" />
+                    <YAxis stroke="var(--muted-foreground)" />
                     <Tooltip
                       formatter={(value: number) => nfARS.format(value)}
                       contentStyle={{
-                        backgroundColor: "#111111",
-                        border: "1px solid rgba(251,191,36,0.18)",
+                        backgroundColor: "var(--surface-1)",
+                        border: "1px solid var(--border-hairline)",
                         borderRadius: "0.75rem",
-                        color: "#f4f4f5",
+                        color: "var(--foreground)",
                       }}
                     />
-                    <Bar dataKey="total" fill="#fb923c" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="total" fill="var(--primary-strong)" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

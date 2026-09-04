@@ -48,6 +48,9 @@ const nfARS = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0,
 });
 
+const outlineButtonClass =
+  "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70";
+
 const shortId = (value: string) => `${value.slice(0, 8)}...`;
 
 const methodLabel = (method?: string | null) => {
@@ -278,31 +281,28 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[32px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.14))] p-6 shadow-[0_25px_90px_-55px_rgba(249,115,22,0.58)]">
-        <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
+      <section className="hero-aura rounded-xl border border-border p-6">
+        <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
           Centro operativo
         </div>
-        <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+        <h1 className="warm-accent-text font-display mt-4 text-3xl font-extrabold md:text-headline-hero">
           Bienvenido {displayName}
         </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
+        <p className="mt-3 max-w-2xl text-body-md text-muted-foreground md:text-body-lg">
           Mini Espacio concentra el seguimiento diario del gimnasio y te
           invita a pasar rapido a rutinas para cargar avances y dejar todo
           el dia bien registrado.
         </p>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <Button
-            onClick={() => navigate("/routines")}
-            className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
-          >
+          <Button onClick={() => navigate("/routines")}>
             <Dumbbell className="mr-2 h-4 w-4" />
             Ir a rutinas
           </Button>
           <Button
             variant="outline"
             onClick={() => setSearchOpen(true)}
-            className="border-amber-200/10 bg-white/[0.04] hover:bg-white/[0.08]"
+            className={outlineButtonClass}
           >
             <Search className="mr-2 h-4 w-4" />
             Abrir buscador
@@ -310,7 +310,7 @@ export default function Dashboard() {
           <Button
             variant="outline"
             onClick={() => setNewClientOpen(true)}
-            className="border-amber-200/10 bg-white/[0.04] hover:bg-white/[0.08]"
+            className={outlineButtonClass}
           >
             <Plus className="mr-2 h-4 w-4" />
             Crear cliente
@@ -320,7 +320,7 @@ export default function Dashboard() {
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {kpisStatus.isPending ? (
-          <div className="rounded-[24px] border border-amber-200/10 bg-white/[0.02] p-6 text-center text-sm text-zinc-400 sm:col-span-2 lg:col-span-3">
+          <div className="rounded-xl border border-border bg-surface-2/20 p-6 text-center text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
             Cargando indicadores...
           </div>
         ) : kpisStatus.isError ? (
@@ -335,19 +335,19 @@ export default function Dashboard() {
           kpis.map((kpi) => (
             <div
               key={kpi.label}
-              className="rounded-[24px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.07),rgba(255,255,255,0.02)_48%,rgba(249,115,22,0.08))] p-5"
+              className="rounded-xl border border-border bg-surface-1 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                  <p className="text-label-caps uppercase text-muted-foreground">
                     {kpi.label}
                   </p>
-                  <p className="mt-2 text-2xl font-semibold text-zinc-50">
+                  <p className="font-display mt-2 text-metric-kpi font-extrabold tabular-nums text-foreground">
                     {kpi.value}
                   </p>
-                  <p className="mt-1 text-sm text-zinc-400">{kpi.hint}</p>
+                  <p className="mt-1 text-body-sm text-muted-foreground">{kpi.hint}</p>
                 </div>
-                <div className="rounded-2xl bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(255,247,237,0.08),rgba(249,115,22,0.22))] p-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
                   <kpi.icon size={18} />
                 </div>
               </div>
@@ -362,21 +362,21 @@ export default function Dashboard() {
             key={action.title}
             type="button"
             onClick={action.onClick}
-            className="group rounded-[24px] border border-amber-200/10 bg-zinc-900/50 p-5 text-left transition hover:border-amber-300/20 hover:bg-[#17120f]"
+            className="group rounded-xl border border-border bg-surface-1/60 p-5 text-left transition hover:border-primary/30 hover:bg-surface-1"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="mb-4 inline-flex rounded-2xl bg-[linear-gradient(135deg,rgba(250,204,21,0.18),rgba(255,247,237,0.05),rgba(249,115,22,0.18))] p-3 text-amber-50">
+                <div className="mb-4 inline-flex rounded-full bg-primary/15 p-3 text-primary">
                   <action.icon className="h-5 w-5" />
                 </div>
-                <h2 className="text-lg font-semibold text-zinc-100">
+                <h2 className="font-display text-headline-md text-foreground">
                   {action.title}
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                <p className="mt-2 text-body-sm text-muted-foreground">
                   {action.description}
                 </p>
               </div>
-              <ArrowRight className="mt-1 h-5 w-5 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-zinc-100" />
+              <ArrowRight className="mt-1 h-5 w-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-foreground" />
             </div>
           </button>
         ))}
@@ -384,12 +384,12 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-1">
-          <section className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-5">
+          <section className="rounded-xl border border-border bg-surface-1/60 p-5">
           <div className="mb-4">
-            <h2 className="text-base font-semibold text-zinc-100">
+            <h2 className="text-base font-semibold text-foreground">
               Check-in rápido
             </h2>
-            <p className="mt-1 text-sm text-zinc-400">
+            <p className="mt-1 text-sm text-muted-foreground">
               Buscá por nombre, email o teléfono. Si ya tenés el UUID, pegalo
               directamente.
             </p>
@@ -397,9 +397,9 @@ export default function Dashboard() {
 
           <form className="space-y-3" onSubmit={doQuickCheckin}>
             <div>
-              <label className="text-xs text-zinc-400">Búsqueda general</label>
+              <label className="text-xs text-muted-foreground">Búsqueda general</label>
               <Input
-                className="mt-1 border-white/10 bg-zinc-900/70"
+                className="mt-1"
                 placeholder="Ej: Maria, 11 5555 5555 o contacto@mail.com"
                 value={q}
                 onChange={(e) => {
@@ -409,11 +409,11 @@ export default function Dashboard() {
               />
 
               {searchingClients && q.trim() ? (
-                <p className="mt-2 text-xs text-zinc-400">Buscando clientes...</p>
+                <p className="mt-2 text-xs text-muted-foreground">Buscando clientes...</p>
               ) : null}
 
               {!searchingClients && clientResults.length > 0 && q.trim() ? (
-                <div className="mt-2 max-h-56 overflow-y-auto rounded-2xl border border-white/10 bg-zinc-950/90">
+                <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-border bg-canvas/90">
                   {clientResults.map((client) => (
                     <button
                       key={client.id}
@@ -422,11 +422,11 @@ export default function Dashboard() {
                         setClientId(client.id);
                         setQ(client.full_name ?? "");
                       }}
-                      className="flex w-full justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-white/5"
+                      className="flex w-full justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-surface-2/60"
                     >
                       <div className="truncate">
                         <div className="font-medium">{client.full_name}</div>
-                        <div className="text-xs text-zinc-400">
+                        <div className="text-xs text-muted-foreground">
                           {client.phone ?? "Sin teléfono"} - {client.email ?? "Sin email"}
                         </div>
                       </div>
@@ -436,16 +436,16 @@ export default function Dashboard() {
               ) : null}
 
               {!searchingClients && clientResults.length === 0 && q.trim() ? (
-                <p className="mt-2 text-xs text-zinc-500">
+                <p className="mt-2 text-xs text-muted-foreground">
                   No se encontraron clientes para "{q.trim()}".
                 </p>
               ) : null}
             </div>
 
             <div>
-              <label className="text-xs text-zinc-400">UUID exacto</label>
+              <label className="text-xs text-muted-foreground">UUID exacto</label>
               <Input
-                className="mt-1 border-white/10 bg-zinc-900/70 font-mono"
+                className="mt-1 font-mono"
                 placeholder="265bc49d-3845-4063-97fd-06d1c96a21d9"
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
@@ -453,13 +453,12 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center justify-between gap-3 pt-2">
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-muted-foreground">
                 La asistencia se registra para hoy.
               </span>
               <Button
                 type="submit"
                 disabled={checkinMutation.isPending || (!q && !clientId)}
-                className="border border-amber-300/25 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-sm font-medium text-amber-50 hover:opacity-95"
               >
                 <CheckCircle2 size={16} className="mr-2" />
                 {checkinMutation.isPending ? "Registrando..." : "Registrar"}
@@ -468,21 +467,21 @@ export default function Dashboard() {
           </form>
           </section>
 
-          <section className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-5">
+          <section className="rounded-xl border border-border bg-surface-1/60 p-5">
             <div className="mb-4">
-              <h2 className="text-base font-semibold text-zinc-100">
+              <h2 className="text-base font-semibold text-foreground">
                 Pago rápido
               </h2>
-              <p className="mt-1 text-sm text-zinc-400">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Registrá la cuota mensual desde el dashboard usando el valor actual de Ajustes.
               </p>
             </div>
 
             <form className="space-y-3" onSubmit={doQuickPayment}>
               <div>
-                <label className="text-xs text-zinc-400">Cliente</label>
+                <label className="text-xs text-muted-foreground">Cliente</label>
                 <Input
-                  className="mt-1 border-white/10 bg-zinc-900/70"
+                  className="mt-1"
                   placeholder="Buscá por nombre o teléfono"
                   value={paymentQuery}
                   onChange={(e) => {
@@ -492,11 +491,11 @@ export default function Dashboard() {
                 />
 
                 {searchingPayments && paymentQuery.trim() ? (
-                  <p className="mt-2 text-xs text-zinc-400">Buscando clientes...</p>
+                  <p className="mt-2 text-xs text-muted-foreground">Buscando clientes...</p>
                 ) : null}
 
                 {!searchingPayments && paymentResults.length > 0 && paymentQuery.trim() ? (
-                  <div className="mt-2 max-h-56 overflow-y-auto rounded-2xl border border-white/10 bg-zinc-950/90">
+                  <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-border bg-canvas/90">
                     {paymentResults.map((client) => (
                       <button
                         key={client.id}
@@ -505,11 +504,11 @@ export default function Dashboard() {
                           setPaymentClientId(client.id);
                           setPaymentQuery(client.full_name ?? "");
                         }}
-                        className="flex w-full justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-white/5"
+                        className="flex w-full justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-surface-2/60"
                       >
                         <div className="truncate">
                           <div className="font-medium">{client.full_name}</div>
-                          <div className="text-xs text-zinc-400">
+                          <div className="text-xs text-muted-foreground">
                             {client.phone ?? "Sin teléfono"} - {client.email ?? "Sin email"}
                           </div>
                         </div>
@@ -519,26 +518,26 @@ export default function Dashboard() {
                 ) : null}
 
                 {!searchingPayments && paymentResults.length === 0 && paymentQuery.trim() ? (
-                  <p className="mt-2 text-xs text-zinc-500">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     No se encontraron clientes para "{paymentQuery.trim()}".
                   </p>
                 ) : null}
               </div>
 
-              <div className="rounded-2xl border border-amber-300/15 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03),rgba(249,115,22,0.12))] px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+              <div className="rounded-xl border border-primary/20 bg-primary/10 px-4 py-3">
+                <p className="text-label-caps uppercase text-muted-foreground">
                   Cuota vigente
                 </p>
-                <p className="mt-1 text-xl font-semibold text-zinc-50">
+                <p className="mt-1 text-xl font-semibold text-foreground">
                   {nfARS.format(defaultFee)}
                 </p>
-                <p className="mt-1 text-xs text-zinc-400">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Se registra para el mes actual con el método que selecciones.
                 </p>
               </div>
 
               <div>
-                <label className="text-xs text-zinc-400">Método rápido</label>
+                <label className="text-xs text-muted-foreground">Método rápido</label>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <Button
                     type="button"
@@ -546,8 +545,8 @@ export default function Dashboard() {
                     onClick={() => setQuickPaymentMethod("cash")}
                     className={
                       quickPaymentMethod === "cash"
-                        ? "border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50"
-                        : "border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.08]"
+                        ? "border-primary/30 bg-primary/10 text-primary"
+                        : outlineButtonClass
                     }
                   >
                     Efectivo
@@ -558,8 +557,8 @@ export default function Dashboard() {
                     onClick={() => setQuickPaymentMethod("transfer")}
                     className={
                       quickPaymentMethod === "transfer"
-                        ? "border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50"
-                        : "border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.08]"
+                        ? "border-primary/30 bg-primary/10 text-primary"
+                        : outlineButtonClass
                     }
                   >
                     Transferencia
@@ -568,13 +567,12 @@ export default function Dashboard() {
               </div>
 
               <div className="flex items-center justify-between gap-3 pt-2">
-                <span className="text-xs text-zinc-500">
+                <span className="text-xs text-muted-foreground">
                   Ideal para cobrar sin entrar a la ficha.
                 </span>
                 <Button
                   type="submit"
                   disabled={createPaymentMutation.isPending || !paymentClientId}
-                  className="border border-amber-300/25 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-sm font-medium text-amber-50 hover:opacity-95"
                 >
                   <CreditCard size={16} className="mr-2" />
                   {createPaymentMutation.isPending ? "Registrando..." : "Cobrar cuota"}
@@ -584,21 +582,21 @@ export default function Dashboard() {
           </section>
         </div>
 
-        <section className="overflow-hidden rounded-[28px] border border-amber-200/10 lg:col-span-2">
-          <header className="border-b border-amber-200/10 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.04),rgba(249,115,22,0.14))] px-5 py-4">
+        <section className="overflow-hidden rounded-xl border border-border lg:col-span-2">
+          <header className="border-b border-border bg-surface-2/40 px-5 py-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-base font-semibold text-zinc-100">
+                <h2 className="text-base font-semibold text-foreground">
                   Pagos recientes
                 </h2>
-                <p className="mt-1 text-sm text-zinc-400">
+                <p className="mt-1 text-sm text-muted-foreground">
                   Últimos movimientos registrados en el sistema.
                 </p>
               </div>
               <Button
                 variant="outline"
                 onClick={() => navigate("/payments")}
-                className="border-amber-200/10 bg-white/[0.04] hover:bg-white/[0.08]"
+                className={outlineButtonClass}
               >
                 Ver todos
               </Button>
@@ -607,20 +605,20 @@ export default function Dashboard() {
 
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="text-left text-zinc-400">
+              <thead className="text-left text-label-caps uppercase text-muted-foreground">
                 <tr>
-                  <th className="border-b border-white/10 px-5 py-3">ID</th>
-                  <th className="border-b border-white/10 px-5 py-3">Cliente</th>
-                  <th className="border-b border-white/10 px-5 py-3">Método</th>
-                  <th className="border-b border-white/10 px-5 py-3">Canal</th>
-                  <th className="border-b border-white/10 px-5 py-3">Monto</th>
-                  <th className="border-b border-white/10 px-5 py-3">Fecha</th>
+                  <th className="border-b border-border px-5 py-3">ID</th>
+                  <th className="border-b border-border px-5 py-3">Cliente</th>
+                  <th className="border-b border-border px-5 py-3">Método</th>
+                  <th className="border-b border-border px-5 py-3">Canal</th>
+                  <th className="border-b border-border px-5 py-3">Monto</th>
+                  <th className="border-b border-border px-5 py-3">Fecha</th>
                 </tr>
               </thead>
               <tbody>
                 {lastPaymentsStatus.isPending ? (
                   <tr>
-                    <td className="px-5 py-5 text-center text-zinc-400" colSpan={6}>
+                    <td className="px-5 py-5 text-center text-muted-foreground" colSpan={6}>
                       Cargando movimientos...
                     </td>
                   </tr>
@@ -642,7 +640,7 @@ export default function Dashboard() {
                 !lastPaymentsStatus.isError &&
                 payments.length === 0 ? (
                   <tr>
-                    <td className="px-5 py-8 text-center text-zinc-400" colSpan={6}>
+                    <td className="px-5 py-8 text-center text-muted-foreground" colSpan={6}>
                       Todavía no hay movimientos recientes.
                     </td>
                   </tr>
@@ -652,24 +650,24 @@ export default function Dashboard() {
                   ? payments.map((payment, index) => (
                       <tr
                         key={payment.id}
-                        className={index % 2 ? "bg-white/5" : ""}
+                        className={index % 2 ? "bg-surface-2/30" : ""}
                       >
-                        <td className="px-5 py-3 font-mono text-zinc-300">
+                        <td className="px-5 py-3 font-mono text-muted-foreground">
                           {shortId(payment.id)}
                         </td>
-                        <td className="px-5 py-3 text-zinc-100">
+                        <td className="px-5 py-3 text-foreground">
                           {payment.client?.full_name ?? payment.client_id}
                         </td>
-                        <td className="px-5 py-3 text-zinc-300">
+                        <td className="px-5 py-3 text-muted-foreground">
                           {methodLabel(payment.method)}
                         </td>
-                        <td className="px-5 py-3 text-zinc-300">
+                        <td className="px-5 py-3 text-muted-foreground">
                           {payment.method_channel || "-"}
                         </td>
-                        <td className="px-5 py-3 font-semibold text-zinc-100">
+                        <td className="px-5 py-3 font-semibold text-foreground">
                           {nfARS.format(payment.amount || 0)}
                         </td>
-                        <td className="px-5 py-3 text-zinc-400">
+                        <td className="px-5 py-3 text-muted-foreground">
                           {new Date(payment.created_at).toLocaleString("es-AR")}
                         </td>
                       </tr>
@@ -681,20 +679,20 @@ export default function Dashboard() {
         </section>
       </div>
 
-      <section className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-5">
-        <div className="flex flex-col gap-3 border-b border-amber-200/10 pb-4 md:flex-row md:items-end md:justify-between">
+      <section className="rounded-xl border border-border bg-surface-1/60 p-5">
+        <div className="flex flex-col gap-3 border-b border-border pb-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-zinc-100">
+            <h2 className="text-base font-semibold text-foreground">
               Seguimiento de cobros
             </h2>
-            <p className="mt-1 text-sm text-zinc-400">
+            <p className="mt-1 text-sm text-muted-foreground">
               Clientes activos sin pago registrado este mes y acceso rapido a WhatsApp.
             </p>
           </div>
           <Button
             variant="outline"
             onClick={() => navigate("/payments")}
-            className="border-amber-200/10 bg-white/[0.04] hover:bg-white/[0.08]"
+            className={outlineButtonClass}
           >
             Ver pagos
           </Button>
@@ -702,7 +700,7 @@ export default function Dashboard() {
 
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {pendingClientsStatus.isPending ? (
-            <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-5 text-sm text-zinc-400 md:col-span-2 xl:col-span-3">
+            <div className="rounded-xl border border-border bg-surface-2/20 px-4 py-5 text-sm text-muted-foreground md:col-span-2 xl:col-span-3">
               Cargando seguimiento de cobros...
             </div>
           ) : pendingClientsStatus.isError ? (
@@ -714,17 +712,17 @@ export default function Dashboard() {
               />
             </div>
           ) : pendingClients.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-5 text-sm text-zinc-400 md:col-span-2 xl:col-span-3">
+            <div className="rounded-xl border border-border bg-surface-2/20 px-4 py-5 text-sm text-muted-foreground md:col-span-2 xl:col-span-3">
               No hay clientes pendientes en la muestra actual.
             </div>
           ) : (
             pendingClients.map((client) => (
               <div
                 key={client.id}
-                className="rounded-2xl border border-white/10 bg-black/10 p-4"
+                className="rounded-xl border border-border bg-surface-2/20 p-4"
               >
-                <p className="font-semibold text-zinc-100">{client.full_name}</p>
-                <p className="mt-1 text-sm text-zinc-500">
+                <p className="font-semibold text-foreground">{client.full_name}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
                   {client.phone || "Sin telefono cargado"}
                 </p>
                 <div className="mt-4 flex gap-2">
@@ -732,7 +730,7 @@ export default function Dashboard() {
                     type="button"
                     variant="outline"
                     onClick={() => navigate("/clients")}
-                    className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+                    className={outlineButtonClass}
                   >
                     Ver ficha
                   </Button>
@@ -740,7 +738,6 @@ export default function Dashboard() {
                     type="button"
                     onClick={() => openPaymentReminder(client)}
                     disabled={!client.phone}
-                    className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <MessageCircle className="mr-2 h-4 w-4" />
                     WhatsApp
@@ -764,35 +761,35 @@ export default function Dashboard() {
             <DrawerTitle>Nuevo cliente</DrawerTitle>
           </DrawerHeader>
           <div className="p-5">
-            <Card className="border-amber-200/10 bg-zinc-950/60 p-5">
+            <Card className="border-border bg-canvas/60 p-5">
               <form className="space-y-4" onSubmit={createClient}>
                 <div>
-                  <label className="text-sm text-zinc-400">Nombre completo</label>
+                  <label className="text-sm text-muted-foreground">Nombre completo</label>
                   <Input
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="mt-1 border-white/10 bg-zinc-900/70 text-gray-200"
+                    className="mt-1"
                     placeholder="Juan Perez"
                     required
                   />
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="text-sm text-zinc-400">Email</label>
+                    <label className="text-sm text-muted-foreground">Email</label>
                     <Input
                       type="email"
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
-                      className="mt-1 border-white/10 bg-zinc-900/70 text-gray-200"
+                      className="mt-1"
                       placeholder="juan@mail.com"
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-zinc-400">Teléfono</label>
+                    <label className="text-sm text-muted-foreground">Teléfono</label>
                     <Input
                       value={newPhone}
                       onChange={(e) => setNewPhone(e.target.value)}
-                      className="mt-1 border-white/10 bg-zinc-900/70 text-gray-200"
+                      className="mt-1"
                       placeholder="11 5555 5555"
                     />
                   </div>
@@ -802,7 +799,7 @@ export default function Dashboard() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-amber-200/10 text-gray-200 hover:bg-white/[0.08]"
+                    className={outlineButtonClass}
                     onClick={() => setNewClientOpen(false)}
                   >
                     Cancelar
@@ -810,8 +807,6 @@ export default function Dashboard() {
                   <Button
                     type="submit"
                     disabled={createClientMutation.isPending || !newName.trim()}
-                    className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
-                    variant="outline"
                   >
                     {createClientMutation.isPending ? "Creando..." : "Crear cliente"}
                   </Button>

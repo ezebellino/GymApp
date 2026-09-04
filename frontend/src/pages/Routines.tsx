@@ -62,6 +62,9 @@ type ExerciseDraft = {
 
 const CLIENT_LIMIT = 200;
 
+const outlineButtonClass =
+  "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70";
+
 function emptyDraft(): ExerciseDraft {
   return {
     sets_count: "",
@@ -623,7 +626,7 @@ export default function RoutinesPage() {
   if (loading) {
     return (
       <div className="grid min-h-[50vh] place-items-center">
-        <div className="rounded-2xl border border-amber-200/10 bg-zinc-900/70 px-5 py-4 text-sm text-zinc-300">
+        <div className="rounded-xl border border-border bg-surface-1/70 px-5 py-4 text-sm text-muted-foreground">
           Cargando rutinas...
         </div>
       </div>
@@ -632,37 +635,37 @@ export default function RoutinesPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[28px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_48%,rgba(249,115,22,0.12))] p-6 shadow-[0_20px_80px_-40px_rgba(249,115,22,0.42)]">
+      <section className="hero-aura rounded-xl border border-border p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
-            <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
               Rutinas simples
             </div>
             <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
               Elegi un dia, revisa la rutina y carga el avance del cliente.
             </h1>
-            <p className="mt-3 text-sm leading-6 text-zinc-400 md:text-base">
+            <p className="mt-3 text-sm leading-6 text-muted-foreground md:text-base">
               La experiencia esta pensada para usarla rapido: primero elegis el
               cliente, despues el dia de entrenamiento y por ultimo registras reps,
               series y kilos.
             </p>
           </div>
 
-          <div className="rounded-[24px] border border-white/10 bg-black/10 p-4 lg:min-w-[280px]">
+          <div className="rounded-xl border border-border bg-surface-2/20 p-4 lg:min-w-[280px]">
             <div className="flex items-center gap-3">
               <img
                 src="/mini-espacio-logo.svg"
                 alt="Mini Espacio"
-                className="h-14 w-14 rounded-full object-cover ring-1 ring-white/10"
+                className="h-14 w-14 rounded-full object-cover ring-1 ring-border"
               />
               <div>
-                <p className="text-sm font-semibold text-zinc-100">Mini Espacio</p>
-                <p className="text-xs uppercase tracking-[0.22em] text-amber-100/80">
+                <p className="text-sm font-semibold text-foreground">Mini Espacio</p>
+                <p className="text-xs uppercase tracking-[0.22em] text-primary/80">
                   Entrenamiento personalizado
                 </p>
               </div>
             </div>
-            <p className="mt-3 text-sm leading-6 text-zinc-300">
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
               Una misma estructura base para todos, con seguimiento individual por
               cliente y por ejercicio.
             </p>
@@ -671,18 +674,18 @@ export default function RoutinesPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card className="rounded-[28px] border-amber-200/10 bg-zinc-900/60 backdrop-blur-xl">
-          <CardHeader className="border-b border-amber-200/10 pb-5">
-            <CardTitle className="flex items-center gap-2 text-zinc-100">
+        <Card className="rounded-xl border-border bg-surface-1/60 backdrop-blur-xl">
+          <CardHeader className="border-b border-border pb-5">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <UserRound className="h-5 w-5" />
               Cliente y dia
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5 pt-6">
             <div className="space-y-2">
-              <label className="text-sm text-zinc-400">Cliente</label>
+              <label className="text-sm text-muted-foreground">Cliente</label>
               <select
-                className="w-full rounded-xl border border-amber-200/10 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-amber-400/25"
+                className="w-full rounded-md border border-border bg-surface-2/40 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 value={selectedClientId}
                 onChange={(event) => setSelectedClientId(event.target.value)}
               >
@@ -704,35 +707,35 @@ export default function RoutinesPage() {
                     key={day.id}
                     type="button"
                     onClick={() => setSelectedDayId(day.id)}
-                    className={`rounded-[24px] border p-4 text-left transition ${
+                    className={`rounded-xl border p-4 text-left transition ${
                       isActive
-                        ? "border-amber-300/25 bg-[linear-gradient(135deg,rgba(250,204,21,0.14),rgba(255,247,237,0.04),rgba(249,115,22,0.14))]"
-                        : "border-white/10 bg-white/[0.03] hover:bg-white/[0.05]"
+                        ? "border-primary/30 bg-primary/10"
+                        : "border-border bg-surface-2/20 hover:bg-surface-2/40"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-sm font-semibold text-zinc-100">{day.name}</p>
-                        <p className="mt-1 text-sm text-zinc-400">
+                        <p className="text-sm font-semibold text-foreground">{day.name}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
                           {day.muscle_groups.join(" + ")}
                         </p>
                       </div>
-                      <div className="rounded-2xl bg-black/15 p-3 text-amber-100">
+                      <div className="rounded-xl bg-primary/15 p-3 text-primary">
                         <Dumbbell className="h-5 w-5" />
                       </div>
                     </div>
 
-                    <div className="mt-4 space-y-2 text-xs text-zinc-300">
-                      <div className="rounded-2xl border border-white/10 bg-black/10 px-3 py-2">
+                    <div className="mt-4 space-y-2 text-xs text-muted-foreground">
+                      <div className="rounded-xl border border-border bg-surface-2/20 px-3 py-2">
                         Ejercicios activos:{" "}
-                        <span className="font-semibold text-zinc-100">
+                        <span className="font-semibold text-foreground">
                           {progress?.active_exercise_count ??
                             day.exercises.filter((item) => item.is_active).length}
                         </span>
                       </div>
-                      <div className="rounded-2xl border border-white/10 bg-black/10 px-3 py-2">
+                      <div className="rounded-xl border border-border bg-surface-2/20 px-3 py-2">
                         Ultimo registro:{" "}
-                        <span className="font-semibold text-zinc-100">
+                        <span className="font-semibold text-foreground">
                           {progress?.last_performed_at
                             ? formatDateTime(progress.last_performed_at)
                             : "Sin cargar"}
@@ -746,18 +749,18 @@ export default function RoutinesPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[28px] border-amber-200/10 bg-white/[0.035] backdrop-blur-xl">
-          <CardHeader className="border-b border-amber-200/10 pb-4">
-            <CardTitle className="flex items-center gap-2 text-zinc-100">
+        <Card className="rounded-xl border-border bg-surface-1/60 backdrop-blur-xl">
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <Target className="h-5 w-5" />
               Resumen rapido
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 pt-6 text-sm text-zinc-400">
+          <CardContent className="space-y-4 pt-6 text-sm text-muted-foreground">
             <div>
-              <p className="text-zinc-500">Cliente actual</p>
+              <p className="text-muted-foreground">Cliente actual</p>
               <div className="mt-1 flex items-center justify-between gap-3">
-                <p className="text-lg font-semibold text-zinc-100">
+                <p className="text-lg font-semibold text-foreground">
                   {selectedClient?.full_name ?? "Sin cliente"}
                 </p>
                 {selectedClient ? (
@@ -765,7 +768,7 @@ export default function RoutinesPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setEditClientOpen(true)}
-                    className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+                    className={outlineButtonClass}
                   >
                     <UserPen className="mr-2 h-4 w-4" />
                     Editar
@@ -774,14 +777,14 @@ export default function RoutinesPage() {
               </div>
             </div>
             <div>
-              <p className="text-zinc-500">Dia elegido</p>
-              <p className="mt-1 text-lg font-semibold text-zinc-100">
+              <p className="text-muted-foreground">Dia elegido</p>
+              <p className="mt-1 text-lg font-semibold text-foreground">
                 {selectedDay
                   ? `${selectedDay.name} · ${selectedDay.muscle_groups.join(" + ")}`
                   : "-"}
               </p>
             </div>
-            <div className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.05),rgba(249,115,22,0.12))] p-4 text-amber-50">
+            <div className="rounded-xl border border-primary/20 bg-primary/10 p-4 text-foreground">
               <p>
                 Ejercicios activos:{" "}
                 <span className="font-semibold">{activeExercises.length}</span>
@@ -795,22 +798,22 @@ export default function RoutinesPage() {
             </div>
             <p>
               Si necesitas cambiar la rutina del dia, usa el bloque{" "}
-              <span className="font-medium text-zinc-100">Editar plantilla</span>{" "}
+              <span className="font-medium text-foreground">Editar plantilla</span>{" "}
               que aparece mas abajo.
             </p>
           </CardContent>
         </Card>
       </section>
 
-      <Card className="rounded-[28px] border-amber-200/10 bg-zinc-900/60 backdrop-blur-xl">
-        <CardHeader className="border-b border-amber-200/10 pb-5">
+      <Card className="rounded-xl border-border bg-surface-1/60 backdrop-blur-xl">
+        <CardHeader className="border-b border-border pb-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2 text-zinc-100">
+              <CardTitle className="flex items-center gap-2 text-foreground">
                 <ClipboardList className="h-5 w-5" />
                 Rutina del dia
               </CardTitle>
-              <p className="mt-2 text-sm leading-6 text-zinc-400">
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Carga el avance ejercicio por ejercicio sin salir de esta pantalla.
               </p>
             </div>
@@ -819,7 +822,7 @@ export default function RoutinesPage() {
               type="button"
               variant="outline"
               onClick={() => setShowTemplateEditor((current) => !current)}
-              className="border-amber-200/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+              className={outlineButtonClass}
             >
               {showTemplateEditor ? (
                 <ChevronUp className="mr-2 h-4 w-4" />
@@ -832,7 +835,7 @@ export default function RoutinesPage() {
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
           {activeExercises.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-5 text-sm text-zinc-400">
+            <div className="rounded-xl border border-border bg-surface-2/20 px-4 py-5 text-sm text-muted-foreground">
               No hay ejercicios activos para este dia. Abre "Editar plantilla",
               selecciona algunos ejercicios y guarda los cambios.
             </div>
@@ -844,14 +847,14 @@ export default function RoutinesPage() {
                 return (
                   <div
                     key={exercise.exercise_id}
-                    className="rounded-[24px] border border-white/10 bg-black/10 p-4"
+                    className="rounded-xl border border-border bg-surface-2/20 p-4"
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
-                        <p className="text-base font-semibold text-zinc-100">
+                        <p className="text-base font-semibold text-foreground">
                           {exercise.name}
                         </p>
-                        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-500">
+                        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                           {exercise.muscle_group}
                         </p>
                       </div>
@@ -868,7 +871,6 @@ export default function RoutinesPage() {
                             )
                           }
                           placeholder="Series"
-                          className="border-white/10 bg-zinc-900/70"
                         />
                         <Input
                           type="number"
@@ -877,10 +879,9 @@ export default function RoutinesPage() {
                             updateDraft(exercise.exercise_id, "reps", event.target.value)
                           }
                           placeholder="Reps"
-                          className="border-white/10 bg-zinc-900/70"
                         />
                         <div className="relative">
-                          <Scale className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                          <Scale className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                           <Input
                             type="number"
                             min="0"
@@ -894,7 +895,7 @@ export default function RoutinesPage() {
                               )
                             }
                             placeholder="Kg"
-                            className="border-white/10 bg-zinc-900/70 pl-10"
+                            className="pl-10"
                           />
                         </div>
                       </div>
@@ -907,13 +908,11 @@ export default function RoutinesPage() {
                           updateDraft(exercise.exercise_id, "note", event.target.value)
                         }
                         placeholder="Nota opcional"
-                        className="border-white/10 bg-zinc-900/70"
                       />
                       <Button
                         type="button"
                         onClick={() => saveExerciseLog(exercise.exercise_id)}
                         disabled={savingExerciseId === exercise.exercise_id}
-                        className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
                       >
                         <CheckCircle2 className="mr-2 h-4 w-4" />
                         {savingExerciseId === exercise.exercise_id
@@ -928,13 +927,13 @@ export default function RoutinesPage() {
           )}
 
           {showTemplateEditor ? (
-            <div className="rounded-[24px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.08),rgba(255,247,237,0.02)_50%,rgba(249,115,22,0.08))] p-4">
+            <div className="warm-accent-bg rounded-xl border border-primary/20 p-4">
               <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-zinc-100">
+                  <p className="text-sm font-semibold text-foreground">
                     Editar plantilla del dia
                   </p>
-                  <p className="mt-1 text-sm leading-6 text-zinc-400">
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
                     Activa o desactiva ejercicios para {selectedDay?.name ?? "este dia"}.
                   </p>
                 </div>
@@ -942,7 +941,6 @@ export default function RoutinesPage() {
                   type="button"
                   onClick={saveDaySelection}
                   disabled={savingSelection || !selectedDay}
-                  className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
                 >
                   <Save className="mr-2 h-4 w-4" />
                   {savingSelection ? "Guardando..." : "Guardar plantilla"}
@@ -953,12 +951,12 @@ export default function RoutinesPage() {
                 {editableGroups.map((group) => (
                   <div
                     key={group.muscle_group}
-                    className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4"
+                    className="rounded-xl border border-border bg-surface-2/20 p-4"
                   >
-                    <p className="text-sm font-semibold text-zinc-100">
+                    <p className="text-sm font-semibold text-foreground">
                       {group.muscle_group}
                     </p>
-                    <p className="mt-1 text-xs text-zinc-500">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {group.exercises.length} ejercicios disponibles
                     </p>
 
@@ -966,11 +964,11 @@ export default function RoutinesPage() {
                       {group.exercises.map((exercise) => (
                         <label
                           key={exercise.exercise_id}
-                          className="flex items-start gap-3 rounded-2xl border border-white/10 bg-black/10 px-3 py-3 text-sm text-zinc-300"
+                          className="flex items-start gap-3 rounded-xl border border-border bg-surface-2/20 px-3 py-3 text-sm text-muted-foreground"
                         >
                           <input
                             type="checkbox"
-                            className="mt-1 h-4 w-4 accent-amber-400"
+                            className="mt-1 h-4 w-4 accent-primary"
                             checked={!!selectedExercises[exercise.exercise_id]}
                             onChange={(event) =>
                               setSelectedExercises((current) => ({
@@ -980,8 +978,8 @@ export default function RoutinesPage() {
                             }
                           />
                           <div>
-                            <p className="font-medium text-zinc-100">{exercise.name}</p>
-                            <p className="mt-1 text-xs text-zinc-500">
+                            <p className="font-medium text-foreground">{exercise.name}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {selectedExercises[exercise.exercise_id]
                                 ? "Activo para este dia"
                                 : "No activo"}
@@ -997,13 +995,13 @@ export default function RoutinesPage() {
           ) : null}
 
           {canManageExercises ? (
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+            <div className="rounded-xl border border-border bg-surface-2/20 p-4">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-zinc-100">
+                  <p className="text-sm font-semibold text-foreground">
                     Gestion de ejercicios
                   </p>
-                  <p className="mt-1 text-sm leading-6 text-zinc-400">
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
                     Agrega ejercicios nuevos o corrige nombres y grupos musculares
                     sin tocar la base manualmente.
                   </p>
@@ -1013,7 +1011,7 @@ export default function RoutinesPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setShowExerciseManager((current) => !current)}
-                    className="border-white/10 bg-black/10 text-zinc-100 hover:bg-white/[0.06]"
+                    className={outlineButtonClass}
                   >
                     <Settings2 className="mr-2 h-4 w-4" />
                     {showExerciseManager ? "Ocultar gestion" : "Gestionar ejercicios"}
@@ -1021,7 +1019,6 @@ export default function RoutinesPage() {
                   <Button
                     type="button"
                     onClick={() => openCreateExerciseDialog()}
-                    className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Nuevo ejercicio
@@ -1034,14 +1031,14 @@ export default function RoutinesPage() {
                   {managedExerciseGroups.map((group) => (
                     <div
                       key={group.muscleGroup}
-                      className="rounded-[24px] border border-white/10 bg-black/10 p-4"
+                      className="rounded-xl border border-border bg-surface-2/20 p-4"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-semibold text-zinc-100">
+                          <p className="text-sm font-semibold text-foreground">
                             {group.muscleGroup}
                           </p>
-                          <p className="mt-1 text-xs text-zinc-500">
+                          <p className="mt-1 text-xs text-muted-foreground">
                             {group.exercises.length} ejercicios cargados
                           </p>
                         </div>
@@ -1050,7 +1047,7 @@ export default function RoutinesPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => openCreateExerciseDialog(group.muscleGroup)}
-                          className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+                          className={outlineButtonClass}
                         >
                           <Plus className="mr-2 h-4 w-4" />
                           Agregar
@@ -1061,18 +1058,18 @@ export default function RoutinesPage() {
                         {group.exercises.map((exercise) => (
                           <div
                             key={exercise.id}
-                            className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3"
+                            className="flex items-start justify-between gap-3 rounded-xl border border-border bg-surface-2/20 px-3 py-3"
                           >
                             <div className="min-w-0">
-                              <p className="font-medium text-zinc-100">
+                              <p className="font-medium text-foreground">
                                 {exercise.name}
                               </p>
-                              <p className="mt-1 text-xs text-zinc-500">
+                              <p className="mt-1 text-xs text-muted-foreground">
                                 {exercise.is_active ? "Disponible" : "Oculto"} ·{" "}
                                 {exercise.day_ids.length} dias vinculados
                               </p>
                               {exercise.description ? (
-                                <p className="mt-2 text-xs leading-5 text-zinc-400">
+                                <p className="mt-2 text-xs leading-5 text-muted-foreground">
                                   {exercise.description}
                                 </p>
                               ) : null}
@@ -1082,7 +1079,7 @@ export default function RoutinesPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => openEditExerciseDialog(exercise)}
-                              className="shrink-0 text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                              className="shrink-0 text-muted-foreground hover:bg-surface-2/70 hover:text-foreground"
                             >
                               <PencilLine className="h-4 w-4" />
                             </Button>
@@ -1098,31 +1095,31 @@ export default function RoutinesPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-[28px] border-amber-200/10 bg-zinc-900/60 backdrop-blur-xl">
-        <CardHeader className="border-b border-amber-200/10 pb-5">
-          <CardTitle className="flex items-center gap-2 text-zinc-100">
+      <Card className="rounded-xl border-border bg-surface-1/60 backdrop-blur-xl">
+        <CardHeader className="border-b border-border pb-5">
+          <CardTitle className="flex items-center gap-2 text-foreground">
             <BarChart3 className="h-5 w-5" />
             Progreso del cliente
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
           <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+            <div className="rounded-xl border border-border bg-surface-2/20 p-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-zinc-100">
+                  <p className="text-sm font-semibold text-foreground">
                     Evolucion por ejercicio
                   </p>
-                  <p className="mt-1 text-sm text-zinc-400">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Mira rapido como viene subiendo la carga del cliente ejercicio por ejercicio.
                   </p>
                 </div>
                 <div className="min-w-[220px]">
-                  <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Ejercicio
                   </label>
                   <select
-                    className="w-full rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-amber-400/25"
+                    className="w-full rounded-md border border-border bg-surface-2/40 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     value={metricsExerciseId}
                     onChange={(event) => setMetricsExerciseId(event.target.value)}
                   >
@@ -1137,30 +1134,30 @@ export default function RoutinesPage() {
 
               <div className="mt-5 h-72">
                 {exerciseChartData.length === 0 ? (
-                  <div className="grid h-full place-items-center rounded-2xl border border-dashed border-white/10 bg-black/10 text-sm text-zinc-400">
+                  <div className="grid h-full place-items-center rounded-xl border border-dashed border-border bg-surface-2/20 text-sm text-muted-foreground">
                     Todavia no hay suficientes datos para graficar este ejercicio.
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={exerciseChartData} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
-                      <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                      <XAxis dataKey="date" stroke="#a1a1aa" fontSize={12} />
-                      <YAxis stroke="#a1a1aa" fontSize={12} allowDecimals={false} />
+                      <CartesianGrid stroke="var(--border-hairline)" vertical={false} />
+                      <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={12} />
+                      <YAxis stroke="var(--muted-foreground)" fontSize={12} allowDecimals={false} />
                       <Tooltip
                         contentStyle={{
-                          background: "#09090b",
-                          border: "1px solid rgba(251,191,36,0.18)",
+                          background: "var(--surface-1)",
+                          border: "1px solid var(--border-hairline)",
                           borderRadius: 16,
-                          color: "#f4f4f5",
+                          color: "var(--foreground)",
                         }}
                       />
                       <Line
                         type="monotone"
                         dataKey="kg"
                         name="Kg"
-                        stroke="#facc15"
+                        stroke="var(--primary)"
                         strokeWidth={3}
-                        dot={{ r: 3, fill: "#fff7ed" }}
+                        dot={{ r: 3, fill: "var(--foreground)" }}
                         activeDot={{ r: 5 }}
                       />
                     </LineChart>
@@ -1170,41 +1167,41 @@ export default function RoutinesPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-sm font-semibold text-zinc-100">Resumen del ejercicio</p>
+              <div className="rounded-xl border border-border bg-surface-2/20 p-4">
+                <p className="text-sm font-semibold text-foreground">Resumen del ejercicio</p>
                 <div className="mt-4 grid gap-3">
-                  <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  <div className="rounded-xl border border-border bg-surface-2/20 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                       Registros
                     </p>
-                    <p className="mt-2 text-2xl font-semibold text-zinc-100">
+                    <p className="mt-2 text-2xl font-semibold text-foreground">
                       {metricsSummary.totalLogs}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  <div className="rounded-xl border border-border bg-surface-2/20 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                       Mejor carga
                     </p>
-                    <p className="mt-2 text-2xl font-semibold text-zinc-100">
+                    <p className="mt-2 text-2xl font-semibold text-foreground">
                       {metricsSummary.bestWeight} kg
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  <div className="rounded-xl border border-border bg-surface-2/20 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                       Volumen acumulado
                     </p>
-                    <p className="mt-2 text-2xl font-semibold text-zinc-100">
+                    <p className="mt-2 text-2xl font-semibold text-foreground">
                       {metricsSummary.totalVolume.toLocaleString("es-AR")}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  <div className="rounded-xl border border-border bg-surface-2/20 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                       Ultimo registro
                     </p>
-                    <p className="mt-2 text-sm font-medium text-zinc-100">
+                    <p className="mt-2 text-sm font-medium text-foreground">
                       {formatDateTime(metricsSummary.lastPerformedAt)}
                     </p>
-                    <p className="mt-1 text-xs text-zinc-500">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {selectedMetricsExercise
                         ? `${selectedMetricsExercise.exercise_name} · ${selectedMetricsExercise.muscle_group}`
                         : "Selecciona un ejercicio para ver detalle"}
@@ -1213,25 +1210,25 @@ export default function RoutinesPage() {
                 </div>
               </div>
 
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-sm font-semibold text-zinc-100">
+              <div className="rounded-xl border border-border bg-surface-2/20 p-4">
+                <p className="text-sm font-semibold text-foreground">
                   Registros por dia de entrenamiento
                 </p>
                 <div className="mt-4 h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={dayChartData} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
-                      <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                      <XAxis dataKey="day" stroke="#a1a1aa" fontSize={12} />
-                      <YAxis stroke="#a1a1aa" fontSize={12} allowDecimals={false} />
+                      <CartesianGrid stroke="var(--border-hairline)" vertical={false} />
+                      <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={12} />
+                      <YAxis stroke="var(--muted-foreground)" fontSize={12} allowDecimals={false} />
                       <Tooltip
                         contentStyle={{
-                          background: "#09090b",
-                          border: "1px solid rgba(251,191,36,0.18)",
+                          background: "var(--surface-1)",
+                          border: "1px solid var(--border-hairline)",
                           borderRadius: 16,
-                          color: "#f4f4f5",
+                          color: "var(--foreground)",
                         }}
                       />
-                      <Bar dataKey="registros" name="Registros" fill="#f97316" radius={[10, 10, 0, 0]} />
+                      <Bar dataKey="registros" name="Registros" fill="var(--primary-strong)" radius={[10, 10, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -1241,32 +1238,32 @@ export default function RoutinesPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-[28px] border-amber-200/10 bg-zinc-900/60 backdrop-blur-xl">
-        <CardHeader className="border-b border-amber-200/10 pb-5">
-          <CardTitle className="flex items-center gap-2 text-zinc-100">
+      <Card className="rounded-xl border-border bg-surface-1/60 backdrop-blur-xl">
+        <CardHeader className="border-b border-border pb-5">
+          <CardTitle className="flex items-center gap-2 text-foreground">
             <History className="h-5 w-5" />
             Historial reciente
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="overflow-hidden rounded-2xl border border-white/10">
+          <div className="overflow-hidden rounded-xl border border-border">
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-[linear-gradient(90deg,rgba(250,204,21,0.08),rgba(255,247,237,0.04),rgba(249,115,22,0.1))] text-left text-zinc-300">
+                <thead className="text-left text-label-caps uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3">Fecha</th>
-                    <th className="px-4 py-3">Ejercicio</th>
-                    <th className="px-4 py-3">Series</th>
-                    <th className="px-4 py-3">Reps</th>
-                    <th className="px-4 py-3">Kg</th>
-                    <th className="px-4 py-3">Nota</th>
-                    <th className="px-4 py-3 text-right">Acciones</th>
+                    <th className="border-b border-border px-4 py-3">Fecha</th>
+                    <th className="border-b border-border px-4 py-3">Ejercicio</th>
+                    <th className="border-b border-border px-4 py-3">Series</th>
+                    <th className="border-b border-border px-4 py-3">Reps</th>
+                    <th className="border-b border-border px-4 py-3">Kg</th>
+                    <th className="border-b border-border px-4 py-3">Nota</th>
+                    <th className="border-b border-border px-4 py-3 text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="bg-zinc-950/30">
+                <tbody>
                   {logs.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-10 text-center text-zinc-400">
+                      <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                         Todavia no hay avances cargados para este cliente en{" "}
                         {selectedDay?.name ?? "este dia"}.
                       </td>
@@ -1275,33 +1272,31 @@ export default function RoutinesPage() {
                     logs.map((log, index) => (
                       <tr
                         key={log.id}
-                        className={`border-t border-white/5 ${
-                          index % 2 ? "bg-white/[0.03]" : ""
-                        }`}
+                        className={index % 2 ? "bg-surface-2/30" : ""}
                       >
-                        <td className="px-4 py-3 text-zinc-300">
+                        <td className="px-4 py-3 text-muted-foreground">
                           {formatDateTime(log.performed_at)}
                         </td>
-                        <td className="px-4 py-3 text-zinc-100">
+                        <td className="px-4 py-3 text-foreground">
                           {log.exercise_name}
                         </td>
-                        <td className="px-4 py-3 text-zinc-300">
+                        <td className="px-4 py-3 text-muted-foreground">
                           {log.sets_count ?? "-"}
                         </td>
-                        <td className="px-4 py-3 text-zinc-300">
+                        <td className="px-4 py-3 text-muted-foreground">
                           {log.reps ?? "-"}
                         </td>
-                        <td className="px-4 py-3 text-zinc-300">
+                        <td className="px-4 py-3 text-muted-foreground">
                           {log.weight_kg}
                         </td>
-                        <td className="px-4 py-3 text-zinc-400">{log.note || "-"}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{log.note || "-"}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-2">
                             <Button
                               type="button"
                               variant="outline"
                               onClick={() => openEditLogDialog(log)}
-                              className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+                              className={outlineButtonClass}
                             >
                               <PencilLine className="mr-2 h-4 w-4" />
                               Editar
@@ -1311,7 +1306,7 @@ export default function RoutinesPage() {
                               variant="outline"
                               onClick={() => deleteLog(log)}
                               disabled={deletingLogId === log.id}
-                              className="border-red-500/20 bg-red-500/8 text-red-100 hover:bg-red-500/15 disabled:opacity-60"
+                              className="border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/15 disabled:opacity-60"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               {deletingLogId === log.id ? "Eliminando..." : "Eliminar"}
@@ -1329,12 +1324,12 @@ export default function RoutinesPage() {
       </Card>
 
       <Dialog open={exerciseDialogOpen} onOpenChange={setExerciseDialogOpen}>
-        <DialogContent className="border-amber-200/10 bg-zinc-950 text-zinc-100 sm:max-w-xl">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>
               {editingExerciseId ? "Editar ejercicio" : "Nuevo ejercicio"}
             </DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogDescription className="text-muted-foreground">
               El ejercicio se vincula automaticamente a los dias que coincidan con
               su grupo muscular.
             </DialogDescription>
@@ -1342,7 +1337,7 @@ export default function RoutinesPage() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm text-zinc-400">Nombre</label>
+              <label className="text-sm text-muted-foreground">Nombre</label>
               <Input
                 value={exerciseDraft.name}
                 onChange={(event) =>
@@ -1352,12 +1347,11 @@ export default function RoutinesPage() {
                   }))
                 }
                 placeholder="Ej. Remo sentado en cable"
-                className="border-white/10 bg-zinc-900/70"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-zinc-400">Grupo muscular</label>
+              <label className="text-sm text-muted-foreground">Grupo muscular</label>
               <select
                 value={exerciseDraft.muscle_group}
                 onChange={(event) =>
@@ -1366,7 +1360,7 @@ export default function RoutinesPage() {
                     muscle_group: event.target.value,
                   }))
                 }
-                className="w-full rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-amber-400/25"
+                className="w-full rounded-md border border-border bg-surface-2/40 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Selecciona un grupo</option>
                 {managedExerciseGroups.map((group) => (
@@ -1378,7 +1372,7 @@ export default function RoutinesPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-zinc-400">Descripcion breve</label>
+              <label className="text-sm text-muted-foreground">Descripcion breve</label>
               <Input
                 value={exerciseDraft.description}
                 onChange={(event) =>
@@ -1388,14 +1382,13 @@ export default function RoutinesPage() {
                   }))
                 }
                 placeholder="Opcional: agarre, foco tecnico o variante"
-                className="border-white/10 bg-zinc-900/70"
               />
             </div>
 
-            <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-zinc-300">
+            <label className="flex items-center gap-3 rounded-xl border border-border bg-surface-2/20 px-3 py-3 text-sm text-muted-foreground">
               <input
                 type="checkbox"
-                className="h-4 w-4 accent-amber-400"
+                className="h-4 w-4 accent-primary"
                 checked={exerciseDraft.is_active}
                 onChange={(event) =>
                   setExerciseDraft((current) => ({
@@ -1414,7 +1407,7 @@ export default function RoutinesPage() {
               variant="outline"
               onClick={() => editingLog && deleteLog(editingLog)}
               disabled={savingLogEdit || !editingLog || deletingLogId === editingLog.id}
-              className="mr-auto border-red-500/20 bg-red-500/8 text-red-100 hover:bg-red-500/15 disabled:opacity-60"
+              className="mr-auto border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/15 disabled:opacity-60"
             >
               <Trash2 className="mr-2 h-4 w-4" />
               {editingLog && deletingLogId === editingLog.id ? "Eliminando..." : "Eliminar"}
@@ -1423,7 +1416,7 @@ export default function RoutinesPage() {
               type="button"
               variant="outline"
               onClick={() => setExerciseDialogOpen(false)}
-              className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+              className={outlineButtonClass}
             >
               Cancelar
             </Button>
@@ -1431,7 +1424,6 @@ export default function RoutinesPage() {
               type="button"
               onClick={saveManagedExercise}
               disabled={savingExerciseManager}
-              className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
             >
               {savingExerciseManager ? "Guardando..." : "Guardar ejercicio"}
             </Button>
@@ -1440,20 +1432,20 @@ export default function RoutinesPage() {
       </Dialog>
 
       <Dialog open={editLogOpen} onOpenChange={setEditLogOpen}>
-        <DialogContent className="border-amber-200/10 bg-zinc-950 text-zinc-100 sm:max-w-xl">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Editar avance</DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogDescription className="text-muted-foreground">
               Corrige series, repeticiones, kilos o nota del ejercicio ya cargado.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-              <p className="font-medium text-zinc-100">
+            <div className="rounded-xl border border-border bg-surface-2/20 px-4 py-3">
+              <p className="font-medium text-foreground">
                 {editingLog?.exercise_name ?? "Ejercicio"}
               </p>
-              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-500">
+              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 {editingLog?.muscle_group ?? "Grupo muscular"}
               </p>
             </div>
@@ -1469,7 +1461,6 @@ export default function RoutinesPage() {
                   }))
                 }
                 placeholder="Series"
-                className="border-white/10 bg-zinc-900/70"
               />
               <Input
                 type="number"
@@ -1481,10 +1472,9 @@ export default function RoutinesPage() {
                   }))
                 }
                 placeholder="Reps"
-                className="border-white/10 bg-zinc-900/70"
               />
               <div className="relative">
-                <Scale className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <Scale className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="number"
                   min="0"
@@ -1497,7 +1487,7 @@ export default function RoutinesPage() {
                     }))
                   }
                   placeholder="Kg"
-                  className="border-white/10 bg-zinc-900/70 pl-10"
+                  className="pl-10"
                 />
               </div>
             </div>
@@ -1511,7 +1501,6 @@ export default function RoutinesPage() {
                 }))
               }
               placeholder="Nota opcional"
-              className="border-white/10 bg-zinc-900/70"
             />
           </div>
 
@@ -1520,7 +1509,7 @@ export default function RoutinesPage() {
               type="button"
               variant="outline"
               onClick={() => setEditLogOpen(false)}
-              className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.06]"
+              className={outlineButtonClass}
             >
               Cancelar
             </Button>
@@ -1528,7 +1517,6 @@ export default function RoutinesPage() {
               type="button"
               onClick={saveLogEdit}
               disabled={savingLogEdit}
-              className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
             >
               {savingLogEdit ? "Guardando..." : "Guardar cambios"}
             </Button>

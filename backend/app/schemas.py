@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator, fi
 
 
 Role = Literal["owner", "coach", "user"]
+ThemeMode = Literal["dark", "light"]
 ThemePreference = Literal["dark-gold", "dark-copper", "dark-olive"]
 
 
@@ -45,6 +46,11 @@ class UserUpdate(BaseSchema):
 class UserOut(UserBase):
     id: str
     email_verified: bool
+    theme_preference: Optional[ThemeMode] = None
+
+
+class ThemeModeIn(BaseSchema):
+    theme_preference: ThemeMode
 
 
 class ClientRegisterIn(BaseSchema):

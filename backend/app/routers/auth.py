@@ -80,3 +80,16 @@ def client_register(payload: schemas.ClientRegisterIn, db: Session = Depends(get
 def me(user: models.User = Depends(get_current_user)):
     """Devuelve el usuario autenticado (fuente de la verdad para frontend)."""
     return user
+
+
+@router.patch("/me/theme", response_model=schemas.UserOut)
+def update_my_theme(
+    payload: schemas.ThemeModeIn,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Actualiza la preferencia de tema del usuario autenticado (solo la propia)."""
+    user.theme_preference = payload.theme_preference
+    db.commit()
+    db.refresh(user)
+    return user

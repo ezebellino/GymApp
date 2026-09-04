@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { persist, subscribeWithSelector, type PersistStorage, type StorageValue } from "zustand/middleware";
-import { applyTheme, getStoredTheme, isAppThemeId, type AppThemeId } from "@/lib/theme";
 import type { AppSettings } from "@/types";
 
 export type SettingsState = {
@@ -18,7 +17,9 @@ const SETTINGS_STORAGE_KEY = "app_settings";
 export const DEFAULT_SETTINGS: AppSettings = {
   gym_name: "Mini Espacio",
   admin_name: "Fabian Aguirre (Manga)",
-  theme_preference: "dark-gold",
+  // Legacy/deprecado (ver types.ts): valor sin uso, se conserva solo porque
+  // coincide con el seed del backend.
+  theme_preference: null,
   currency: "ARS",
   default_fee: 30000,
   address: "Av. San Martin 325 - Dolores",
@@ -79,25 +80,8 @@ export const useSettingsStore = create<SettingsState>()(
         storage: settingsStorage,
         // Sin `skipHydration`: igual que en `stores/session.ts`, la
         // rehidratacion tiene que ser sincronica y ocurrir antes del primer
-        // render (el tema se aplica inmediatamente debajo, leyendo el estado
-        // ya rehidratado).
+        // render.
       },
     ),
   ),
-);
-
-function themeFromSettings(preference: AppSettings["theme_preference"]): AppThemeId {
-  return isAppThemeId(preference) ? preference : getStoredTheme();
-}
-
-// Aplicacion sincronica del tema en el primer render (antes de que React monte
-// nada) + suscripcion a los cambios posteriores. Reemplaza al viejo
-// `syncThemeFromSettings()` y al evento global de ajustes que emitian
-// Settings/Payments (dec. 12): las dos lineas importan, no solo la
-// suscripcion, porque de otro modo el primer paint quedaria sin tema aplicado
-// hasta el primer cambio.
-applyTheme(themeFromSettings(useSettingsStore.getState().settings.theme_preference));
-useSettingsStore.subscribe(
-  (state) => state.settings.theme_preference,
-  (preference) => applyTheme(themeFromSettings(preference)),
 );

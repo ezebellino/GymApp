@@ -6,7 +6,9 @@ import Topbar from "./components/Topbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useSessionStore } from "./stores/session";
+import { useThemeStore } from "./stores/theme";
 import { useSyncSettings } from "./services/settings.queries";
+import { useSyncUserTheme } from "./services/me.queries";
 import { useLegacyRefetchBridge } from "./hooks/useLegacyRefetchBridge";
 import "sileo/styles.css";
 import "./index.css";
@@ -26,7 +28,7 @@ const UserRoutine = lazy(() => import("./pages/UserRoutine"));
 function PageLoader() {
   return (
     <div className="grid min-h-[50vh] place-items-center">
-      <div className="rounded-2xl border border-amber-200/10 bg-zinc-900/70 px-5 py-4 text-sm text-zinc-300">
+      <div className="rounded-xl border border-border bg-surface-1/70 px-5 py-4 text-sm text-muted-foreground">
         Cargando vista...
       </div>
     </div>
@@ -38,32 +40,36 @@ export default function App() {
   const isAuthRoute =
     location.pathname.startsWith("/login") || location.pathname.startsWith("/register-client");
   const role = useSessionStore((s) => s.role);
+  const themeMode = useThemeStore((s) => s.mode);
 
-  // Único sincronizador servidor -> store de ajustes (dec. 12); el tema en sí
-  // se aplica de forma sincrónica al crear `stores/settings.ts`, antes del
-  // primer render, así que acá no hace falta nada más para el tema.
+  // Único sincronizador servidor -> store de ajustes (dec. 12).
   useSyncSettings();
+  // Único sincronizador servidor -> store de tema (dec. 5.2): el modo en sí
+  // ya se aplica de forma sincrónica al importar `stores/theme.ts`, antes del
+  // primer render (caché local); esto lo actualiza apenas responde
+  // `/auth/me`, que es la fuente autoritativa.
+  useSyncUserTheme();
   // TODO(change siguiente): borrar junto con `NewPaymentDialog`/`UserCard`
   // cuando pasen a `useCreatePaymentMutation` (dec. 13).
   useLegacyRefetchBridge();
 
   return (
-    <div className="app-shell-bg min-h-screen text-zinc-100">
-      <Toaster position="top-right" theme="dark" />
+    <div className="app-shell-bg min-h-screen text-foreground">
+      <Toaster position="top-right" theme={themeMode} />
 
       {!isAuthRoute && (
         <>
           <Sidebar />
           <Topbar />
 
-          {/* pt-14/lg:pl-64 son offsets estructurales, no gutter de lectura: lg:pl-64
+          {/* pt-14/lg:pl-sidebar son offsets estructurales, no gutter de lectura: lg:pl-sidebar
               compensa que Sidebar es `fixed` (no ocupa lugar en el flujo); pt-14
               compensa la altura de Topbar, que es `sticky` (sí ocupa lugar en el
               flujo). El gutter y el ancho máximo viven en el único contenedor de
               abajo (dec. D1), para que una vista nueva los herede sin tener que
               acordarse de nada. */}
-          <main className="app-main-shell-bg min-h-screen pt-14 lg:pl-64">
-            <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <main className="app-main-shell-bg min-h-screen pt-14 lg:pl-sidebar">
+            <div className="mx-auto w-full max-w-[var(--container-app)] px-4 py-6 sm:px-6 lg:px-8">
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/" element={<Navigate to={role === "user" ? "/my-routine" : "/dashboard"} replace />} />
@@ -149,7 +155,7 @@ export default function App() {
       )}
 
       {isAuthRoute && (
-        <main className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <main className="min-h-screen flex items-center justify-center bg-canvas">
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<Login />} />

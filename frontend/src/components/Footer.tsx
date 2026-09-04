@@ -30,10 +30,10 @@ export default function Footer() {
   }, []);
 
   return (
-    <footer className="mt-8 border-t border-amber-200/10 bg-[#0e0c0b]/70 px-6 py-4 text-xs text-zinc-400 backdrop-blur-xl">
+    <footer className="mt-8 border-t border-border bg-surface-1/70 px-6 py-4 text-xs text-muted-foreground backdrop-blur-xl">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="font-medium text-zinc-200">{settings.gym_name}</span>
+          <span className="font-medium text-foreground">{settings.gym_name}</span>
           {settings.admin_name ? <span>{settings.admin_name}</span> : null}
           <span>{roleLabel(role)}</span>
           <span>{online ? "Sistema online" : "Sin conexión"}</span>

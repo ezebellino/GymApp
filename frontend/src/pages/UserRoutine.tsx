@@ -161,7 +161,7 @@ export default function UserRoutine() {
   if (loading) {
     return (
       <div className="grid min-h-[50vh] place-items-center">
-        <div className="rounded-2xl border border-amber-200/10 bg-zinc-900/70 px-5 py-4 text-sm text-zinc-300">
+        <div className="rounded-xl border border-border bg-surface-1 px-5 py-4 text-sm text-muted-foreground">
           Cargando tu rutina...
         </div>
       </div>
@@ -170,22 +170,24 @@ export default function UserRoutine() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[28px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_48%,rgba(249,115,22,0.12))] p-6 shadow-[0_20px_80px_-40px_rgba(249,115,22,0.42)]">
+      <section className="hero-aura rounded-xl border border-border p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-amber-100">Vista de usuario</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-50">
+            <p className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
+              Vista de usuario
+            </p>
+            <h1 className="font-display mt-2 text-3xl font-semibold tracking-tight text-foreground">
               Hola {client?.full_name ?? ""}
             </h1>
-            <p className="mt-2 text-sm text-zinc-300">
+            <p className="mt-2 text-sm text-muted-foreground">
               Elegí el día, cargá tus ejercicios y mantené tu progreso actualizado.
             </p>
           </div>
 
           <div className="min-w-[240px]">
-            <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-zinc-500">Día</label>
+            <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-muted-foreground">Día</label>
             <select
-              className="w-full rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-amber-400/25"
+              className="w-full rounded-md border border-border bg-surface-2/40 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               value={selectedDayId}
               onChange={(event) => setSelectedDayId(event.target.value)}
             >
@@ -199,13 +201,13 @@ export default function UserRoutine() {
         </div>
       </section>
 
-      <Card className="rounded-[28px] border-amber-200/10 bg-zinc-900/60 backdrop-blur-xl">
-        <CardHeader className="border-b border-amber-200/10 pb-5">
-          <CardTitle className="flex items-center gap-2 text-zinc-100">
+      <Card className="border-border bg-surface-1/60 backdrop-blur-xl">
+        <CardHeader className="border-b border-border pb-5">
+          <CardTitle className="flex items-center gap-2 text-foreground">
             <Dumbbell className="h-5 w-5" />
             Rutina del día
           </CardTitle>
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             {selectedDayProgress
               ? `${selectedDayProgress.log_count} registros en ${selectedDayProgress.day_name}. Último: ${formatDateTime(selectedDayProgress.last_performed_at)}`
               : "Sin actividad cargada todavía para este día."}
@@ -213,22 +215,22 @@ export default function UserRoutine() {
         </CardHeader>
         <CardContent className="space-y-4 pt-6">
           {activeExercises.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 p-6 text-sm text-zinc-400">
+            <div className="rounded-xl border border-dashed border-border bg-surface-2/20 p-6 text-sm text-muted-foreground">
               No hay ejercicios activos para este día.
             </div>
           ) : (
             activeExercises.map((exercise) => {
               const draft = drafts[exercise.exercise_id] ?? emptyDraft();
               return (
-                <div key={exercise.exercise_id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div key={exercise.exercise_id} className="rounded-xl border border-border bg-surface-2/30 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-base font-semibold text-zinc-100">{exercise.name}</p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      <p className="text-base font-semibold text-foreground">{exercise.name}</p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                         {exercise.muscle_group}
                       </p>
                     </div>
-                    <UserRound className="h-4 w-4 text-zinc-500" />
+                    <UserRound className="h-4 w-4 text-muted-foreground" />
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-4">
@@ -237,17 +239,17 @@ export default function UserRoutine() {
                       placeholder="Series"
                       value={draft.sets_count}
                       onChange={(event) => updateDraft(exercise.exercise_id, "sets_count", event.target.value)}
-                      className="border-white/10 bg-zinc-900/70"
+                      className="border-border bg-surface-1/70"
                     />
                     <Input
                       type="number"
                       placeholder="Reps"
                       value={draft.reps}
                       onChange={(event) => updateDraft(exercise.exercise_id, "reps", event.target.value)}
-                      className="border-white/10 bg-zinc-900/70"
+                      className="border-border bg-surface-1/70"
                     />
                     <div className="relative">
-                      <Scale className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                      <Scale className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         type="number"
                         min="0"
@@ -255,14 +257,14 @@ export default function UserRoutine() {
                         placeholder="Kg"
                         value={draft.weight_kg}
                         onChange={(event) => updateDraft(exercise.exercise_id, "weight_kg", event.target.value)}
-                        className="border-white/10 bg-zinc-900/70 pl-10"
+                        className="border-border bg-surface-1/70 pl-10"
                       />
                     </div>
                     <Input
                       placeholder="Nota"
                       value={draft.note}
                       onChange={(event) => updateDraft(exercise.exercise_id, "note", event.target.value)}
-                      className="border-white/10 bg-zinc-900/70"
+                      className="border-border bg-surface-1/70"
                     />
                   </div>
 
@@ -271,7 +273,6 @@ export default function UserRoutine() {
                       type="button"
                       onClick={() => saveExerciseLog(exercise.exercise_id)}
                       disabled={savingExerciseId === exercise.exercise_id}
-                      className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
                     >
                       <Save className="mr-2 h-4 w-4" />
                       {savingExerciseId === exercise.exercise_id ? "Guardando..." : "Guardar"}
@@ -284,43 +285,43 @@ export default function UserRoutine() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-[28px] border-amber-200/10 bg-zinc-900/60 backdrop-blur-xl">
-        <CardHeader className="border-b border-amber-200/10 pb-5">
-          <CardTitle className="flex items-center gap-2 text-zinc-100">
+      <Card className="border-border bg-surface-1/60 backdrop-blur-xl">
+        <CardHeader className="border-b border-border pb-5">
+          <CardTitle className="flex items-center gap-2 text-foreground">
             <History className="h-5 w-5" />
             Historial reciente del día
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="overflow-hidden rounded-2xl border border-white/10">
+          <div className="overflow-hidden rounded-xl border border-border">
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-[linear-gradient(90deg,rgba(250,204,21,0.08),rgba(255,247,237,0.04),rgba(249,115,22,0.1))] text-left text-zinc-300">
+                <thead className="bg-surface-2/40 text-left text-label-caps uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3">Fecha</th>
-                    <th className="px-4 py-3">Ejercicio</th>
-                    <th className="px-4 py-3">Series</th>
-                    <th className="px-4 py-3">Reps</th>
-                    <th className="px-4 py-3">Kg</th>
-                    <th className="px-4 py-3">Nota</th>
+                    <th className="border-b border-border px-4 py-3">Fecha</th>
+                    <th className="border-b border-border px-4 py-3">Ejercicio</th>
+                    <th className="border-b border-border px-4 py-3">Series</th>
+                    <th className="border-b border-border px-4 py-3">Reps</th>
+                    <th className="border-b border-border px-4 py-3">Kg</th>
+                    <th className="border-b border-border px-4 py-3">Nota</th>
                   </tr>
                 </thead>
-                <tbody className="bg-zinc-950/30">
+                <tbody className="bg-canvas/30">
                   {logs.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-zinc-400">
+                      <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                         Todavía no registraste ejercicios en este día.
                       </td>
                     </tr>
                   ) : (
                     logs.map((log, index) => (
-                      <tr key={log.id} className={`border-t border-white/5 ${index % 2 ? "bg-white/[0.03]" : ""}`}>
-                        <td className="px-4 py-3 text-zinc-300">{formatDateTime(log.performed_at)}</td>
-                        <td className="px-4 py-3 text-zinc-100">{log.exercise_name}</td>
-                        <td className="px-4 py-3 text-zinc-300">{log.sets_count ?? "-"}</td>
-                        <td className="px-4 py-3 text-zinc-300">{log.reps ?? "-"}</td>
-                        <td className="px-4 py-3 text-zinc-300">{log.weight_kg}</td>
-                        <td className="px-4 py-3 text-zinc-400">{log.note || "-"}</td>
+                      <tr key={log.id} className={`border-t border-border ${index % 2 ? "bg-surface-2/30" : ""}`}>
+                        <td className="px-4 py-3 text-muted-foreground">{formatDateTime(log.performed_at)}</td>
+                        <td className="px-4 py-3 text-foreground">{log.exercise_name}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{log.sets_count ?? "-"}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{log.reps ?? "-"}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{log.weight_kg}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{log.note || "-"}</td>
                       </tr>
                     ))
                   )}

@@ -9,14 +9,23 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Moon,
   Settings,
-  UserPlus,
+  Sun,
   Users,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Role } from "@/types";
 import { useSessionStore } from "@/stores/session";
+import { useThemeStore } from "@/stores/theme";
+import { useUpdateMyThemeMutation } from "@/services/me.queries";
+import { alertError } from "@/lib/alerts";
+
+const outlineButtonClass =
+  "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70";
+const mobileNavButtonClass =
+  "w-full justify-start border-border bg-surface-2/40 text-foreground hover:bg-surface-2/70";
 
 export default function Topbar() {
   const token = useSessionStore((s) => s.token);
@@ -27,6 +36,30 @@ export default function Topbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const themeMode = useThemeStore((s) => s.mode);
+  const setThemeMode = useThemeStore((s) => s.setMode);
+  const updateMyThemeMutation = useUpdateMyThemeMutation();
+
+  const isDark = themeMode === "dark";
+  const nextThemeLabel = isDark ? "claro" : "oscuro";
+
+  // Se aplica al instante (setMode ya aplica + cachea via `stores/theme.ts`) y
+  // se manda el PATCH en paralelo. Si el PATCH falla, el modo queda aplicado
+  // igual (dec. 7 y 11 del design): revertirle el tema en la cara al usuario
+  // es peor que una preferencia que no viajo, asi que no hay rollback visual.
+  const handleToggleTheme = () => {
+    const nextMode = isDark ? "light" : "dark";
+    setThemeMode(nextMode);
+    updateMyThemeMutation.mutate(nextMode, {
+      onError: () => {
+        alertError(
+          "No se pudo guardar el tema",
+          "El modo se aplico en este dispositivo, pero no se pudo sincronizar con tu cuenta."
+        );
+      },
+    });
+  };
 
   const openGlobalSearch = () => {
     const trigger = () => window.dispatchEvent(new Event("app:open-spotlight"));
@@ -76,9 +109,9 @@ export default function Topbar() {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-amber-200/10 bg-[#0d0c0b]/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 items-center justify-between px-4">
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 border-b border-border bg-surface-1/70 backdrop-blur-xl lg:pl-sidebar">
+      <div className="mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-3 lg:hidden">
           <img
             src="/mini-espacio-logo.svg"
             alt="Mini Espacio"
@@ -90,7 +123,7 @@ export default function Topbar() {
           <div className="hidden flex-1 justify-center lg:flex">
             <Button
               variant="outline"
-              className="w-72 border-amber-200/10 bg-white/[0.03] text-amber-50 hover:border-amber-300/20 hover:bg-white/[0.06]"
+              className={`w-72 ${outlineButtonClass}`}
               onClick={openGlobalSearch}
             >
               Buscar cliente (Ctrl/Cmd + K)
@@ -99,34 +132,26 @@ export default function Topbar() {
         )}
 
         <div className="hidden items-center gap-3 lg:flex">
-          {isAuthed && role === "owner" && (
+          {isAuthed && (
             <Button
               variant="outline"
-              onClick={() => navigate("/clients")}
-              className="border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] text-amber-50 hover:bg-[linear-gradient(90deg,rgba(250,204,21,0.18),rgba(255,247,237,0.08),rgba(249,115,22,0.18))]"
+              size="icon"
+              className={outlineButtonClass}
+              onClick={handleToggleTheme}
+              aria-label={`Cambiar a modo ${nextThemeLabel}`}
+              aria-pressed={isDark}
             >
-              <UserPlus className="h-4 w-4" />
-              Nuevo cliente
+              {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </Button>
           )}
 
           {isAuthed ? (
-            <Button
-              onClick={handleLogout}
-              className="group relative overflow-hidden border border-amber-300/20 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black shadow-[0_18px_45px_-28px_rgba(249,115,22,0.55)] hover:opacity-95"
-            >
-              <span className="relative z-10 flex items-center gap-2">
-                <LogOut size={16} />
-                Logout
-              </span>
-              <span className="pointer-events-none absolute inset-0 -translate-x-full skew-x-12 bg-white/40 transition-transform duration-700 ease-out group-hover:translate-x-full" />
+            <Button onClick={handleLogout}>
+              <LogOut size={16} />
+              Logout
             </Button>
           ) : (
-            <Button
-              variant="outline"
-              onClick={() => navigate("/login")}
-              className="border-amber-200/10 text-amber-50 hover:bg-white/[0.06]"
-            >
+            <Button variant="outline" onClick={() => navigate("/login")}>
               Iniciar sesión
             </Button>
           )}
@@ -137,7 +162,7 @@ export default function Topbar() {
             <Button
               variant="outline"
               size="icon"
-              className="border-amber-200/10 bg-white/[0.04] text-zinc-100"
+              className={outlineButtonClass}
               onClick={() => setMobileMenuOpen((v) => !v)}
             >
               {mobileMenuOpen ? (
@@ -147,12 +172,7 @@ export default function Topbar() {
               )}
             </Button>
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-amber-200/10 text-xs text-zinc-100"
-              onClick={() => navigate("/login")}
-            >
+            <Button variant="outline" size="sm" onClick={() => navigate("/login")}>
               Login
             </Button>
           )}
@@ -160,12 +180,23 @@ export default function Topbar() {
       </div>
 
       {mobileMenuOpen && isAuthed && (
-        <div className="space-y-3 border-t border-amber-200/10 bg-[#120f0d]/95 px-4 pb-3 pt-2 lg:hidden">
+        <div className="space-y-3 border-t border-border bg-surface-1/95 px-4 pb-3 pt-2 lg:hidden">
+          <Button
+            variant="outline"
+            size="icon"
+            className={outlineButtonClass}
+            onClick={handleToggleTheme}
+            aria-label={`Cambiar a modo ${nextThemeLabel}`}
+            aria-pressed={isDark}
+          >
+            {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+          </Button>
+
           <div className="space-y-2">
             {role === "user" ? (
               <Button
                 variant="outline"
-                className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                className={mobileNavButtonClass}
                 onClick={() => go("/my-routine")}
               >
                 <Dumbbell className="mr-2 h-4 w-4" />
@@ -175,7 +206,7 @@ export default function Topbar() {
               <>
                 <Button
                   variant="outline"
-                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                  className={mobileNavButtonClass}
                   onClick={() => go("/dashboard")}
                 >
                   <LayoutDashboard className="mr-2 h-4 w-4" />
@@ -183,7 +214,7 @@ export default function Topbar() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                  className={mobileNavButtonClass}
                   onClick={() => go("/clients")}
                 >
                   <Users className="mr-2 h-4 w-4" />
@@ -191,7 +222,7 @@ export default function Topbar() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                  className={mobileNavButtonClass}
                   onClick={() => go("/payments")}
                 >
                   <CreditCard className="mr-2 h-4 w-4" />
@@ -199,7 +230,7 @@ export default function Topbar() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                  className={mobileNavButtonClass}
                   onClick={() => go("/attendance")}
                 >
                   <CalendarCheck2 className="mr-2 h-4 w-4" />
@@ -207,7 +238,7 @@ export default function Topbar() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                  className={mobileNavButtonClass}
                   onClick={() => go("/routines")}
                 >
                   <Dumbbell className="mr-2 h-4 w-4" />
@@ -215,7 +246,7 @@ export default function Topbar() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                  className={mobileNavButtonClass}
                   onClick={() => go("/settings")}
                 >
                   <Settings className="mr-2 h-4 w-4" />
@@ -224,7 +255,7 @@ export default function Topbar() {
                 {role === "owner" && (
                   <Button
                     variant="outline"
-                    className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
+                    className={mobileNavButtonClass}
                     onClick={() => go("/reports")}
                   >
                     <BarChart3 className="mr-2 h-4 w-4" />
@@ -235,24 +266,7 @@ export default function Topbar() {
             )}
           </div>
 
-          {role === "owner" && (
-            <Button
-              variant="outline"
-              className="w-full justify-start border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] text-sm text-amber-50 hover:opacity-95"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                navigate("/clients");
-              }}
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              Nuevo cliente
-            </Button>
-          )}
-
-          <Button
-            className="w-full justify-start border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] text-sm text-black hover:opacity-95"
-            onClick={handleLogout}
-          >
+          <Button className="w-full justify-start" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
             Logout
           </Button>

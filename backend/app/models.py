@@ -25,6 +25,7 @@ class User(Base):
     client_id = Column(String, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, unique=True, index=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    theme_preference = Column(String, nullable=True)
 
 class Client(Base):
     __tablename__ = "clients"

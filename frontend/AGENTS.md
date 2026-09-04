@@ -3,6 +3,15 @@
 Instrucciones específicas del frontend. Ver también el [AGENTS.md de la raíz](../AGENTS.md) para
 convenciones generales, CodeGraph y OpenSpec (aplican también acá).
 
+## Diseño
+
+[docs/design/design.md](../docs/design/design.md) es la **fuente de verdad del tema visual**
+("Kinetic Obsidian": dark tactical + light mode "Crisp Slate"). Cualquier trabajo de estilos,
+componentes de `src/components/ui/**`, o la skill `frontend-design`/`shadcn` en este repo debe
+partir de ese documento antes de inventar colores, tipografía o espaciados nuevos. Reemplaza a
+los tres temas actuales de `frontend/src/lib/theme.ts` (`dark-gold`/`dark-copper`/`dark-olive`),
+que se eliminan en favor de un toggle simple dark/light.
+
 ## Stack
 
 React 19 + Vite 7 + TypeScript (adopción parcial: `.jsx`/`.tsx` conviven) + Tailwind CSS v4 +
@@ -20,7 +29,7 @@ src/
   lib/              # utilidades (cn, formateo, queryClient.ts, theme.ts, etc.)
   pages/            # una carpeta/archivo por vista, mapea a rutas de App.jsx
   services/         # capa de acceso a datos del servidor, dos archivos por dominio (ver abajo)
-  stores/           # estado de cliente con Zustand (session.ts, settings.ts)
+  stores/           # estado de cliente con Zustand (session.ts, settings.ts, theme.ts)
   types.ts          # tipos compartidos
 ```
 
@@ -41,6 +50,8 @@ src/services/
   settings.queries.ts
   search.ts
   search.queries.ts
+  me.ts                      # fetchers puros: fetchMe, updateMyTheme (PATCH /auth/me/theme)
+  me.queries.ts              # hooks: useMeQuery, useUpdateMyThemeMutation, useSyncUserTheme
 ```
 
 - **`<dominio>.ts`** (fetchers): funciones async puras, reciben un objeto de params tipado, usan
@@ -96,22 +107,34 @@ npm run lint            # eslint (dentro de frontend/)
     `vi.mock("@/lib/http")` mockea `{ default: api }`; cualquier otra forma de acceso rompe el
     aislamiento de red de la suite.
 - **Estado de cliente (Zustand)**: `src/stores/session.ts` (token/usuario/rol, fuente única de la
-  sesión) y `src/stores/settings.ts` (ajustes del negocio + tema) son los dos stores del repo.
-  Ambos persisten con un `PersistStorage` a medida sobre las claves planas de `localStorage` que
-  ya existían (`access_token`/`user_name`/`user_role`, `app_settings`) en vez del wrapper
-  `{state,version}` que usaría `createJSONStorage` — **deuda declarada, con fecha de vencimiento**:
-  es un shim de compatibilidad (dec. 8 de `design.md` de `adopt-tanstack-query-zustand`) para no
-  desloguear a nadie en el deploy y para que los lectores fuera de alcance de `localStorage`
-  (`NewPaymentDialog`, `UserCard`, el propio `Settings.tsx`) sigan funcionando sin tocarlos. El
-  siguiente change que toque estos stores puede pasar al `persist` default y migrar las claves de
-  una sola vez.
+  sesión), `src/stores/settings.ts` (ajustes del negocio) y `src/stores/theme.ts` (modo de tema del
+  usuario logueado) son los **tres** stores del repo. Los tres persisten con un `PersistStorage` a
+  medida sobre las claves planas de `localStorage` que ya existían (`access_token`/`user_name`/
+  `user_role`, `app_settings`, `app_theme`) en vez del wrapper `{state,version}` que usaría
+  `createJSONStorage` — **deuda declarada, con fecha de vencimiento**: es un shim de compatibilidad
+  (dec. 8 de `design.md` de `adopt-tanstack-query-zustand`) para no desloguear a nadie en el
+  deploy y para que los lectores fuera de alcance de `localStorage` (`NewPaymentDialog`,
+  `UserCard`, el propio `Settings.tsx`) sigan funcionando sin tocarlos. El siguiente change que
+  toque estos stores puede pasar al `persist` default y migrar las claves de una sola vez.
   - **Ajustes: un único escritor.** `useSettingsStore.setSettings(next)` es la única vía para
     escribir el store — la escribe `useSyncSettings()` (montado una vez en `App.jsx`, sincroniza
     lo que devuelve `useSettingsQuery()`) y, tras guardar, `Settings.tsx`/`Payments.tsx`. Ninguna
     vista nueva debe escribir `localStorage["app_settings"]` a mano ni disparar un evento: si
     necesita enterarse de un cambio de ajustes, se suscribe al store (`useSettingsStore(selector)`
-    o `useSettingsStore.subscribe`), como hace `lib/theme.ts` con `theme_preference`. El evento
-    `"app-settings:updated"` ya no existe.
+    o `useSettingsStore.subscribe`). El evento `"app-settings:updated"` ya no existe.
+  - **Tema: store propio, alimentado por la sesión del usuario, no por Ajustes.** El modo
+    (`"dark" | "light"`, tipo `ThemeMode` en `lib/theme.ts`) **ya no vive en `settings.ts`**
+    (`app_settings.theme_preference` queda legacy y sin uso — es config del negocio, no de cada
+    persona): es una preferencia de **cada usuario logueado**, que lo sigue entre dispositivos y
+    sesiones. `useThemeStore` (`{ mode, setMode }`) aplica `data-theme`/`color-scheme` en el
+    `<html>` y persiste en `app_theme` como caché de pintado local; la fuente autoritativa es la
+    columna `theme_preference` de `users` en el backend, servida por `GET /auth/me` y escrita por
+    `PATCH /auth/me/theme` (`src/services/me.ts`/`me.queries.ts` — `useMeQuery`,
+    `useUpdateMyThemeMutation`, `useSyncUserTheme`, montado una sola vez en `App.jsx`). El toggle
+    de modo dark/light vive en `components/Topbar.tsx` (no en Ajustes: es el único componente del
+    shell que ven los tres roles — Dueño, Coach y portal cliente), aplica al instante y dispara el
+    `PATCH` sin bloquear la UI si falla. Ver `docs/design/design.md` y
+    `openspec/changes/adopt-kinetic-obsidian-theme/` para el detalle de decisiones.
   - **Puente temporal `"payments:created"`**: `NewPaymentDialog` y `UserCard` (fuera de alcance de
     la migración a Query) siguen emitiendo ese evento tras cobrar. `useLegacyRefetchBridge()`
     (`src/hooks/useLegacyRefetchBridge.ts`, montado una vez en `App.jsx`) es el **único oyente** en
@@ -129,13 +152,15 @@ npm run lint            # eslint (dentro de frontend/)
   max-w-7xl px-4 py-6 sm:px-6 lg:px-8">` que envuelve el `<Suspense>` de las rutas con sidebar).
   Una vista nueva bajo ese shell **no necesita padding propio**: su wrapper raíz va con
   `space-y-*` y nada más. No dupliques `mx-auto max-w-* px-* py-*` en el wrapper de una página.
-- **Tokens de shadcn sin `@theme`**: `index.css` no tiene un bloque `@theme` (Tailwind v4), así
-  que las utilidades que shadcn asume que existen (`border-input`, `ring-ring`,
-  `text-muted-foreground`, `dark:bg-input/30`, `text-foreground`, etc.) **no generan CSS** hoy en
-  `src/components/ui/**` — son no-ops silenciosos. Si necesitás un color explícito en un
-  componente de `ui/`, usá una clase concreta de Tailwind (p. ej. `text-zinc-100`), no el token.
-  Agregar el bloque `@theme` para revivirlos es un change propio, con blast radius sobre todos los
-  componentes de `ui/`.
+- **Tokens de shadcn vía `@theme inline`**: `index.css` define las vars semánticas por modo
+  (`--canvas`, `--surface-1|2|3`, `--foreground`, `--primary`, …) en `@layer base` y un bloque
+  `@theme inline` que las mapea a los nombres que Tailwind v4 y shadcn esperan (`background`,
+  `foreground`, `card`, `primary`, `border`, `input`, `ring`, `--radius`, etc.). Las utilidades de
+  `src/components/ui/**` (`border-input`, `ring-ring`, `text-muted-foreground`, `dark:bg-input/30`,
+  …) **sí generan CSS** y cambian de valor solo con el modo (`data-theme` en `<html>`), sin tocar
+  el call site. Usá esos tokens (nunca una clase cruda `zinc-*`/`amber-*`) al tocar un componente de
+  `ui/`; el `@custom-variant dark (...)` de `index.css` hace que `dark:*` siga significando "modo
+  dark" atado a `data-theme`, no a la clase `.dark`.
 - **Tipado**: el proyecto está en transición a TypeScript. Los archivos nuevos de lógica no
   trivial preferí `.tsx`/`.ts`; páginas simples pueden seguir en `.jsx` si el resto del módulo lo
   está.
@@ -150,18 +175,19 @@ npm run lint            # eslint (dentro de frontend/)
     (`import { describe, it, expect, vi } from "vitest"`).
   - `src/test/setup.ts` registra los matchers de jest-dom, polyfillea `matchMedia` y
     `ResizeObserver` (jsdom no los trae y los necesitan vaul y cmdk/Radix). En `afterEach` hace
-    `cleanup()` + `localStorage.clear()` **y resetea los dos stores de Zustand** (`session`,
-    `settings`) a su estado inicial; en `beforeEach` llama a
-    `useSessionStore.persist.rehydrate()` / `useSettingsStore.persist.rehydrate()`. Esto último no
-    es opcional: `persist` rehidrata una sola vez, al importar el módulo, así que un test que
-    siembra `localStorage` (p. ej. `Dashboard.test.tsx` con `user_role`/`user_name`) necesita esa
-    rehidratación explícita para que la siembra le llegue al store. `renderWithProviders` **vuelve
-    a rehidratar** justo antes de renderizar, porque los `setupFiles` corren antes que el
-    `beforeEach` propio de cada archivo de test: si la siembra vive en ese `beforeEach` del test
-    (el caso común), el `beforeEach` de `setup.ts` ya pasó y esa siembra todavía no estaba. **Sembrá
-    `localStorage` en tu propio `beforeEach`, nunca dentro del `it` después de haber renderizado**
-    — a esa altura ya se rehidrató y el componente ya leyó su selector; escribir `localStorage`
-    más tarde no lo actualiza.
+    `cleanup()` + `localStorage.clear()` **y resetea los tres stores de Zustand** (`session`,
+    `settings`, `theme`) a su estado inicial; en `beforeEach` llama a
+    `useSessionStore.persist.rehydrate()` / `useSettingsStore.persist.rehydrate()` /
+    `useThemeStore.persist.rehydrate()`. Esto último no es opcional: `persist` rehidrata una sola
+    vez, al importar el módulo, así que un test que siembra `localStorage` (p. ej.
+    `Dashboard.test.tsx` con `user_role`/`user_name`) necesita esa rehidratación explícita para que
+    la siembra le llegue al store. `renderWithProviders` **vuelve a rehidratar** justo antes de
+    renderizar, porque los `setupFiles` corren antes que el `beforeEach` propio de cada archivo de
+    test: si la siembra vive en ese `beforeEach` del test (el caso común), el `beforeEach` de
+    `setup.ts` ya pasó y esa siembra todavía no estaba. **Sembrá `localStorage` en tu propio
+    `beforeEach`, nunca dentro del `it` después de haber renderizado** — a esa altura ya se
+    rehidrató y el componente ya leyó su selector; escribir `localStorage` más tarde no lo
+    actualiza.
   - **Aislamiento de red**: los tests mockean el módulo entero con `vi.mock("@/lib/http")` usando
     el helper `src/test/apiMock.ts`, que resuelve por ruta. No uses `vi.spyOn(api, "get")`:
     cualquier llamada no prevista se iría a XHR real de jsdom y dispararía los interceptores de
@@ -174,5 +200,12 @@ npm run lint            # eslint (dentro de frontend/)
     test se cuelga hasta el timeout, y jsdom puede disparar refetches después del `cleanup()`.
     Acepta un `queryClient` propio por parámetro para tests que lo necesiten.
   - Cobertura actual: un test de render por cada vista con spec (`Login`, `RegisterClient`,
-    `Dashboard`, `Settings`), más `Sidebar` (accesos ocultos y bloque Contexto por rol). No hay
-    tests de interacción ni E2E.
+    `Dashboard`, `Settings`), más `Sidebar` (accesos ocultos por rol, badge de rol y card de
+    identidad — nombre + email del usuario logueado, en reemplazo del bloque "Contexto" viejo).
+    `Login.test.tsx` mockea `/auth/me` incluyendo `theme_preference`. Suma de tema (`adopt-
+    kinetic-obsidian-theme`): `lib/__tests__/theme.test.ts` (`normalizeThemeMode` — los 3 ids
+    legacy, `null`, string vacío y basura resuelven a `"dark"`) y
+    `components/__tests__/Topbar.test.tsx` (el click del toggle cambia `data-theme`, persiste en
+    `app_theme` y dispara `PATCH /auth/me/theme`, resuelto por ruta con el helper `apiMock`). Hay
+    tests de interacción puntuales (el toggle de tema) pero no una suite de interacción general ni
+    E2E.

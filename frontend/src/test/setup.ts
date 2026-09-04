@@ -3,6 +3,8 @@ import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
 import { useSessionStore } from "@/stores/session";
 import { DEFAULT_SETTINGS, useSettingsStore } from "@/stores/settings";
+import { useThemeStore } from "@/stores/theme";
+import { DEFAULT_THEME_MODE } from "@/lib/theme";
 
 // jsdom no implementa matchMedia ni ResizeObserver, y los necesitan el Drawer (vaul)
 // y el SpotlightSearch (cmdk/Radix) que monta Dashboard. Sin estos polyfills el test
@@ -41,6 +43,10 @@ afterEach(() => {
   // ajustes que un test dejó guardados (o el tema aplicado) quedarían pegados
   // para el próximo.
   useSettingsStore.setState({ settings: DEFAULT_SETTINGS });
+  // Mismo tratamiento para el store de tema: sin resetear, el modo que un test
+  // dejó aplicado (y persistido en `app_theme`) quedaría pegado para el
+  // próximo, incluido el `data-theme` del `documentElement`.
+  useThemeStore.setState({ mode: DEFAULT_THEME_MODE });
   // localStorage es estado compartido real: ProtectedRoute, Dashboard y Settings
   // leen user_role / app_settings / access_token de ahi. Va DESPUÉS de resetear
   // los stores: ambos usan `persist` y un `setState`/`logout()` dispara su
@@ -57,4 +63,5 @@ afterEach(() => {
 beforeEach(() => {
   useSessionStore.persist.rehydrate();
   useSettingsStore.persist.rehydrate();
+  useThemeStore.persist.rehydrate();
 });

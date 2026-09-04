@@ -38,7 +38,11 @@ export type Attendance = {
 export type AppSettings = {
   gym_name: string;
   admin_name: string | null;
-  theme_preference: "dark-gold" | "dark-copper" | "dark-olive" | null;
+  // Legacy/deprecado: el tema pasó a ser una preferencia del usuario
+  // (`/auth/me`, `stores/theme.ts`), no del negocio. Este campo de
+  // `app_settings` queda sin uso (ver adopt-kinetic-obsidian-theme, dec. 6.5);
+  // se mantiene con tipo laxo solo para no romper el `GET /settings` viejo.
+  theme_preference?: string | null;
   currency: string;
   default_fee: number;
   address: string | null;

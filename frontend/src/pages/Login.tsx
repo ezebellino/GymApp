@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import api from "@/lib/http";
 import { useSessionStore } from "@/stores/session";
+import { useThemeStore } from "@/stores/theme";
+import { normalizeThemeMode } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toastError } from "@/lib/toast";
@@ -36,6 +38,7 @@ export default function Login() {
 
   const navigate = useNavigate();
   const setSession = useSessionStore((s) => s.setSession);
+  const setThemeMode = useThemeStore((s) => s.setMode);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -58,6 +61,7 @@ export default function Login() {
           email: string;
           role: string;
           email_verified: boolean;
+          theme_preference?: string | null;
         }>("/auth/me", {
           headers: { Authorization: `Bearer ${data.access_token}` },
         });
@@ -65,7 +69,9 @@ export default function Login() {
         setSession(data.access_token, {
           name: me.full_name ?? me.email ?? "Usuario",
           role: (me.role ?? "coach") as "owner" | "coach" | "user",
+          email: me.email,
         });
+        setThemeMode(normalizeThemeMode(me.theme_preference));
       } catch {
         // Sin /auth/me, setSession decodifica el JWT y deriva nombre/rol/exp.
         setSession(data.access_token);
@@ -93,34 +99,34 @@ export default function Login() {
     <div className="w-full px-6 py-12">
       <form
         onSubmit={onSubmit}
-        className="mx-auto w-full max-w-lg rounded-4xl border border-amber-200/10 bg-zinc-900/95 p-8 sm:p-10"
+        className="mx-auto w-full max-w-lg rounded-4xl border border-border bg-surface-1/95 p-8 sm:p-10"
       >
         <div className="flex items-center gap-3">
           <img
             src="/mini-espacio-logo.svg"
             alt="Gym App"
-            className="h-12 w-12 rounded-full object-cover ring-1 ring-white/10"
+            className="h-12 w-12 rounded-full object-cover ring-1 ring-border"
           />
-          <p className="text-lg font-semibold tracking-tight text-zinc-50">
+          <p className="text-lg font-semibold tracking-tight text-foreground">
             Gym App
           </p>
         </div>
 
         <div className="mt-8 space-y-5">
           <div className="space-y-2">
-            <label className="text-sm text-zinc-300">Usuario</label>
+            <label className="text-sm text-muted-foreground">Usuario</label>
             <Input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               type="text"
               required
               placeholder="manga_aguirre"
-              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
+              className="h-12 border-border bg-surface-1/70 focus-visible:border-ring/50 focus-visible:ring-ring/30"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm text-zinc-300">Contrasena</label>
+            <label className="text-sm text-muted-foreground">Contrasena</label>
             <div className="relative">
               <Input
                 value={password}
@@ -128,12 +134,12 @@ export default function Login() {
                 type={showPwd ? "text" : "password"}
                 required
                 placeholder="Tu contrasena"
-                className="h-12 border-amber-200/10 bg-zinc-900/70 pr-10 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
+                className="h-12 border-border bg-surface-1/70 pr-10 focus-visible:border-ring/50 focus-visible:ring-ring/30"
               />
               <button
                 type="button"
                 onClick={() => setShowPwd((current) => !current)}
-                className="absolute inset-y-0 right-2 grid place-items-center text-zinc-400 hover:text-zinc-200"
+                className="absolute inset-y-0 right-2 grid place-items-center text-muted-foreground hover:text-foreground"
                 aria-label={showPwd ? "Ocultar contrasena" : "Mostrar contrasena"}
               >
                 {showPwd ? (
@@ -147,7 +153,7 @@ export default function Login() {
         </div>
 
         <Button
-          className="mt-8 h-12 w-full gap-2 border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
+          className="mt-8 h-12 w-full gap-2 border border-border bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
           disabled={loading}
           type="submit"
         >
@@ -158,7 +164,7 @@ export default function Login() {
         <button
           type="button"
           onClick={() => navigate("/register-client")}
-          className="mt-4 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-zinc-200 transition hover:bg-white/[0.06]"
+          className="mt-4 w-full rounded-xl border border-border bg-surface-2/5 px-4 py-2 text-sm text-foreground transition hover:bg-surface-2/10"
         >
           Registrar Cuenta
         </button>

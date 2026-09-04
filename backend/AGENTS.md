@@ -66,7 +66,13 @@ python scripts/create_owner.py     # crea usuario owner inicial
   datos) — no son parte del arranque normal de la app. Si escribís uno nuevo, ponelo en
   `scripts/` con un nombre descriptivo, no lo mezcles con `app/`.
 - **Tests**: hay suite con pytest en `backend/tests/` (`test_auth.py`, `test_roles.py`,
-  `test_health.py`). Se corre con `make test-backend` desde la raíz, o
+  `test_health.py`, `test_theme.py`). `test_theme.py` cubre la preferencia de tema por usuario
+  (`theme_preference` en `users`, adoptada en `adopt-kinetic-obsidian-theme`): `GET /auth/me`
+  incluye `theme_preference` (`null` para un usuario nuevo); `PATCH /auth/me/theme` con
+  `{"theme_preference": "light"}` responde 200 y un `GET` posterior lo devuelve; con un valor que
+  no sea `"dark"`/`"light"` (p. ej. `"dark-gold"`) responde 422; sin token responde 401; y con dos
+  usuarios, el `PATCH` de uno no cambia el `theme_preference` del otro (aislamiento). Se corre con
+  `make test-backend` desde la raíz, o
   `cd backend && .venv/bin/python -m pytest` (el venv vive en `backend/.venv`). Config en
   `backend/pytest.ini`; las
   dependencias de test viven en `backend/requirements-dev.txt` (`-r requirements.txt` + pytest),

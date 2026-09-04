@@ -33,6 +33,9 @@ const nfARS = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0,
 });
 
+const outlineButtonClass =
+  "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70";
+
 const isUUID = (str: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     str
@@ -68,16 +71,18 @@ function StatCard({
   icon: typeof Wallet;
 }) {
   return (
-    <div className="rounded-[24px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.08),rgba(255,255,255,0.02)_50%,rgba(249,115,22,0.09))] p-5">
+    <div className="rounded-xl border border-border bg-surface-1 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+          <p className="text-label-caps uppercase text-muted-foreground">
             {label}
           </p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-50">{value}</p>
-          <p className="mt-1 text-sm text-zinc-400">{hint}</p>
+          <p className="font-display mt-2 text-metric-kpi font-extrabold tabular-nums text-foreground">
+            {value}
+          </p>
+          <p className="mt-1 text-body-sm text-muted-foreground">{hint}</p>
         </div>
-        <div className="rounded-2xl bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(255,247,237,0.08),rgba(249,115,22,0.22))] p-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
           <Icon size={18} />
         </div>
       </div>
@@ -250,43 +255,43 @@ export default function PaymentsPage() {
   return (
     <div className="space-y-8">
       <section className="grid gap-4 lg:grid-cols-[1.45fr_0.95fr]">
-        <div className="rounded-[28px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.11))] p-6 shadow-[0_20px_80px_-40px_rgba(249,115,22,0.42)]">
-          <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
+        <div className="hero-aura rounded-xl border border-border p-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
             Pagos
           </div>
-          <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+          <h1 className="warm-accent-text font-display mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
             Analiza movimientos y encuentra cobros con mas rapidez.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
             Filtrá por cliente, email, teléfono o UUID y mantenete enfocado en los
             movimientos relevantes del período.
           </p>
         </div>
 
-        <div className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-6 backdrop-blur-xl">
-          <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+        <div className="rounded-xl border border-border bg-surface-1/60 p-6 backdrop-blur-xl">
+          <p className="text-label-caps uppercase text-muted-foreground">
             Filtro activo
           </p>
           <div className="mt-4 space-y-4">
             <div>
-              <p className="text-sm text-zinc-400">Busqueda actual</p>
-              <p className="text-lg font-semibold text-zinc-100">
+              <p className="text-sm text-muted-foreground">Busqueda actual</p>
+              <p className="text-lg font-semibold text-foreground">
                 {q.trim() ? `"${q.trim()}"` : "Sin filtro"}
               </p>
             </div>
-            <div className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.05),rgba(249,115,22,0.12))] p-4 text-sm text-amber-50">
+            <div className="rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-primary">
               Esta pagina muestra {rows.length} movimiento{rows.length === 1 ? "" : "s"} cargado{rows.length === 1 ? "" : "s"}.
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-zinc-300">
-              <p className="font-medium text-zinc-100">
+            <div className="rounded-xl border border-border bg-surface-2/30 p-4 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">
                 {reminderTargetsCount} cliente{reminderTargetsCount === 1 ? "" : "s"} pendiente{reminderTargetsCount === 1 ? "" : "s"} con WhatsApp
               </p>
-              <p className="mt-1 text-zinc-400">
+              <p className="mt-1 text-muted-foreground">
                 Mensaje mensual con cuota {nfARS.format(settings.default_fee)}, {settings.late_fee_grace_days} días de tolerancia y alias {settings.payment_alias || "no definido"}.
               </p>
-              <p className="mt-2 text-xs text-zinc-500">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Último envío registrado:{" "}
-                <span className="text-zinc-300">
+                <span className="text-foreground">
                   {settings.payment_reminder_last_sent_at
                     ? new Date(settings.payment_reminder_last_sent_at).toLocaleString("es-AR")
                     : "todavía no hay envíos"}
@@ -318,27 +323,22 @@ export default function PaymentsPage() {
         />
       </section>
 
-      <Card className="rounded-[28px] border-amber-200/10 bg-zinc-950/60 backdrop-blur-md">
-        <CardHeader className="border-b border-amber-200/10 pb-5">
-          <CardTitle className="text-zinc-100">Listado de pagos</CardTitle>
+      <Card className="border-border bg-canvas/60 backdrop-blur-md">
+        <CardHeader className="border-b border-border pb-5">
+          <CardTitle className="text-foreground">Listado de pagos</CardTitle>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex w-full gap-2 sm:max-w-xl">
               <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Nombre, email, teléfono o UUID"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && onSearch()}
-                  className="border-amber-200/10 bg-zinc-900/70 pl-10 focus-visible:ring-amber-400/35"
+                  className="border-border bg-surface-1/70 pl-10 focus-visible:ring-ring"
                 />
               </div>
-              <Button
-                onClick={onSearch}
-                disabled={isFetching}
-                className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
-                variant="outline"
-              >
+              <Button onClick={onSearch} disabled={isFetching}>
                 {isFetching ? "Buscando..." : "Buscar"}
               </Button>
             </div>
@@ -347,7 +347,7 @@ export default function PaymentsPage() {
               <Button
                 onClick={() => setShowReminderPreview((current) => !current)}
                 disabled={reminderTargetsCount === 0}
-                className="border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+                className={outlineButtonClass}
                 variant="outline"
               >
                 <Eye className="mr-2 h-4 w-4" />
@@ -356,7 +356,7 @@ export default function PaymentsPage() {
               <Button
                 onClick={handleBulkReminder}
                 disabled={sendingReminders || reminderTargetsCount === 0}
-                className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                className={outlineButtonClass}
                 variant="outline"
               >
                 <MessageCircle className="mr-2 h-4 w-4" />
@@ -366,7 +366,7 @@ export default function PaymentsPage() {
                 variant="outline"
                 disabled={offset === 0 || isFetching}
                 onClick={() => setOffset(Math.max(0, offset - limit))}
-                className="border-amber-200/10 hover:bg-white/[0.08]"
+                className={outlineButtonClass}
               >
                 Anterior
               </Button>
@@ -374,7 +374,7 @@ export default function PaymentsPage() {
                 variant="outline"
                 disabled={offset + limit >= total || isFetching}
                 onClick={() => setOffset(offset + limit)}
-                className="border-amber-200/10 hover:bg-white/[0.08]"
+                className={outlineButtonClass}
               >
                 Siguiente
               </Button>
@@ -384,17 +384,17 @@ export default function PaymentsPage() {
 
         <CardContent className="space-y-5 pt-5">
           {showReminderPreview && (
-            <div className="rounded-2xl border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.06),rgba(255,255,255,0.02)_50%,rgba(249,115,22,0.07))] p-4">
+            <div className="rounded-xl border border-border bg-surface-2/20 p-4">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-sm font-medium text-zinc-100">
+                  <p className="text-sm font-medium text-foreground">
                     Destinatarios del recordatorio mensual
                   </p>
-                  <p className="mt-1 text-sm text-zinc-400">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Se enviará a clientes activos con WhatsApp cargado y cuota pendiente del mes.
                   </p>
                 </div>
-                <p className="text-xs uppercase tracking-[0.18em] text-amber-100/80">
+                <p className="text-xs uppercase tracking-[0.18em] text-primary/80">
                   {reminderTargetsCount} pendiente{reminderTargetsCount === 1 ? "" : "s"}
                 </p>
               </div>
@@ -403,10 +403,10 @@ export default function PaymentsPage() {
                 {pendingClients.map((client) => (
                   <div
                     key={client.id}
-                    className="rounded-xl border border-white/10 bg-black/10 px-4 py-3"
+                    className="rounded-xl border border-border bg-surface-2/20 px-4 py-3"
                   >
-                    <p className="font-medium text-zinc-100">{client.full_name}</p>
-                    <p className="mt-1 text-sm text-zinc-400">
+                    <p className="font-medium text-foreground">{client.full_name}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {client.phone || "Sin WhatsApp"}
                     </p>
                   </div>
@@ -417,27 +417,27 @@ export default function PaymentsPage() {
 
           <div
             className={cn(
-              "overflow-hidden rounded-2xl border border-amber-200/10",
+              "overflow-hidden rounded-xl border border-border",
               isFetching && isPlaceholderData && "opacity-60 transition-opacity"
             )}
           >
             <table className="w-full text-sm">
-              <thead className="bg-zinc-900/70">
-                <tr className="text-zinc-300">
-                  <th className="p-4 text-left">Fecha</th>
-                  <th className="p-4 text-left">Cliente</th>
-                  <th className="p-4 text-left">Periodo</th>
-                  <th className="p-4 text-left">Monto</th>
-                  <th className="p-4 text-left">Metodo</th>
-                  <th className="p-4 text-right">Acciones</th>
+              <thead className="bg-surface-2/40">
+                <tr className="text-label-caps uppercase text-muted-foreground">
+                  <th className="border-b border-border p-4 text-left">Fecha</th>
+                  <th className="border-b border-border p-4 text-left">Cliente</th>
+                  <th className="border-b border-border p-4 text-left">Periodo</th>
+                  <th className="border-b border-border p-4 text-left">Monto</th>
+                  <th className="border-b border-border p-4 text-left">Metodo</th>
+                  <th className="border-b border-border p-4 text-right">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="bg-zinc-950/40">
+              <tbody className="bg-canvas/40">
                 {isPending && (
                   <tr>
                     <td colSpan={6} className="p-8 text-center">
-                      <div className="inline-flex items-center gap-2 text-zinc-400">
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-500 border-t-transparent" />
+                      <div className="inline-flex items-center gap-2 text-muted-foreground">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
                         Cargando movimientos...
                       </div>
                     </td>
@@ -458,7 +458,7 @@ export default function PaymentsPage() {
 
                 {!isPending && !isError && rows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-zinc-400">
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
                       No hay pagos para los filtros actuales.
                     </td>
                   </tr>
@@ -467,50 +467,50 @@ export default function PaymentsPage() {
                 {!isPending &&
                   !isError &&
                   rows.map((payment) => (
-                    <tr key={payment.id} className="border-t border-white/5">
-                      <td className="p-4 text-zinc-200">
+                    <tr key={payment.id} className="border-t border-border">
+                      <td className="p-4 text-foreground">
                         {new Date(payment.created_at).toLocaleString("es-AR")}
                       </td>
 
-                      <td className="p-4 text-zinc-200">
-                        <div className="font-medium text-zinc-100">
+                      <td className="p-4 text-foreground">
+                        <div className="font-medium text-foreground">
                           {payment.client?.full_name ?? "-"}
                         </div>
                         {(payment.client?.email || payment.client?.phone) && (
-                          <div className="mt-1 text-xs text-zinc-400">
+                          <div className="mt-1 text-xs text-muted-foreground">
                             {payment.client?.email ?? "-"} · {payment.client?.phone ?? "-"}
                           </div>
                         )}
                       </td>
 
-                      <td className="p-4 text-zinc-300">
+                      <td className="p-4 text-muted-foreground">
                         {String(payment.period_month).padStart(2, "0")}/{payment.period_year}
                       </td>
 
-                      <td className="p-4 font-semibold text-zinc-100">
+                      <td className="p-4 font-semibold text-foreground">
                         {nfARS.format(payment.amount)}
                       </td>
 
                       <td className="p-4">
                         {payment.method ? (
                           payment.method === "cash" ? (
-                            <Badge className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] text-amber-50">
+                            <Badge className="border-primary/30 bg-primary/10 text-primary">
                               efectivo
                             </Badge>
                           ) : payment.method === "transfer" ? (
-                            <Badge className="border border-orange-300/20 bg-orange-500/12 text-orange-100">
+                            <Badge className="border-border bg-surface-2/30 text-muted-foreground">
                               transferencia
                             </Badge>
                           ) : (
                             <Badge
                               variant="outline"
-                              className="border-white/20 text-zinc-300"
+                              className="border-border text-muted-foreground"
                             >
                               {payment.method}
                             </Badge>
                           )
                         ) : (
-                          <span className="text-zinc-500">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </td>
 
@@ -524,7 +524,7 @@ export default function PaymentsPage() {
                             deletePaymentMutation.isPending &&
                             deletePaymentMutation.variables === payment.id
                           }
-                          className="border-red-500/20 bg-red-500/8 text-red-100 hover:bg-red-500/15 disabled:opacity-60"
+                          className="border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-60"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           {deletePaymentMutation.isPending &&
@@ -539,17 +539,17 @@ export default function PaymentsPage() {
             </table>
           </div>
 
-          <div className="flex items-center justify-between text-sm text-zinc-400">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
             <div>
               Total encontrados:{" "}
-              <span className="font-medium text-zinc-100">{total}</span>
+              <span className="font-medium text-foreground">{total}</span>
             </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 disabled={offset === 0 || isFetching}
                 onClick={() => setOffset(Math.max(0, offset - limit))}
-                className="border-amber-200/10 hover:bg-white/[0.08]"
+                className={outlineButtonClass}
               >
                 Anterior
               </Button>
@@ -557,7 +557,7 @@ export default function PaymentsPage() {
                 variant="outline"
                 disabled={offset + limit >= total || isFetching}
                 onClick={() => setOffset(offset + limit)}
-                className="border-amber-200/10 hover:bg-white/[0.08]"
+                className={outlineButtonClass}
               >
                 Siguiente
               </Button>

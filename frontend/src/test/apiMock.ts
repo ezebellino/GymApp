@@ -63,6 +63,7 @@ export function createApiMock(overrides: Record<string, unknown> = {}) {
     get: vi.fn((url: string) => Promise.resolve(respond(url, overrides))),
     post: vi.fn((url: string) => Promise.resolve(respond(url, overrides))),
     put: vi.fn((url: string) => Promise.resolve(respond(url, overrides))),
+    patch: vi.fn((url: string) => Promise.resolve(respond(url, overrides))),
     delete: vi.fn((url: string) => Promise.resolve(respond(url, overrides))),
     interceptors: {
       request: { use: vi.fn() },

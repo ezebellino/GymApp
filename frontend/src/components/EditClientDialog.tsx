@@ -131,29 +131,29 @@ export default function EditClientDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-amber-200/10 bg-[#0d0b0a]/95 text-zinc-100 shadow-[0_30px_80px_-40px_rgba(249,115,22,0.55)]">
+      <DialogContent className="border-border bg-surface-1 text-foreground">
         <DialogHeader>
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-amber-100">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary">
             <ShieldCheck className="h-3.5 w-3.5" />
             Ficha operativa
           </div>
-          <DialogTitle className="pt-3 text-2xl font-semibold text-zinc-50">
+          <DialogTitle className="pt-3 text-2xl font-semibold text-foreground">
             Editar cliente
           </DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription className="text-muted-foreground">
             Actualiza la informacion basica del cliente y su estado operativo.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          <div className="rounded-[24px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.08),rgba(255,247,237,0.03)_48%,rgba(249,115,22,0.1))] p-4">
+          <div className="rounded-xl border border-border bg-surface-2/30 p-4">
             <div className="flex items-start gap-3">
-              <div className="rounded-2xl bg-white/6 p-3 text-amber-100">
+              <div className="rounded-full bg-primary/15 p-3 text-primary">
                 <UserRound className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-medium text-zinc-100">{client.full_name}</p>
-                <p className="mt-1 text-sm leading-6 text-zinc-400">
+                <p className="text-sm font-medium text-foreground">{client.full_name}</p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
                   Ajusta sus datos de contacto y define si sigue disponible para cobros,
                   asistencia y seguimiento diario.
                 </p>
@@ -162,9 +162,8 @@ export default function EditClientDialog({
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm text-zinc-400">Nombre completo</label>
+            <label className="text-sm text-muted-foreground">Nombre completo</label>
             <Input
-              className="border-white/10 bg-zinc-900/70"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Nombre y apellido"
@@ -173,12 +172,11 @@ export default function EditClientDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
-              <label className="flex items-center gap-2 text-sm text-zinc-400">
-                <Mail className="h-4 w-4 text-zinc-500" />
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Mail className="h-4 w-4 text-muted-foreground" />
                 Email
               </label>
               <Input
-                className="border-white/10 bg-zinc-900/70"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -186,12 +184,11 @@ export default function EditClientDialog({
               />
             </div>
             <div className="space-y-1">
-              <label className="flex items-center gap-2 text-sm text-zinc-400">
-                <Phone className="h-4 w-4 text-zinc-500" />
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Phone className="h-4 w-4 text-muted-foreground" />
                 Telefono
               </label>
               <Input
-                className="border-white/10 bg-zinc-900/70"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="11 5555 5555"
@@ -199,10 +196,10 @@ export default function EditClientDialog({
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+          <div className="flex items-center justify-between rounded-xl border border-border bg-surface-2/20 p-4">
             <div className="text-sm">
-              <div className="font-medium text-zinc-200">Estado del cliente</div>
-              <div className="mt-1 text-zinc-400">
+              <div className="font-medium text-foreground">Estado del cliente</div>
+              <div className="mt-1 text-muted-foreground">
                 {isActive
                   ? "Activo para operar en cobros y asistencias."
                   : "Inactivo, util para seguimiento o baja temporal."}
@@ -211,35 +208,28 @@ export default function EditClientDialog({
             <Switch checked={isActive} onCheckedChange={setIsActive} />
           </div>
 
-          <div className="space-y-3 rounded-[24px] border border-amber-200/10 bg-white/[0.03] p-4">
-            <p className="text-sm font-medium text-zinc-200">Acceso del cliente (vista USER)</p>
+          <div className="space-y-3 rounded-xl border border-border bg-surface-2/20 p-4">
+            <p className="text-sm font-medium text-foreground">Acceso del cliente (vista USER)</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Input
-                className="border-white/10 bg-zinc-900/70"
                 type="email"
                 value={portalEmail}
                 onChange={(e) => setPortalEmail(e.target.value)}
                 placeholder="cliente@login.com"
               />
               <Input
-                className="border-white/10 bg-zinc-900/70"
                 type="password"
                 value={portalPassword}
                 onChange={(e) => setPortalPassword(e.target.value)}
                 placeholder="Contraseña (mínimo 6)"
               />
             </div>
-            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-900/40 p-3">
-              <p className="text-xs text-zinc-400">Habilitar cuenta para login del cliente</p>
+            <div className="flex items-center justify-between rounded-xl border border-border bg-surface-2/40 p-3">
+              <p className="text-xs text-muted-foreground">Habilitar cuenta para login del cliente</p>
               <Switch checked={portalActive} onCheckedChange={setPortalActive} />
             </div>
             <div className="flex justify-end">
-              <Button
-                type="button"
-                onClick={savePortalAccess}
-                disabled={savingPortal}
-                className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
-              >
+              <Button type="button" onClick={savePortalAccess} disabled={savingPortal}>
                 {savingPortal ? "Guardando acceso..." : "Guardar acceso USER"}
               </Button>
             </div>
@@ -247,19 +237,10 @@ export default function EditClientDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            className="border-white/10 bg-transparent"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>
-          <Button
-            className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
-            onClick={save}
-            disabled={saving || !fullName.trim()}
-          >
+          <Button onClick={save} disabled={saving || !fullName.trim()}>
             {saving ? "Guardando..." : "Guardar cambios"}
           </Button>
         </DialogFooter>

@@ -1,8 +1,9 @@
 ## Purpose
 
 Vista de Ajustes (`/settings`): formularios editables de configuración del negocio (identidad,
-cobranza, recordatorio, tema visual) acompañados de una columna de previsualización con acciones
-reales, sin cards puramente informativas/redundantes.
+cobranza, recordatorio) acompañados de una columna de previsualización con acciones reales, sin
+cards puramente informativas/redundantes. El tema visual ya no es parte de esta vista (se movió al
+shell autenticado, ver capability `app-shell`).
 
 ## Requirements
 
@@ -16,9 +17,8 @@ operativa", "Recordatorio mensual") y la card lateral "Contexto operativo" del h
 - **THEN** no ve las 3 InfoCard ni la card "Contexto operativo" junto al título
 
 ### Requirement: Cards de previsualización con acción real
-Las cards de la columna derecha de Ajustes ("Vista previa del negocio", "Tema visual", "Resumen
-rápido") SHALL incluir al menos un link o botón de acción cada una, en vez de ser solo texto
-estático.
+Las cards de la columna derecha de Ajustes ("Vista previa del negocio", "Resumen rápido") SHALL
+incluir al menos un link o botón de acción cada una, en vez de ser solo texto estático.
 
 #### Scenario: Preview del negocio con acción
 - **WHEN** el usuario ve la card "Vista previa del negocio"
@@ -32,8 +32,8 @@ estático.
   correspondiente del formulario
 
 ### Requirement: Formularios de Ajustes sin cambios funcionales
-La edición y guardado de la configuración del negocio (identidad, cobranza, recordatorio,
-tema visual) SHALL seguir funcionando igual que antes de este cambio.
+La edición y guardado de la configuración del negocio (identidad, cobranza, recordatorio) SHALL
+seguir funcionando igual que antes de este cambio.
 
 #### Scenario: Guardar cambios
 - **WHEN** el Dueño edita un campo y hace click en "Guardar cambios"

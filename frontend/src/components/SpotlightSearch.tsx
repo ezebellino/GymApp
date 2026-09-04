@@ -106,22 +106,22 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
             type="button"
             aria-label="Cerrar buscador"
             onClick={closeAll}
-            className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,rgba(250,204,21,0.12),transparent_35%),rgba(3,3,3,0.78)] backdrop-blur-sm"
+            className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,color-mix(in_srgb,var(--primary)_12%,transparent),transparent_35%),color-mix(in_srgb,var(--canvas)_78%,transparent)] backdrop-blur-sm"
           />
 
           <div className="relative z-10 mx-auto flex h-full w-full max-w-4xl items-start justify-center px-4 pb-6 pt-20 md:pt-24">
-            <Command className="surface-panel warm-glow relative z-20 w-full overflow-hidden rounded-[30px] border border-amber-200/10 bg-[#0c0b0a]/95">
-              <div className="flex items-center justify-between border-b border-white/8 px-5 py-3">
+            <Command className="surface-panel warm-glow relative z-20 w-full overflow-hidden rounded-xl border border-border bg-surface-1">
+              <div className="flex items-center justify-between border-b border-border px-5 py-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
+                  <p className="text-label-caps uppercase text-muted-foreground">
                     Busqueda rapida
                   </p>
-                  <p className="mt-1 text-sm text-zinc-300">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Clientes, pagos e historial en un solo lugar
                   </p>
                 </div>
-                <div className="hidden items-center gap-2 rounded-full border border-amber-200/10 bg-white/4 px-3 py-1 text-xs text-zinc-400 md:flex">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-200" />
+                <div className="hidden items-center gap-2 rounded-full border border-border bg-surface-2/40 px-3 py-1 text-xs text-muted-foreground md:flex">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
                   ESC para cerrar
                 </div>
               </div>
@@ -131,7 +131,7 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
                 placeholder="Buscar clientes por nombre, email o telefono..."
                 value={query}
                 onValueChange={setQuery}
-                className="text-base text-zinc-100 placeholder:text-zinc-500"
+                className="text-base text-foreground placeholder:text-muted-foreground"
               />
 
               <CommandList className="warm-scrollbar max-h-[380px] px-2 pb-2">
@@ -141,7 +141,7 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
                     <CommandItem
                       key={client.id}
                       value={client.full_name}
-                      className="rounded-2xl border border-transparent px-3 py-3 text-zinc-100 data-[selected=true]:border-amber-200/10 data-[selected=true]:bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.04),rgba(249,115,22,0.1))] data-[selected=true]:text-zinc-50"
+                      className="rounded-xl border border-transparent px-3 py-3 text-foreground data-[selected=true]:border-primary/30 data-[selected=true]:bg-primary/10 data-[selected=true]:text-foreground"
                       onSelect={() => {
                         setSelected(client);
                         onOpenChange(false);
@@ -150,12 +150,12 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
                       <div className="flex w-full items-center justify-between gap-3">
                         <div className="truncate">
                           <div className="font-medium">{client.full_name}</div>
-                          <div className="text-xs text-zinc-400">
+                          <div className="text-xs text-muted-foreground">
                             {client.phone ?? "-"} • {client.email ?? "-"}
                           </div>
                         </div>
-                        <div className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-xs text-zinc-300">
-                          <Search className="h-3.5 w-3.5 text-amber-200" />
+                        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2/40 px-2.5 py-1 text-xs text-muted-foreground">
+                          <Search className="h-3.5 w-3.5 text-primary" />
                           {stats[client.id]?.attendanceCount ?? 0} asis.
                         </div>
                       </div>
@@ -176,11 +176,11 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
           }
         }}
       >
-        <DrawerContent className="flex h-[92vh] flex-col border-zinc-800 bg-zinc-950">
+        <DrawerContent className="flex h-[92vh] flex-col border-border bg-canvas">
           <div className="warm-scrollbar mx-auto w-full max-w-4xl flex-1 overflow-y-auto p-4">
             <DrawerHeader>
               <DrawerTitle className="text-xl">Ficha del cliente</DrawerTitle>
-              <DrawerDescription className="text-zinc-400">
+              <DrawerDescription className="text-muted-foreground">
                 Vista {viewerRole === "owner" ? "completa (Dueño)" : "para Coach"}.
               </DrawerDescription>
             </DrawerHeader>
@@ -205,11 +205,7 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
 
                 <div className="mt-4 flex justify-end">
                   <DrawerClose asChild>
-                    <Button
-                      variant="outline"
-                      className="border-zinc-700 text-gray-100 hover:bg-zinc-800"
-                      onClick={closeAll}
-                    >
+                    <Button variant="outline" onClick={closeAll}>
                       Cerrar
                     </Button>
                   </DrawerClose>

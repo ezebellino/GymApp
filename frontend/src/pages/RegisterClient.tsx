@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, UserPlus } from "lucide-react";
 import api from "@/lib/http";
 import { useSessionStore } from "@/stores/session";
+import { useThemeStore } from "@/stores/theme";
+import { normalizeThemeMode } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { alertError } from "@/lib/alerts";
@@ -12,6 +14,7 @@ type TokenResp = { access_token: string; token_type: string };
 export default function RegisterClient() {
   const navigate = useNavigate();
   const setSession = useSessionStore((s) => s.setSession);
+  const setThemeMode = useThemeStore((s) => s.setMode);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -44,17 +47,21 @@ export default function RegisterClient() {
           full_name: string;
           email: string;
           role: string;
+          theme_preference?: string | null;
         }>("/auth/me", {
           headers: { Authorization: `Bearer ${data.access_token}` },
         });
         setSession(data.access_token, {
           name: me.full_name ?? me.email ?? "Usuario",
           role: (me.role ?? "user") as "owner" | "coach" | "user",
+          email: me.email,
         });
+        setThemeMode(normalizeThemeMode(me.theme_preference));
       } catch {
         // El registro de cliente siempre resuelve rol "user": no depende del
         // payload del JWT (a diferencia de Login, acá no hace falta el rol
-        // que trae el token).
+        // que trae el token). Sin `/auth/me`, el modo queda en lo que ya haya
+        // en la caché local (dec. 5.3).
         setSession(data.access_token, { role: "user" });
       }
 
@@ -75,7 +82,7 @@ export default function RegisterClient() {
         <button
           type="button"
           onClick={() => navigate("/login")}
-          className="mb-6 inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200"
+          className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           Volver al login
@@ -83,15 +90,15 @@ export default function RegisterClient() {
 
         <form
           onSubmit={onSubmit}
-          className="rounded-4xl border border-amber-200/10 bg-zinc-900/95 p-8 sm:p-10"
+          className="rounded-4xl border border-border bg-surface-1/95 p-8 sm:p-10"
         >
           <div className="flex items-center gap-3">
             <img
               src="/mini-espacio-logo.svg"
               alt="Gym App"
-              className="h-12 w-12 rounded-full object-cover ring-1 ring-white/10"
+              className="h-12 w-12 rounded-full object-cover ring-1 ring-border"
             />
-            <p className="text-lg font-semibold tracking-tight text-zinc-50">Gym App</p>
+            <p className="text-lg font-semibold tracking-tight text-foreground">Gym App</p>
           </div>
 
           <div className="mt-8 space-y-4">
@@ -100,7 +107,7 @@ export default function RegisterClient() {
               onChange={(e) => setFullName(e.target.value)}
               required
               placeholder="Nombre y apellido"
-              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
+              className="h-12 border-border bg-surface-1/70 focus-visible:border-ring/50 focus-visible:ring-ring/30"
             />
             <Input
               type="email"
@@ -108,13 +115,13 @@ export default function RegisterClient() {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="Email"
-              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
+              className="h-12 border-border bg-surface-1/70 focus-visible:border-ring/50 focus-visible:ring-ring/30"
             />
             <Input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="Teléfono (opcional)"
-              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
+              className="h-12 border-border bg-surface-1/70 focus-visible:border-ring/50 focus-visible:ring-ring/30"
             />
             <Input
               type="password"
@@ -123,7 +130,7 @@ export default function RegisterClient() {
               required
               minLength={6}
               placeholder="Contraseña (mínimo 6)"
-              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
+              className="h-12 border-border bg-surface-1/70 focus-visible:border-ring/50 focus-visible:ring-ring/30"
             />
             <Input
               type="password"
@@ -132,12 +139,12 @@ export default function RegisterClient() {
               required
               minLength={6}
               placeholder="Repetir contraseña"
-              className="h-12 border-amber-200/10 bg-zinc-900/70 focus-visible:border-amber-400/50 focus-visible:ring-amber-400/30"
+              className="h-12 border-border bg-surface-1/70 focus-visible:border-ring/50 focus-visible:ring-ring/30"
             />
           </div>
 
           <Button
-            className="mt-8 h-12 w-full gap-2 border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
+            className="mt-8 h-12 w-full gap-2 border border-border bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-95"
             disabled={loading}
             type="submit"
           >
