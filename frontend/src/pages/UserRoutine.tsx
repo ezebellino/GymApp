@@ -169,7 +169,7 @@ export default function UserRoutine() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="space-y-6">
       <section className="rounded-[28px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_48%,rgba(249,115,22,0.12))] p-6 shadow-[0_20px_80px_-40px_rgba(249,115,22,0.42)]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>

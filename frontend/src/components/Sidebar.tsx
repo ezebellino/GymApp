@@ -1,12 +1,10 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
   BarChart3,
   CalendarCheck2,
   CreditCard,
   Dumbbell,
   LayoutDashboard,
-  Plus,
-  Search,
   Settings,
   Users,
 } from "lucide-react";
@@ -17,7 +15,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
 import { useSessionStore } from "@/stores/session";
 
 type NavItem = {
@@ -44,7 +41,6 @@ function roleLabel(role: string) {
 }
 
 export default function Sidebar() {
-  const navigate = useNavigate();
   const role = useSessionStore((s) => s.role) ?? "coach";
   const allowed = items.filter((item) => {
     if (role === "user") return item.to === "/my-routine";
@@ -54,7 +50,7 @@ export default function Sidebar() {
   });
 
   return (
-    <aside className="warm-scrollbar fixed left-0 top-14 z-40 hidden h-[calc(100vh-3.5rem)] w-64 flex-col overflow-y-auto border-r border-amber-200/10 bg-[#0d0b0a]/84 backdrop-blur-xl lg:flex">
+    <aside className="subtle-scrollbar fixed left-0 top-14 z-40 hidden h-[calc(100vh-3.5rem)] w-64 flex-col overflow-y-auto border-r border-amber-200/10 bg-[#0d0b0a]/84 backdrop-blur-xl lg:flex">
       <TooltipProvider delayDuration={80}>
         <nav className="space-y-4 p-4">
           <section className="rounded-2xl border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(255,247,237,0.03),rgba(249,115,22,0.12))] p-4 shadow-[0_20px_60px_-40px_rgba(249,115,22,0.55)]">
@@ -107,48 +103,6 @@ export default function Sidebar() {
         </nav>
 
         <div className="space-y-4 px-4 pb-6">
-          <section className="rounded-2xl border border-amber-200/10 bg-white/[0.035] p-4">
-            <div className="mb-3">
-              <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
-                Atajos
-              </p>
-              <p className="mt-1 text-sm text-zinc-300">
-                Acciones de operación diaria
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Button
-                variant="outline"
-                onClick={() => navigate(role === "user" ? "/my-routine" : "/routines")}
-                className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
-              >
-                <Dumbbell className="h-4 w-4" />
-                {role === "user" ? "Mi rutina" : "Ir a rutinas"}
-              </Button>
-              {role !== "user" && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate("/clients")}
-                    className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Gestionar clientes
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate("/attendance")}
-                    className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
-                  >
-                    <Search className="h-4 w-4" />
-                    Buscar y seguir
-                  </Button>
-                </>
-              )}
-            </div>
-          </section>
-
           <section className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(180deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03),rgba(249,115,22,0.12))] p-4">
             <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-600">
               Contexto

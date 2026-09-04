@@ -124,6 +124,18 @@ npm run lint            # eslint (dentro de frontend/)
   una vista nueva.
 - **Estilos**: Tailwind v4 (config vía `@tailwindcss/vite`, sin `tailwind.config.js` clásico si
   no existe — confirmar antes de asumir). Evitar CSS inline salvo casos puntuales.
+- **Layout del shell autenticado**: el contenedor de contenido (gutter horizontal, gutter
+  vertical y ancho máximo) vive en un único lugar, `App.jsx` (el `<div className="mx-auto w-full
+  max-w-7xl px-4 py-6 sm:px-6 lg:px-8">` que envuelve el `<Suspense>` de las rutas con sidebar).
+  Una vista nueva bajo ese shell **no necesita padding propio**: su wrapper raíz va con
+  `space-y-*` y nada más. No dupliques `mx-auto max-w-* px-* py-*` en el wrapper de una página.
+- **Tokens de shadcn sin `@theme`**: `index.css` no tiene un bloque `@theme` (Tailwind v4), así
+  que las utilidades que shadcn asume que existen (`border-input`, `ring-ring`,
+  `text-muted-foreground`, `dark:bg-input/30`, `text-foreground`, etc.) **no generan CSS** hoy en
+  `src/components/ui/**` — son no-ops silenciosos. Si necesitás un color explícito en un
+  componente de `ui/`, usá una clase concreta de Tailwind (p. ej. `text-zinc-100`), no el token.
+  Agregar el bloque `@theme` para revivirlos es un change propio, con blast radius sobre todos los
+  componentes de `ui/`.
 - **Tipado**: el proyecto está en transición a TypeScript. Los archivos nuevos de lógica no
   trivial preferí `.tsx`/`.ts`; páginas simples pueden seguir en `.jsx` si el resto del módulo lo
   está.
@@ -162,4 +174,5 @@ npm run lint            # eslint (dentro de frontend/)
     test se cuelga hasta el timeout, y jsdom puede disparar refetches después del `cleanup()`.
     Acepta un `queryClient` propio por parámetro para tests que lo necesiten.
   - Cobertura actual: un test de render por cada vista con spec (`Login`, `RegisterClient`,
-    `Dashboard`, `Settings`). No hay tests de interacción ni E2E.
+    `Dashboard`, `Settings`), más `Sidebar` (accesos ocultos y bloque Contexto por rol). No hay
+    tests de interacción ni E2E.

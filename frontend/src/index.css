@@ -3,6 +3,10 @@
 
 @layer base {
   :root {
+    /* App dark-only en sus tres temas: le decimos al UA que pinte sus propios
+       controles (autofill, popup de <select>, ícono de input[type=date],
+       scrollbars) con la paleta oscura en vez de la clara por defecto. */
+    color-scheme: dark;
     --background: oklch(0.16 0.01 70);
     --foreground: oklch(0.96 0.01 80);
     --theme-accent-start: 250 204 21;
@@ -94,6 +98,22 @@ input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--foreground) !important;
+  caret-color: var(--foreground);
+  -webkit-box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset !important;
+  box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset !important;
+  background-color: transparent !important;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Misma regla que arriba, en bloque separado para el selector estándar
+   `:autofill`. Si se agrega a la misma lista que `:-webkit-autofill`, un
+   motor que no soporte alguno de los dos selectores descarta la regla
+   entera y se pierde el fix para ambos. */
+input:autofill,
+input:autofill:hover,
+input:autofill:focus,
+input:autofill:active {
   -webkit-text-fill-color: var(--foreground) !important;
   caret-color: var(--foreground);
   -webkit-box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset !important;
@@ -198,6 +218,9 @@ input:-webkit-autofill:active {
     );
   }
 
+  /* Scrollbar de superficies de CONTENIDO (SpotlightSearch.tsx, Reports.tsx).
+     Las superficies de NAVEGACIÓN (el <aside> del Sidebar) usan
+     `.subtle-scrollbar`, más discreta. */
   .warm-scrollbar {
     scrollbar-color: rgba(var(--theme-accent-start), 0.5) rgba(255, 255, 255, 0.05);
     scrollbar-width: thin;
@@ -221,6 +244,28 @@ input:-webkit-autofill:active {
       rgba(var(--theme-accent-end), 0.75)
     );
     border: 2px solid rgba(12, 11, 10, 0.72);
+    border-radius: 9999px;
+  }
+
+  /* Scrollbar discreta para superficies de navegación (el <aside> del
+     Sidebar): bajo contraste, sin gradiente ni borde, a diferencia de
+     `.warm-scrollbar`. */
+  .subtle-scrollbar {
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+    scrollbar-width: thin;
+  }
+
+  .subtle-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .subtle-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .subtle-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
     border-radius: 9999px;
   }
 }
