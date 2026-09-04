@@ -15,49 +15,17 @@ import { Badge } from "@/components/ui/badge";
 import api from "@/lib/http";
 import { useLocation } from "react-router-dom";
 import { alertInfo, alertSuccessAutoClose, confirmAction } from "@/lib/alerts";
-import type { AppSettings } from "@/types";
-
-type PaymentClient = {
-  id: string;
-  full_name: string;
-  email?: string | null;
-  phone?: string | null;
-  is_active?: boolean;
-};
-
-type Payment = {
-  id: string;
-  client_id: string;
-  client?: PaymentClient | null;
-  amount: number;
-  method: "cash" | "transfer" | string | null;
-  note?: string | null;
-  period_month: number;
-  period_year: number;
-  created_at: string;
-};
-
-const DEFAULT_SETTINGS: AppSettings = {
-  gym_name: "Mini Espacio",
-  admin_name: "Fabian Aguirre (Manga)",
-  theme_preference: "dark-gold",
-  currency: "ARS",
-  default_fee: 30000,
-  address: "",
-  contact_email: "",
-  contact_phone: "",
-  whatsapp_phone: "",
-  business_hours: "",
-  payment_alias: "MINI.ESPACIO.GYM",
-  payment_notes: "",
-  payment_reminder_message:
-    "Hola {client_name}, te recordamos con cariño la cuota mensual de {gym_name}. El valor actual es {amount} y contamos con {grace_days} días de tolerancia para abonarla. Podés transferir al alias {payment_alias}. Si ya pagaste, podés ignorar este mensaje. ¡Gracias!",
-  payment_reminder_last_sent_at: null,
-  late_fee_grace_days: 5,
-  allow_cash: true,
-  allow_transfer: true,
-  onboarding_message: "",
-};
+import type { AppSettings, Client, Payment } from "@/types";
+import { DEFAULT_SETTINGS, useSettingsStore } from "@/stores/settings";
+import { useClientsQuery } from "@/services/clients.queries";
+import {
+  usePaymentsQuery,
+  useDeletePaymentMutation,
+} from "@/services/payments.queries";
+import { getPendingClients } from "@/services/payments";
+import type { PaymentsParams } from "@/services/payments";
+import DataError from "@/components/DataError";
+import { cn } from "@/lib/utils";
 
 const nfARS = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -69,6 +37,24 @@ const isUUID = (str: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     str
   );
+
+type PaymentsFilter = Pick<PaymentsParams, "q" | "client_id">;
+
+function filterFromSearch(search: string): { filter: PaymentsFilter; displayQuery: string } {
+  const sp = new URLSearchParams(search);
+  const clientIdQS = sp.get("client_id") || sp.get("clientId") || "";
+  const qQS = sp.get("q") || "";
+  const clientNameQS = sp.get("client_name");
+
+  const displayQuery = clientNameQS || clientIdQS || qQS || "";
+  const filter: PaymentsFilter = clientIdQS
+    ? { client_id: clientIdQS }
+    : qQS
+      ? { q: qQS }
+      : {};
+
+  return { filter, displayQuery };
+}
 
 function StatCard({
   label,
@@ -101,138 +87,67 @@ function StatCard({
 
 export default function PaymentsPage() {
   const location = useLocation();
-  const [q, setQ] = useState<string>("");
-  const [items, setItems] = useState<Payment[]>([]);
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [pendingClients, setPendingClients] = useState<PaymentClient[]>([]);
-  const [total, setTotal] = useState(0);
+  // Lazy initializers: derivan el filtro inicial de `location.search` de forma
+  // síncrona (deep-links como /payments?client_id=X, p. ej. desde `UserCard`)
+  // en vez de arrancar con `{}` y corregir recién en el `useEffect` de abajo,
+  // que dejaba a `usePaymentsQuery` montarse un instante con el filtro vacío.
+  const [q, setQ] = useState<string>(() => filterFromSearch(location.search).displayQuery);
+  const [filter, setFilter] = useState<PaymentsFilter>(
+    () => filterFromSearch(location.search).filter
+  );
+  const settings = useSettingsStore((s) => s.settings);
+  const setSettings = useSettingsStore((s) => s.setSettings);
   const [limit] = useState(20);
   const [offset, setOffset] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
   const [sendingReminders, setSendingReminders] = useState(false);
   const [showReminderPreview, setShowReminderPreview] = useState(false);
 
-  async function loadReminderTargets() {
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
-
-    const [clientsResp, paymentsResp] = await Promise.all([
-      api.get<PaymentClient[]>("/clients", { params: { limit: 200, offset: 0 } }),
-      api.get<Payment[]>("/payments", { params: { limit: 200, offset: 0 } }),
-    ]);
-
-    const paidClientIds = new Set(
-      (paymentsResp.data || [])
-        .filter((payment) => payment.period_month === month && payment.period_year === year)
-        .map((payment) => payment.client_id)
-    );
-
-    const clients = clientsResp.data || [];
-    setPendingClients(
-      clients.filter(
-        (client) =>
-          client.is_active !== false &&
-          !!client.phone &&
-          !paidClientIds.has(client.id)
-      )
-    );
-  }
-
-  async function loadWith(paramsIn: {
-    q?: string;
-    client_id?: string;
-    limit?: number;
-    offset?: number;
-  }) {
-    setLoading(true);
-    try {
-      const params: Record<string, unknown> = { limit, offset, ...paramsIn };
-      const { data, headers } = await api.get<Payment[]>("/payments", { params });
-      setItems(data);
-      const totalHeader =
-        (headers["x-total-count"] as string) ??
-        ((headers["X-Total-Count"] as unknown) as string);
-      setTotal(totalHeader ? Number(totalHeader) : data.length);
-      await loadReminderTargets();
-    } finally {
-      setLoading(false);
-    }
-  }
-
+  // El efecto solo calcula params a partir de la URL (client_id / q); el
+  // fetch lo dispara `usePaymentsQuery` solo cuando `filter`/`offset` cambian.
   useEffect(() => {
-    const raw = localStorage.getItem("app_settings");
-    if (raw) {
-      try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
-      } catch {
-        setSettings(DEFAULT_SETTINGS);
-      }
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const { data } = await api.get<AppSettings>("/settings");
-        if (!cancelled) {
-          const next = { ...DEFAULT_SETTINGS, ...data };
-          setSettings(next);
-          localStorage.setItem("app_settings", JSON.stringify(next));
-        }
-      } catch {
-        // Keep local fallback
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    const sp = new URLSearchParams(location.search);
-    const clientIdQS = sp.get("client_id") || sp.get("clientId") || "";
-    const qQS = sp.get("q") || "";
-    const clientNameQS = sp.get("client_name");
-
-    if (clientNameQS) setQ(clientNameQS);
-    else if (clientIdQS) setQ(clientIdQS);
-    else if (qQS) setQ(qQS);
-    else setQ("");
-
-    if (clientIdQS) {
-      loadWith({ client_id: clientIdQS, limit, offset: 0 });
-      setOffset(0);
-    } else if (qQS) {
-      loadWith({ q: qQS, limit, offset: 0 });
-      setOffset(0);
-    } else {
-      loadWith({ limit, offset: 0 });
-      setOffset(0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const { filter: nextFilter, displayQuery } = filterFromSearch(location.search);
+    setQ(displayQuery);
+    setFilter(nextFilter);
+    setOffset(0);
   }, [location.search]);
+
+  const {
+    data,
+    isPending,
+    isFetching,
+    isPlaceholderData,
+    isError,
+    refetch,
+  } = usePaymentsQuery({ ...filter, limit, offset });
+
+  // Recordatorios: derivados puros de dos queries compartidas con el
+  // Dashboard (dec. 6), en vez de un `useState` propio poblado a mano.
+  const reminderPeriod = useMemo(() => {
+    const now = new Date();
+    return { month: now.getMonth() + 1, year: now.getFullYear() };
+  }, []);
+  const clientsForReminders = useClientsQuery({ limit: 200 });
+  const paymentsForReminders = usePaymentsQuery({ limit: 200 });
+  const pendingClients = useMemo<Client[]>(() => {
+    const clients = clientsForReminders.data?.items ?? [];
+    const payments = paymentsForReminders.data?.items ?? [];
+    return getPendingClients(clients, payments, reminderPeriod).filter(
+      (client) => !!client.phone
+    );
+  }, [clientsForReminders.data, paymentsForReminders.data, reminderPeriod]);
+
+  const deletePaymentMutation = useDeletePaymentMutation();
 
   const onSearch = () => {
     const trimmed = q.trim();
     setOffset(0);
-    if (!trimmed) return loadWith({ limit, offset: 0 });
-    if (isUUID(trimmed)) return loadWith({ client_id: trimmed, limit, offset: 0 });
-    return loadWith({ q: trimmed, limit, offset: 0 });
+    if (!trimmed) setFilter({});
+    else if (isUUID(trimmed)) setFilter({ client_id: trimmed });
+    else setFilter({ q: trimmed });
   };
 
-  useEffect(() => {
-    if (offset === 0) return;
-    const trimmed = q.trim();
-    if (!trimmed) loadWith({ limit, offset });
-    else if (isUUID(trimmed)) loadWith({ client_id: trimmed, limit, offset });
-    else loadWith({ q: trimmed, limit, offset });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offset]);
-
-  const rows = useMemo(() => items, [items]);
+  const rows = data?.items ?? [];
+  const total = data?.total ?? 0;
   const totalAmount = rows.reduce((sum, payment) => sum + payment.amount, 0);
   const cashCount = rows.filter((payment) => payment.method === "cash").length;
   const transferCount = rows.filter(
@@ -240,7 +155,7 @@ export default function PaymentsPage() {
   ).length;
   const reminderTargetsCount = pendingClients.length;
 
-  function buildReminderMessage(client: PaymentClient) {
+  function buildReminderMessage(client: Client) {
     const template =
       settings.payment_reminder_message || DEFAULT_SETTINGS.payment_reminder_message || "";
     return template
@@ -251,7 +166,7 @@ export default function PaymentsPage() {
       .replaceAll("{payment_alias}", settings.payment_alias || "no definido");
   }
 
-  function buildReminderLink(client: PaymentClient) {
+  function buildReminderLink(client: Client) {
     const digits = (client.phone || "").replace(/\D/g, "");
     const normalizedPhone = digits.startsWith("54") ? digits : `54${digits}`;
     const message = encodeURIComponent(buildReminderMessage(client));
@@ -283,22 +198,13 @@ export default function PaymentsPage() {
         }, index * 220);
       });
 
-      const nextSettings = {
-        ...settings,
-        payment_reminder_last_sent_at: sentAt,
-      };
-      setSettings(nextSettings);
-      localStorage.setItem("app_settings", JSON.stringify(nextSettings));
-      window.dispatchEvent(new Event("app-settings:updated"));
+      setSettings({ payment_reminder_last_sent_at: sentAt });
 
       try {
         const { data } = await api.patch<AppSettings>("/settings", {
           payment_reminder_last_sent_at: sentAt,
         });
-        const syncedSettings = { ...DEFAULT_SETTINGS, ...data };
-        setSettings(syncedSettings);
-        localStorage.setItem("app_settings", JSON.stringify(syncedSettings));
-        window.dispatchEvent(new Event("app-settings:updated"));
+        setSettings(data);
       } catch {
         // keep local trace if backend update is unavailable
       }
@@ -324,14 +230,8 @@ export default function PaymentsPage() {
 
     if (!result.isConfirmed) return;
 
-    setDeletingPaymentId(payment.id);
     try {
-      await api.delete(`/payments/${payment.id}`);
-
-      const trimmed = q.trim();
-      if (!trimmed) await loadWith({ limit, offset });
-      else if (isUUID(trimmed)) await loadWith({ client_id: trimmed, limit, offset });
-      else await loadWith({ q: trimmed, limit, offset });
+      await deletePaymentMutation.mutateAsync(payment.id);
 
       await alertSuccessAutoClose(
         "Pago dado de baja",
@@ -344,8 +244,6 @@ export default function PaymentsPage() {
         "No se pudo eliminar el pago",
         "Revisa permisos o intenta nuevamente en unos segundos."
       );
-    } finally {
-      setDeletingPaymentId(null);
     }
   }
 
@@ -437,11 +335,11 @@ export default function PaymentsPage() {
               </div>
               <Button
                 onClick={onSearch}
-                disabled={loading}
+                disabled={isFetching}
                 className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
                 variant="outline"
               >
-                {loading ? "Buscando..." : "Buscar"}
+                {isFetching ? "Buscando..." : "Buscar"}
               </Button>
             </div>
 
@@ -466,7 +364,7 @@ export default function PaymentsPage() {
               </Button>
               <Button
                 variant="outline"
-                disabled={offset === 0 || loading}
+                disabled={offset === 0 || isFetching}
                 onClick={() => setOffset(Math.max(0, offset - limit))}
                 className="border-amber-200/10 hover:bg-white/[0.08]"
               >
@@ -474,7 +372,7 @@ export default function PaymentsPage() {
               </Button>
               <Button
                 variant="outline"
-                disabled={offset + limit >= total || loading}
+                disabled={offset + limit >= total || isFetching}
                 onClick={() => setOffset(offset + limit)}
                 className="border-amber-200/10 hover:bg-white/[0.08]"
               >
@@ -517,7 +415,12 @@ export default function PaymentsPage() {
             </div>
           )}
 
-          <div className="overflow-hidden rounded-2xl border border-amber-200/10">
+          <div
+            className={cn(
+              "overflow-hidden rounded-2xl border border-amber-200/10",
+              isFetching && isPlaceholderData && "opacity-60 transition-opacity"
+            )}
+          >
             <table className="w-full text-sm">
               <thead className="bg-zinc-900/70">
                 <tr className="text-zinc-300">
@@ -530,7 +433,7 @@ export default function PaymentsPage() {
                 </tr>
               </thead>
               <tbody className="bg-zinc-950/40">
-                {loading && (
+                {isPending && (
                   <tr>
                     <td colSpan={6} className="p-8 text-center">
                       <div className="inline-flex items-center gap-2 text-zinc-400">
@@ -541,7 +444,19 @@ export default function PaymentsPage() {
                   </tr>
                 )}
 
-                {!loading && rows.length === 0 && (
+                {!isPending && isError && (
+                  <tr>
+                    <td colSpan={6} className="p-0">
+                      <DataError
+                        title="No se pudieron cargar los pagos"
+                        description="Intenta nuevamente en unos segundos."
+                        onRetry={() => refetch()}
+                      />
+                    </td>
+                  </tr>
+                )}
+
+                {!isPending && !isError && rows.length === 0 && (
                   <tr>
                     <td colSpan={6} className="p-8 text-center text-zinc-400">
                       No hay pagos para los filtros actuales.
@@ -549,7 +464,8 @@ export default function PaymentsPage() {
                   </tr>
                 )}
 
-                {!loading &&
+                {!isPending &&
+                  !isError &&
                   rows.map((payment) => (
                     <tr key={payment.id} className="border-t border-white/5">
                       <td className="p-4 text-zinc-200">
@@ -604,11 +520,17 @@ export default function PaymentsPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDeletePayment(payment)}
-                          disabled={deletingPaymentId === payment.id}
+                          disabled={
+                            deletePaymentMutation.isPending &&
+                            deletePaymentMutation.variables === payment.id
+                          }
                           className="border-red-500/20 bg-red-500/8 text-red-100 hover:bg-red-500/15 disabled:opacity-60"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
-                          {deletingPaymentId === payment.id ? "Eliminando..." : "Dar de baja"}
+                          {deletePaymentMutation.isPending &&
+                          deletePaymentMutation.variables === payment.id
+                            ? "Eliminando..."
+                            : "Dar de baja"}
                         </Button>
                       </td>
                     </tr>
@@ -625,7 +547,7 @@ export default function PaymentsPage() {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
-                disabled={offset === 0 || loading}
+                disabled={offset === 0 || isFetching}
                 onClick={() => setOffset(Math.max(0, offset - limit))}
                 className="border-amber-200/10 hover:bg-white/[0.08]"
               >
@@ -633,7 +555,7 @@ export default function PaymentsPage() {
               </Button>
               <Button
                 variant="outline"
-                disabled={offset + limit >= total || loading}
+                disabled={offset + limit >= total || isFetching}
                 onClick={() => setOffset(offset + limit)}
                 className="border-amber-200/10 hover:bg-white/[0.08]"
               >

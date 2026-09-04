@@ -1,18 +1,11 @@
-import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { Dumbbell, Sparkles } from "lucide-react";
+import { useSessionStore } from "@/stores/session";
 
 export default function Home() {
-  const [name, setName] = useState<string>("");
-  const [role, setRole] = useState<string>("");
-
-  useEffect(() => {
-    const storedName = localStorage.getItem("user_name") || "Usuario";
-    const storedRole = localStorage.getItem("user_role") || "guest";
-    setName(storedName);
-    setRole(storedRole);
-  }, []);
+  const name = useSessionStore((s) => s.userName) ?? "Usuario";
+  const role = useSessionStore((s) => s.role) ?? "guest";
 
   const getGreeting = () => {
     const hour = new Date().getHours();

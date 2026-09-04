@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { useSessionStore } from "@/stores/session";
 
 type NavItem = {
   to: string;
@@ -44,7 +45,7 @@ function roleLabel(role: string) {
 
 export default function Sidebar() {
   const navigate = useNavigate();
-  const role = (localStorage.getItem("user_role") as string) || "coach";
+  const role = useSessionStore((s) => s.role) ?? "coach";
   const allowed = items.filter((item) => {
     if (role === "user") return item.to === "/my-routine";
     if (item.to === "/my-routine") return false;

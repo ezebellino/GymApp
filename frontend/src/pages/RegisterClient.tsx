@@ -1,17 +1,17 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
 import { ArrowLeft, UserPlus } from "lucide-react";
 import api from "@/lib/http";
+import { useSessionStore } from "@/stores/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { alertError } from "@/lib/alerts";
 
 type TokenResp = { access_token: string; token_type: string };
-type TokenPayload = { name?: string; email?: string; role?: string };
 
 export default function RegisterClient() {
   const navigate = useNavigate();
+  const setSession = useSessionStore((s) => s.setSession);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -36,19 +36,26 @@ export default function RegisterClient() {
         password,
       });
 
-      localStorage.setItem("access_token", data.access_token);
       try {
+        // El store todavía no tiene el token en este punto (setSession se
+        // llama una única vez, al final): se pasa explícito acá para que esta
+        // llamada puntual quede autenticada sin depender del interceptor.
         const { data: me } = await api.get<{
           full_name: string;
           email: string;
           role: string;
-        }>("/auth/me");
-        localStorage.setItem("user_name", me.full_name ?? me.email ?? "Usuario");
-        localStorage.setItem("user_role", me.role ?? "user");
+        }>("/auth/me", {
+          headers: { Authorization: `Bearer ${data.access_token}` },
+        });
+        setSession(data.access_token, {
+          name: me.full_name ?? me.email ?? "Usuario",
+          role: (me.role ?? "user") as "owner" | "coach" | "user",
+        });
       } catch {
-        const payload = jwtDecode<TokenPayload>(data.access_token);
-        localStorage.setItem("user_name", payload.name ?? payload.email ?? "Usuario");
-        localStorage.setItem("user_role", payload.role === "user" ? "user" : "user");
+        // El registro de cliente siempre resuelve rol "user": no depende del
+        // payload del JWT (a diferencia de Login, acá no hace falta el rol
+        // que trae el token).
+        setSession(data.access_token, { role: "user" });
       }
 
       navigate("/my-routine", { replace: true });

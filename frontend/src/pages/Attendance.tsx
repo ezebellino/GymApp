@@ -10,25 +10,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import api from "@/lib/http";
 import { useDebounce } from "@/hooks/useDebounce";
 import Pagination from "@/components/Pagination";
-import { alertError } from "@/lib/alerts";
-
-type ClientLite = {
-  id: string;
-  full_name: string;
-  email?: string | null;
-  phone?: string | null;
-};
-
-type AttendanceRow = {
-  id: string;
-  client_id: string;
-  coach_id: string | null;
-  checkin_at: string;
-  client?: ClientLite;
-};
+import DataError from "@/components/DataError";
+import { useAttendanceQuery } from "@/services/attendance.queries";
+import { cn } from "@/lib/utils";
 
 type StatCardProps = {
   title: string;
@@ -70,43 +56,23 @@ function StatCard({ title, value, hint, icon: Icon }: StatCardProps) {
 }
 
 export default function AttendancePage() {
-  const [items, setItems] = useState<AttendanceRow[]>([]);
   const [limit, setLimit] = useState(20);
   const [offset, setOffset] = useState(0);
-  const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
   const debouncedQ = useDebounce(q, 350);
-  const [loading, setLoading] = useState(false);
-
-  async function load() {
-    setLoading(true);
-    try {
-      const response = await api.get<AttendanceRow[]>("/attendance", {
-        params: { q: debouncedQ || undefined, limit, offset },
-      });
-      const totalHeader = (response.headers["x-total-count"] ??
-        response.headers["X-Total-Count"]) as string | undefined;
-      setItems(response.data);
-      setTotal(totalHeader ? Number(totalHeader) : response.data.length);
-    } catch (error) {
-      console.error("Error cargando asistencias", error);
-      await alertError(
-        "No se pudieron cargar las asistencias",
-        "Intenta nuevamente en unos segundos."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
 
   useEffect(() => {
     setOffset(0);
   }, [debouncedQ, limit]);
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offset, debouncedQ, limit]);
+  const { data, isPending, isFetching, isPlaceholderData, isError, refetch } = useAttendanceQuery({
+    q: debouncedQ || undefined,
+    limit,
+    offset,
+  });
+
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
 
   const today = useMemo(() => {
     const now = new Date();
@@ -187,7 +153,7 @@ export default function AttendancePage() {
         />
         <StatCard
           title="Estado"
-          value={loading ? "Actualizando" : "Al día"}
+          value={isFetching ? "Actualizando" : "Al día"}
           hint="Consulta de asistencias"
           icon={UserRoundCheck}
         />
@@ -214,19 +180,24 @@ export default function AttendancePage() {
                 />
               </div>
               <Button
-                onClick={() => load()}
-                disabled={loading}
+                onClick={() => refetch()}
+                disabled={isFetching}
                 variant="outline"
                 className="border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] text-amber-50 hover:opacity-95"
               >
-                {loading ? "Actualizando..." : "Actualizar"}
+                {isFetching ? "Actualizando..." : "Actualizar"}
               </Button>
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="space-y-5 pt-6">
-          <div className="overflow-hidden rounded-2xl border border-amber-200/10">
+          <div
+            className={cn(
+              "overflow-hidden rounded-2xl border border-amber-200/10",
+              isFetching && isPlaceholderData && "opacity-60 transition-opacity"
+            )}
+          >
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="bg-[linear-gradient(90deg,rgba(250,204,21,0.08),rgba(255,247,237,0.04),rgba(249,115,22,0.1))] text-left text-zinc-300">
@@ -238,7 +209,7 @@ export default function AttendancePage() {
                   </tr>
                 </thead>
                 <tbody className="bg-zinc-950/30">
-                  {loading ? (
+                  {isPending ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-10 text-center text-zinc-400">
                         <div className="inline-flex items-center gap-2">
@@ -249,7 +220,19 @@ export default function AttendancePage() {
                     </tr>
                   ) : null}
 
-                  {!loading && items.length === 0 ? (
+                  {!isPending && isError ? (
+                    <tr>
+                      <td colSpan={4} className="p-0">
+                        <DataError
+                          title="No se pudieron cargar las asistencias"
+                          description="Intenta nuevamente en unos segundos."
+                          onRetry={() => refetch()}
+                        />
+                      </td>
+                    </tr>
+                  ) : null}
+
+                  {!isPending && !isError && items.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-10 text-center text-zinc-400">
                         No hay asistencias para el filtro actual.
@@ -257,7 +240,7 @@ export default function AttendancePage() {
                     </tr>
                   ) : null}
 
-                  {!loading
+                  {!isPending && !isError
                     ? items.map((item, index) => (
                         <tr
                           key={item.id}

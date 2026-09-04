@@ -1,5 +1,6 @@
 import axios from "axios";
 import { alertError } from "./alerts";
+import { useSessionStore } from "@/stores/session";
 
 const apiBaseURL =
   import.meta.env.VITE_API_URL ??
@@ -17,8 +18,10 @@ api.interceptors.request.use((config) => {
   if (config.url && slashEndpoints.has(config.url)) {
     config.url = `${config.url}/`;
   }
-  const token = localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (!config.headers.Authorization) {
+    const token = useSessionStore.getState().token;
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
@@ -27,7 +30,7 @@ api.interceptors.response.use(
   async (error) => {
     if (error?.response?.status === 401) {
       await alertError("Sesión expirada", "Volvé a iniciar sesión.");
-      localStorage.removeItem("access_token");
+      useSessionStore.getState().logout();
       window.location.href = "/login";
     }
     return Promise.reject(error);

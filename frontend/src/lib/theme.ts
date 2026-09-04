@@ -66,26 +66,4 @@ export function applyTheme(themeId: AppThemeId) {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.theme = themeId;
   window.localStorage.setItem(THEME_STORAGE_KEY, themeId);
-  window.dispatchEvent(new Event("app-theme:updated"));
-}
-
-export function syncThemeFromSettings() {
-  if (typeof window === "undefined") return DEFAULT_THEME_ID;
-
-  const raw = window.localStorage.getItem("app_settings");
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw) as { theme_preference?: string | null };
-      if (isAppThemeId(parsed.theme_preference ?? null)) {
-        applyTheme(parsed.theme_preference);
-        return parsed.theme_preference;
-      }
-    } catch {
-      // ignore malformed local settings
-    }
-  }
-
-  const storedTheme = getStoredTheme();
-  applyTheme(storedTheme);
-  return storedTheme;
 }

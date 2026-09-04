@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageCircle, PencilLine, Search, UserCheck, Users, UserX } from "lucide-react";
-import { fetchClients } from "@/services/clients";
+import { useQueryClient } from "@tanstack/react-query";
+import { useClientsQuery } from "@/services/clients.queries";
+import { queryKeys } from "@/services/queryKeys";
 import type { Client } from "@/types";
 import Pagination from "@/components/Pagination";
 import EditClientDialog from "@/components/EditClientDialog";
+import DataError from "@/components/DataError";
 import { useDebounce } from "../hooks/useDebounce";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 function SkeletonRow() {
   return (
@@ -87,15 +91,13 @@ function StatCard({
 }
 
 export default function Clients() {
-  const [items, setItems] = useState<Client[]>([]);
-  const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
   const debouncedQ = useDebounce(q, 400);
   const [limit, setLimit] = useState(10);
   const [offset, setOffset] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [editClientOpen, setEditClientOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const queryClient = useQueryClient();
 
   function openPaymentReminder(client: Client) {
     if (!client.phone) return;
@@ -113,35 +115,14 @@ export default function Clients() {
     setOffset(0);
   }, [debouncedQ, limit]);
 
-  useEffect(() => {
-    let mounted = true;
+  const { data, isPending, isFetching, isPlaceholderData, isError, refetch } = useClientsQuery({
+    q: debouncedQ || undefined,
+    limit,
+    offset,
+  });
 
-    (async () => {
-      setLoading(true);
-      try {
-        const { items, total } = await fetchClients({
-          q: debouncedQ || undefined,
-          limit,
-          offset,
-        });
-
-        if (mounted) {
-          setItems(items);
-          setTotal(total);
-        }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, [debouncedQ, limit, offset]);
-
-  const rows = useMemo(() => items, [items]);
+  const rows = data?.items ?? [];
+  const total = data?.total ?? 0;
   const activeCount = rows.filter((client) => client.is_active).length;
   const inactiveCount = rows.length - activeCount;
 
@@ -238,7 +219,12 @@ export default function Clients() {
           />
         </div>
 
-        <div className="mt-5 overflow-x-auto rounded-2xl border border-amber-200/10">
+        <div
+          className={cn(
+            "mt-5 overflow-x-auto rounded-2xl border border-amber-200/10",
+            isFetching && isPlaceholderData && "opacity-60 transition-opacity"
+          )}
+        >
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-zinc-950/70 backdrop-blur-xl">
               <tr className="text-left">
@@ -251,7 +237,7 @@ export default function Clients() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {loading && (
+              {isPending && (
                 <>
                   <SkeletonRow />
                   <SkeletonRow />
@@ -259,7 +245,19 @@ export default function Clients() {
                 </>
               )}
 
-              {!loading && rows.length === 0 && (
+              {!isPending && isError && (
+                <tr>
+                  <td colSpan={6} className="p-0">
+                    <DataError
+                      title="No se pudieron cargar los clientes"
+                      description="Intenta nuevamente en unos segundos."
+                      onRetry={() => refetch()}
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {!isPending && !isError && rows.length === 0 && (
                 <tr>
                     <td colSpan={6} className="p-0">
                       <EmptyState query={debouncedQ} />
@@ -267,7 +265,7 @@ export default function Clients() {
                   </tr>
               )}
 
-              {!loading &&
+              {!isPending && !isError &&
                 rows.map((client) => (
                   <tr key={client.id} className="transition-colors hover:bg-white/[0.035]">
                     <td className="p-4">
@@ -347,14 +345,13 @@ export default function Clients() {
           open={editClientOpen}
           onOpenChange={setEditClientOpen}
           client={selectedClient}
-          onSuccess={async () => {
-            const { items, total } = await fetchClients({
-              q: debouncedQ || undefined,
-              limit,
-              offset,
-            });
-            setItems(items);
-            setTotal(total);
+          onSuccess={() => {
+            // Editar un cliente invalida tambien payments/attendance: sus
+            // filas embeben `client`, asi que un cambio de nombre las deja
+            // mintiendo si no se invalidan (dec. 6).
+            queryClient.invalidateQueries({ queryKey: queryKeys.clients.all });
+            queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
+            queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
           }}
         />
       ) : null}

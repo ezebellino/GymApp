@@ -1,11 +1,13 @@
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sileo";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { syncThemeFromSettings } from "./lib/theme";
+import { useSessionStore } from "./stores/session";
+import { useSyncSettings } from "./services/settings.queries";
+import { useLegacyRefetchBridge } from "./hooks/useLegacyRefetchBridge";
 import "sileo/styles.css";
 import "./index.css";
 
@@ -35,21 +37,15 @@ export default function App() {
   const location = useLocation();
   const isAuthRoute =
     location.pathname.startsWith("/login") || location.pathname.startsWith("/register-client");
-  const role = localStorage.getItem("user_role");
+  const role = useSessionStore((s) => s.role);
 
-  useEffect(() => {
-    syncThemeFromSettings();
-
-    const handleThemeUpdate = () => {
-      syncThemeFromSettings();
-    };
-
-    window.addEventListener("app-settings:updated", handleThemeUpdate);
-
-    return () => {
-      window.removeEventListener("app-settings:updated", handleThemeUpdate);
-    };
-  }, []);
+  // Único sincronizador servidor -> store de ajustes (dec. 12); el tema en sí
+  // se aplica de forma sincrónica al crear `stores/settings.ts`, antes del
+  // primer render, así que acá no hace falta nada más para el tema.
+  useSyncSettings();
+  // TODO(change siguiente): borrar junto con `NewPaymentDialog`/`UserCard`
+  // cuando pasen a `useCreatePaymentMutation` (dec. 13).
+  useLegacyRefetchBridge();
 
   return (
     <div className="app-shell-bg min-h-screen text-zinc-100">

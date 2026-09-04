@@ -1,21 +1,46 @@
 import api from "../lib/http";
 import type { Client } from "@/types";
+import { readTotalCount, type PaginatedResult } from "./pagination";
 
-export async function fetchClients(params: {
+export type ClientsParams = {
   q?: string;
   limit?: number;
   offset?: number;
-}) {
-  const { q, limit = 10, offset = 0 } = params ?? {};
+};
+
+export async function fetchClients(
+  params: ClientsParams = {},
+): Promise<PaginatedResult<Client>> {
+  const { q, limit = 10, offset = 0 } = params;
   const { data, headers } = await api.get<Client[]>("/clients/", {
     params: { q, limit, offset },
   });
 
-  // El backend coloca el total en esta cabecera
-  const totalHeader =
-    (headers["x-total-count"] as string) ??
-    (headers["X-Total-Count"] as unknown as string);
-  const total = totalHeader ? Number(totalHeader) : data.length;
+  return { items: data, total: readTotalCount(headers, data.length) };
+}
 
-  return { items: data, total };
+export type CreateClientInput = {
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+};
+
+export async function createClient(input: CreateClientInput): Promise<Client> {
+  const { data } = await api.post<Client>("/clients", input);
+  return data;
+}
+
+export type UpdateClientInput = {
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  is_active: boolean;
+};
+
+export async function updateClient(
+  id: string,
+  input: UpdateClientInput,
+): Promise<Client> {
+  const { data } = await api.patch<Client>(`/clients/${id}`, input);
+  return data;
 }

@@ -9,12 +9,19 @@ export type Client = {
   join_date: string; // ISO
 };
 
+// Cliente embebido en la respuesta de /payments y /attendance: no es el
+// `Client` completo (sin `join_date`), pero alcanza para mostrar nombre y
+// contacto sin pedirlo aparte.
+export type EmbeddedClient = Pick<Client, "id" | "full_name" | "email" | "phone" | "is_active">;
+
 export type Payment = {
   id: string;
   client_id: string;
+  client?: EmbeddedClient | null;
   amount: number;
   method: "cash" | "transfer" | null;
   method_channel?: string | null;
+  note?: string | null;
   period_month: number;
   period_year: number;
   created_at: string; // ISO
@@ -24,6 +31,7 @@ export type Attendance = {
   id: string;
   client_id: string;
   coach_id?: string | null;
+  client?: EmbeddedClient | null;
   checkin_at: string; // ISO
 };
 

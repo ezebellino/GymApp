@@ -1,20 +1,13 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import api from "@/lib/http";
+import { useSessionStore } from "@/stores/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toastError } from "@/lib/toast";
 
 type TokenResp = { access_token: string; token_type: string };
-type TokenPayload = {
-  name?: string;
-  email?: string;
-  sub?: string;
-  role?: string;
-  exp: number;
-};
 
 async function requestTokenWithRetry(body: URLSearchParams) {
   try {
@@ -42,6 +35,7 @@ export default function Login() {
   const [showPwd, setShowPwd] = useState(false);
 
   const navigate = useNavigate();
+  const setSession = useSessionStore((s) => s.setSession);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -53,28 +47,28 @@ export default function Login() {
       body.append("password", password);
 
       const { data } = await requestTokenWithRetry(body);
-      localStorage.setItem("access_token", data.access_token);
 
       try {
+        // El store todavía no tiene el token en este punto (setSession se
+        // llama una única vez, al final): se pasa explícito acá para que esta
+        // llamada puntual quede autenticada sin depender del interceptor.
         const { data: me } = await api.get<{
           id: string;
           full_name: string;
           email: string;
           role: string;
           email_verified: boolean;
-        }>("/auth/me");
+        }>("/auth/me", {
+          headers: { Authorization: `Bearer ${data.access_token}` },
+        });
 
-        localStorage.setItem("user_name", me.full_name ?? me.email ?? "Usuario");
-        localStorage.setItem("user_role", me.role ?? "coach");
+        setSession(data.access_token, {
+          name: me.full_name ?? me.email ?? "Usuario",
+          role: (me.role ?? "coach") as "owner" | "coach" | "user",
+        });
       } catch {
-        const payload = jwtDecode<TokenPayload>(data.access_token);
-        localStorage.setItem("user_name", payload.name ?? payload.email ?? "Usuario");
-        localStorage.setItem(
-          "user_role",
-          payload.role === "owner" || payload.role === "coach" || payload.role === "user"
-            ? payload.role
-            : "coach"
-        );
+        // Sin /auth/me, setSession decodifica el JWT y deriva nombre/rol/exp.
+        setSession(data.access_token);
       }
 
       navigate("/", { replace: true });

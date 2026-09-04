@@ -14,7 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/http";
-import type { AppSettings, Role } from "@/types";
+import { useSessionStore } from "@/stores/session";
+import { useSettingsStore } from "@/stores/settings";
+import type { AppSettings } from "@/types";
 import { alertError, alertSuccess } from "@/lib/alerts";
 import {
   APP_THEMES,
@@ -23,8 +25,6 @@ import {
   getStoredTheme,
   type AppThemeId,
 } from "@/lib/theme";
-
-const LS_KEY = "app_settings";
 
 const DEFAULT_SETTINGS: AppSettings = {
   gym_name: "Mini Espacio",
@@ -124,7 +124,9 @@ function ToggleCard({
 }
 
 export default function SettingsPage() {
-  const [role, setRole] = useState<Role>("coach");
+  const role = useSessionStore((s) => s.role) ?? "coach";
+  const setSharedSettings = useSettingsStore((s) => s.setSettings);
+  const sharedSettings = useSettingsStore((s) => s.settings);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [themeId, setThemeId] = useState<AppThemeId>(DEFAULT_THEME_ID);
   const [saving, setSaving] = useState(false);
@@ -133,27 +135,31 @@ export default function SettingsPage() {
   const canEdit = role === "owner";
 
   useEffect(() => {
-    const storedRole = (localStorage.getItem("user_role") as Role) || "coach";
-    setRole(storedRole);
     setThemeId(getStoredTheme());
 
     (async () => {
       try {
         const { data } = await api.get<AppSettings>("/settings");
-        const next = normalizeSettings({ ...DEFAULT_SETTINGS, ...data });
+        // El tema es "solo este dispositivo" (copy de la UI, más abajo): el
+        // GET no debe pisar la elección ya persistida localmente vía el
+        // swatch (`handleThemeChange`) con lo que el servidor tenga guardado,
+        // o un simple reload de esta página revertiría un tema recién
+        // elegido sin pasar por "Guardar cambios".
+        const deviceTheme = sharedSettings.theme_preference || getStoredTheme();
+        const next = normalizeSettings({
+          ...DEFAULT_SETTINGS,
+          ...data,
+          theme_preference: deviceTheme,
+        });
         setSettings(next);
-        setThemeId(next.theme_preference || "dark-gold");
-        applyTheme((next.theme_preference || "dark-gold") as AppThemeId);
-        localStorage.setItem(LS_KEY, JSON.stringify(next));
+        setThemeId(deviceTheme as AppThemeId);
+        applyTheme(deviceTheme as AppThemeId);
+        setSharedSettings(next);
       } catch {
-        const raw = localStorage.getItem(LS_KEY);
-        if (raw) {
-          try {
-            setSettings(normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) }));
-          } catch {
-            setSettings(DEFAULT_SETTINGS);
-          }
-        }
+        // Sin servidor: el único escritor de `app_settings` es el store
+        // (`useSettingsStore`), así que la caché local se lee ahí en vez de
+        // parsear `localStorage` a mano.
+        setSettings(normalizeSettings({ ...DEFAULT_SETTINGS, ...sharedSettings }));
       } finally {
         setLoading(false);
       }
@@ -171,6 +177,13 @@ export default function SettingsPage() {
     setThemeId(nextTheme);
     updateField("theme_preference", nextTheme);
     applyTheme(nextTheme);
+    // El tema es "solo este dispositivo" (copy de la UI, más abajo): a
+    // diferencia del resto de los campos, se persiste al toque a través del
+    // store en vez de esperar a "Guardar cambios" completo. `setSettings` es
+    // el único escritor de `app_settings` (frontend/AGENTS.md); la
+    // suscripción de `stores/settings.ts` vuelve a aplicar el tema desde ahí,
+    // así que sobrevive a un reload sin pasar por el PUT /settings.
+    setSharedSettings({ theme_preference: nextTheme });
   }
 
   async function save() {
@@ -181,12 +194,10 @@ export default function SettingsPage() {
       const next = normalizeSettings({ ...DEFAULT_SETTINGS, ...data });
       setSettings(next);
       setThemeId((next.theme_preference || "dark-gold") as AppThemeId);
-      localStorage.setItem(LS_KEY, JSON.stringify(next));
-      window.dispatchEvent(new Event("app-settings:updated"));
+      setSharedSettings(next);
       await alertSuccess("Listo", "Configuración guardada.");
     } catch {
-      localStorage.setItem(LS_KEY, JSON.stringify(settings));
-      window.dispatchEvent(new Event("app-settings:updated"));
+      setSharedSettings(settings);
       await alertError(
         "Guardado local",
         "No se pudo conectar al servidor. Los cambios quedaron guardados localmente."

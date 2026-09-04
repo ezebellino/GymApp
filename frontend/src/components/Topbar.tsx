@@ -16,10 +16,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Role } from "@/types";
+import { useSessionStore } from "@/stores/session";
 
 export default function Topbar() {
-  const [role, setRole] = useState<Role>("coach");
-  const [isAuthed, setIsAuthed] = useState<boolean>(false);
+  const token = useSessionStore((s) => s.token);
+  const storeRole = useSessionStore((s) => s.role);
+  const logout = useSessionStore((s) => s.logout);
+  const role: Role = storeRole ?? "coach";
+  const isAuthed = !!token;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,27 +41,6 @@ export default function Topbar() {
   };
 
   useEffect(() => {
-    const storedRole = (localStorage.getItem("user_role") as Role) || null;
-    const token = localStorage.getItem("access_token");
-
-    if (storedRole) {
-      setRole(storedRole);
-    } else if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        const nextRole =
-          (payload.role as Role) || (payload?.user?.role as Role) || "coach";
-        setRole(nextRole);
-        localStorage.setItem("user_role", nextRole);
-      } catch {
-        setRole("coach");
-      }
-    } else {
-      setRole("coach");
-    }
-
-    setIsAuthed(!!localStorage.getItem("access_token"));
-
     const onKey = (e: KeyboardEvent) => {
       if (role === "user") return;
       const mod = navigator.platform.includes("Mac") ? e.metaKey : e.ctrlKey;
@@ -72,9 +55,7 @@ export default function Topbar() {
   }, [location.pathname, role]);
 
   const handleLogout = async () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user_role");
-    setIsAuthed(false);
+    logout();
     setMobileMenuOpen(false);
 
     await Swal.fire({

@@ -18,6 +18,7 @@ import {
   UserRound,
 } from "lucide-react";
 import api from "@/lib/http";
+import { useSessionStore } from "@/stores/session";
 import EditClientDialog from "@/components/EditClientDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -115,7 +116,7 @@ function formatShortDate(value?: string | null) {
 }
 
 export default function RoutinesPage() {
-  const viewerRole = ((localStorage.getItem("user_role") as Role) || "coach") as Role;
+  const viewerRole = (useSessionStore((s) => s.role) ?? "coach") as Role;
   const canManageExercises = viewerRole === "owner";
   const [clients, setClients] = useState<Client[]>([]);
   const [days, setDays] = useState<RoutineDay[]>([]);
