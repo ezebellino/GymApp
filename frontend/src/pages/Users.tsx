@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { Eye, Info, MessageCircle, PencilLine, Search, UserPlus } from "lucide-react";
+import { Eye, Info, PencilLine, Search, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUsersQuery } from "@/services/users.queries";
@@ -204,18 +204,6 @@ export default function Users() {
     queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
   }
 
-  function openPaymentReminder(user: User) {
-    if (!user.phone) return;
-    const digits = user.phone.replace(/\D/g, "");
-    const normalizedPhone = digits.startsWith("54") ? digits : `54${digits}`;
-    if (!normalizedPhone) return;
-
-    const message = encodeURIComponent(
-      `Hola ${user.full_name}, te escribimos desde Mini Espacio para recordarte el pago pendiente del mes. Si ya abonaste, podes ignorar este mensaje. Gracias.`
-    );
-    window.open(`https://wa.me/${normalizedPhone}?text=${message}`, "_blank", "noopener,noreferrer");
-  }
-
   useEffect(() => {
     setOffset(0);
   }, [debouncedQ, limit]);
@@ -374,21 +362,6 @@ export default function Users() {
                             }}
                           >
                             <PencilLine className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon-sm"
-                            aria-label={`Enviar recordatorio por WhatsApp a ${user.full_name}`}
-                            title={
-                              user.phone
-                                ? `Enviar recordatorio por WhatsApp a ${user.full_name}`
-                                : `${user.full_name} no tiene teléfono cargado`
-                            }
-                            disabled={!user.phone}
-                            onClick={() => openPaymentReminder(user)}
-                          >
-                            <MessageCircle className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </TableCell>

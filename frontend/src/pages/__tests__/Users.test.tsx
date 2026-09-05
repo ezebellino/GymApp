@@ -180,28 +180,6 @@ describe("vista de Usuarios", () => {
     expect(await screen.findByText("Leyenda")).toBeInTheDocument();
   });
 
-  it("boton de WhatsApp deshabilitado cuando el usuario no tiene telefono", async () => {
-    mockUsersList([makeUser({ phone: null })]);
-
-    renderWithProviders(<Users />, { route: "/users" });
-
-    const whatsapp = await screen.findByRole("button", {
-      name: /enviar recordatorio por whatsapp a ana gomez/i,
-    });
-    expect(whatsapp).toBeDisabled();
-  });
-
-  it("boton de WhatsApp habilitado cuando el usuario tiene telefono", async () => {
-    mockUsersList([makeUser({ phone: "1155555555" })]);
-
-    renderWithProviders(<Users />, { route: "/users" });
-
-    const whatsapp = await screen.findByRole("button", {
-      name: /enviar recordatorio por whatsapp a ana gomez/i,
-    });
-    expect(whatsapp).not.toBeDisabled();
-  });
-
   it("hay un unico control de paginacion en la vista", async () => {
     mockUsersList([makeUser({})]);
 
