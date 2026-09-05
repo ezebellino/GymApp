@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import api from "@/lib/http";
-import { alertError } from "@/lib/alerts";
+import { toastError } from "@/lib/toast";
 import {
   Area,
   AreaChart,
@@ -155,7 +155,7 @@ export default function ReportsPage() {
       setRevenueRows(revenueResp.data);
     } catch (error) {
       console.error("Error generando reportes", error);
-      await alertError(
+      toastError(
         "No se pudieron generar los reportes",
         "Revisa el rango seleccionado e intenta nuevamente."
       );
@@ -177,7 +177,7 @@ export default function ReportsPage() {
       setDetailRows(data);
     } catch (error) {
       console.error("Error cargando detalle del día", error);
-      await alertError(
+      toastError(
         "No se pudo cargar el detalle",
         "Intenta nuevamente dentro de unos segundos."
       );

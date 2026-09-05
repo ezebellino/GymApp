@@ -31,7 +31,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { alertError, alertSuccessAutoClose, confirmAction } from "@/lib/alerts";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   Bar,
   BarChart,
@@ -121,6 +122,7 @@ function formatShortDate(value?: string | null) {
 export default function RoutinesPage() {
   const viewerRole = (useSessionStore((s) => s.role) ?? "coach") as Role;
   const canManageExercises = viewerRole === "owner";
+  const { confirm, ConfirmDialog } = useConfirm();
   const [clients, setClients] = useState<Client[]>([]);
   const [days, setDays] = useState<RoutineDay[]>([]);
   const [catalog, setCatalog] = useState<RoutineCatalogGroup[]>([]);
@@ -345,7 +347,7 @@ export default function RoutinesPage() {
         if (nextDays[0]) setSelectedDayId(nextDays[0].id);
       } catch (error) {
         console.error("Error cargando rutinas", error);
-        await alertError(
+        toastError(
           "No se pudo cargar el modulo de rutinas",
           "Revisa la conexion e intenta nuevamente."
         );
@@ -427,14 +429,14 @@ export default function RoutinesPage() {
 
       setDays((current) => current.map((day) => (day.id === data.id ? data : day)));
       await refreshSelectedClientData();
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Plantilla actualizada",
         "La rutina del dia ya quedo guardada."
       );
       setShowTemplateEditor(false);
     } catch (error) {
       console.error("Error guardando seleccion del dia", error);
-      await alertError(
+      toastError(
         "No se pudo guardar la rutina del dia",
         "Intenta nuevamente en unos segundos."
       );
@@ -464,10 +466,10 @@ export default function RoutinesPage() {
         [exerciseId]: emptyDraft(),
       }));
       await refreshSelectedClientData();
-      await alertSuccessAutoClose("Registro guardado", "El avance quedo cargado.");
+      toastSuccess("Registro guardado", "El avance quedo cargado.");
     } catch (error) {
       console.error("Error guardando avance", error);
-      await alertError(
+      toastError(
         "No se pudo guardar el avance",
         "Revisa repeticiones, kilos y vuelve a intentar."
       );
@@ -508,7 +510,7 @@ export default function RoutinesPage() {
 
   async function saveManagedExercise() {
     if (!exerciseDraft.name.trim() || !exerciseDraft.muscle_group.trim()) {
-      await alertError(
+      toastError(
         "Faltan datos del ejercicio",
         "Completa al menos nombre y grupo muscular."
       );
@@ -537,13 +539,13 @@ export default function RoutinesPage() {
       setExerciseDialogOpen(false);
       setEditingExerciseId(null);
       setExerciseDraft(emptyExerciseManagerDraft());
-      await alertSuccessAutoClose(
+      toastSuccess(
         editingExerciseId ? "Ejercicio actualizado" : "Ejercicio agregado",
         "La plantilla ya quedo lista para usarse."
       );
     } catch (error) {
       console.error("Error guardando ejercicio", error);
-      await alertError(
+      toastError(
         "No se pudo guardar el ejercicio",
         "Revisa los datos e intenta nuevamente."
       );
@@ -574,13 +576,13 @@ export default function RoutinesPage() {
       setEditLogOpen(false);
       setEditingLog(null);
       setEditLogDraft(emptyDraft());
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Registro actualizado",
         "Los datos del avance ya quedaron corregidos."
       );
     } catch (error) {
       console.error("Error actualizando avance", error);
-      await alertError(
+      toastError(
         "No se pudo actualizar el avance",
         "Revisa los datos y vuelve a intentar."
       );
@@ -592,12 +594,12 @@ export default function RoutinesPage() {
   async function deleteLog(log: WorkoutLog) {
     if (!selectedClientId) return;
 
-    const result = await confirmAction(
+    const confirmed = await confirm(
       "Eliminar avance",
       `Se eliminara el registro de ${log.exercise_name} del ${formatDateTime(log.performed_at)}.`
     );
 
-    if (!result.isConfirmed) return;
+    if (!confirmed) return;
 
     setDeletingLogId(log.id);
     try {
@@ -608,13 +610,13 @@ export default function RoutinesPage() {
         setEditingLog(null);
         setEditLogDraft(emptyDraft());
       }
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Registro eliminado",
         "El avance ya no forma parte del historial."
       );
     } catch (error) {
       console.error("Error eliminando avance", error);
-      await alertError(
+      toastError(
         "No se pudo eliminar el avance",
         "Intenta nuevamente en unos segundos."
       );
@@ -635,6 +637,7 @@ export default function RoutinesPage() {
 
   return (
     <div className="space-y-6">
+      {ConfirmDialog}
       <section className="hero-aura rounded-xl border border-border p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">

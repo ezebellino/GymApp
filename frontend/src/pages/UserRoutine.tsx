@@ -4,7 +4,7 @@ import api from "@/lib/http";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
+import { toastError, toastSuccess } from "@/lib/toast";
 import type { Client, RoutineDay, RoutineDayProgress, WorkoutLog } from "@/types";
 
 type ExerciseDraft = {
@@ -77,7 +77,7 @@ export default function UserRoutine() {
         }
       } catch (error) {
         console.error("Error cargando rutina del cliente", error);
-        await alertError(
+        toastError(
           "No se pudo cargar tu rutina",
           "Tu cuenta todavía puede no estar vinculada a un cliente."
         );
@@ -146,10 +146,10 @@ export default function UserRoutine() {
         [exerciseId]: emptyDraft(),
       }));
       await refreshDayLogs(selectedDayId);
-      await alertSuccessAutoClose("Registro guardado", "Tu progreso quedó cargado.");
+      toastSuccess("Registro guardado", "Tu progreso quedó cargado.");
     } catch (error) {
       console.error("Error guardando progreso", error);
-      await alertError(
+      toastError(
         "No se pudo guardar",
         "Revisá los datos del ejercicio e intentá nuevamente."
       );

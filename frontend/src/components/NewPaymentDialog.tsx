@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/http";
-import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
+import { toastError, toastSuccess } from "@/lib/toast";
 import type { AppSettings } from "@/types";
 
 type Props = {
@@ -100,12 +100,12 @@ export default function NewPaymentDialog({
         // no-op
       }
 
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Pago creado",
         `Se registro correctamente el pago de ${clientName}.`
       );
     } catch (error: any) {
-      await alertError(
+      toastError(
         "No se pudo crear el pago",
         error?.response?.data?.detail ?? "Revisa los datos e intenta nuevamente."
       );

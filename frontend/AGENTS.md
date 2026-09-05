@@ -16,7 +16,8 @@ que se eliminan en favor de un toggle simple dark/light.
 
 React 19 + Vite 7 + TypeScript (adopción parcial: `.jsx`/`.tsx` conviven) + Tailwind CSS v4 +
 shadcn/ui (componentes en `src/components/ui`, config en `components.json`) + React Router 7 +
-axios + SweetAlert2/sonner para notificaciones.
+axios + sileo para toasts (`lib/toast.ts`) + `AlertDialog` de shadcn para confirmaciones
+(`hooks/useConfirm.tsx`).
 
 ## Estructura
 
@@ -191,7 +192,7 @@ npm run lint            # eslint (dentro de frontend/)
   - **Aislamiento de red**: los tests mockean el módulo entero con `vi.mock("@/lib/http")` usando
     el helper `src/test/apiMock.ts`, que resuelve por ruta. No uses `vi.spyOn(api, "get")`:
     cualquier llamada no prevista se iría a XHR real de jsdom y dispararía los interceptores de
-    `lib/http` (el 401 redirige a `/login`) y SweetAlert2. Las suites corren sin backend.
+    `lib/http` (el 401 redirige a `/login` y dispara un toast). Las suites corren sin backend.
   - `src/test/renderWithProviders.tsx` envuelve en `MemoryRouter > QueryClientProvider` y
     reexporta las utilidades de RTL. Crea un `QueryClient` **nuevo en cada llamada** (nunca
     reusa el singleton de `lib/queryClient.ts`: compartir caché entre tests haría que uno viera

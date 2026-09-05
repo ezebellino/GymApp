@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import type { Client } from "@/types";
 import api from "@/lib/http";
-import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
+import { toastError, toastSuccess } from "@/lib/toast";
 
 type Props = {
   open: boolean;
@@ -82,12 +82,12 @@ export default function EditClientDialog({
 
       onOpenChange(false);
       onSuccess?.();
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Actualizado",
         "Los datos del cliente fueron guardados."
       );
     } catch (error: any) {
-      await alertError(
+      toastError(
         "No se pudo guardar",
         error?.response?.data?.detail ?? "Error desconocido"
       );
@@ -98,7 +98,7 @@ export default function EditClientDialog({
 
   async function savePortalAccess() {
     if (!portalEmail.trim() || !portalPassword.trim()) {
-      await alertError(
+      toastError(
         "Faltan datos de acceso",
         "Completá email y contraseña para habilitar el acceso del cliente."
       );
@@ -115,12 +115,12 @@ export default function EditClientDialog({
       });
 
       setPortalPassword("");
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Acceso del cliente actualizado",
         "El cliente ya puede iniciar sesión en su vista de usuario."
       );
     } catch (error: any) {
-      await alertError(
+      toastError(
         "No se pudo configurar el acceso",
         error?.response?.data?.detail ?? "Error desconocido"
       );

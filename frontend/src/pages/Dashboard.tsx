@@ -19,7 +19,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
+import { toastError, toastSuccess } from "@/lib/toast";
 import type { Client } from "@/types";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -142,13 +142,13 @@ export default function Dashboard() {
       setQ("");
       setClientId("");
 
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Check-in registrado",
         "La asistencia se guardo correctamente."
       );
     } catch (error: any) {
       console.error(error);
-      await alertError(
+      toastError(
         "No se pudo registrar el check-in",
         error?.response?.data?.detail ?? "Revisa los datos e intenta nuevamente."
       );
@@ -179,13 +179,13 @@ export default function Dashboard() {
       setPaymentQuery("");
       setPaymentClientId("");
 
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Pago rapido registrado",
         `Se registró la cuota vigente de ${clientName} por ${quickPaymentMethod === "cash" ? "efectivo" : "transferencia"}.`
       );
     } catch (error: any) {
       console.error(error);
-      await alertError(
+      toastError(
         "No se pudo registrar el pago",
         error?.response?.data?.detail ?? "Revisa si el periodo ya fue cobrado."
       );
@@ -209,13 +209,13 @@ export default function Dashboard() {
       setNewEmail("");
       setNewPhone("");
 
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Cliente creado",
         "El nuevo cliente ya aparece disponible para operar."
       );
     } catch (error: any) {
       console.error(error);
-      await alertError(
+      toastError(
         "No se pudo crear el cliente",
         error?.response?.data?.detail ?? "Intenta nuevamente en unos instantes."
       );

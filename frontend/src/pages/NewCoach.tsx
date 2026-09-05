@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/http";
 import { useNavigate } from "react-router-dom";
-import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
+import { toastError, toastSuccess } from "@/lib/toast";
 
 const outlineButtonClass =
   "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70";
@@ -72,7 +72,7 @@ export default function NewCoachPage() {
 
       await api.post("/coaches", payload);
 
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Coach creado",
         "El nuevo coach fue registrado correctamente."
       );
@@ -84,7 +84,7 @@ export default function NewCoachPage() {
     } catch (err: any) {
       const message =
         err?.response?.data?.detail || err?.message || "No se pudo crear el coach.";
-      await alertError("No se pudo crear el coach", String(message));
+      toastError("No se pudo crear el coach", String(message));
     } finally {
       setLoading(false);
     }

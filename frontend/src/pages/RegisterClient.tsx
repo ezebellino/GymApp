@@ -7,7 +7,7 @@ import { useThemeStore } from "@/stores/theme";
 import { normalizeThemeMode } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { alertError } from "@/lib/alerts";
+import { toastError } from "@/lib/toast";
 
 type TokenResp = { access_token: string; token_type: string };
 
@@ -26,7 +26,7 @@ export default function RegisterClient() {
     event.preventDefault();
 
     if (password !== confirmPassword) {
-      await alertError("Las contraseñas no coinciden", "Revisá ambos campos e intentá de nuevo.");
+      toastError("Las contraseñas no coinciden", "Revisá ambos campos e intentá de nuevo.");
       return;
     }
 
@@ -67,7 +67,7 @@ export default function RegisterClient() {
 
       navigate("/my-routine", { replace: true });
     } catch (error: any) {
-      await alertError(
+      toastError(
         "No se pudo crear la cuenta",
         error?.response?.data?.detail ?? "Intentá nuevamente en unos minutos."
       );

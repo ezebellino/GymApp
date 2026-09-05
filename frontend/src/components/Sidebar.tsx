@@ -1,5 +1,4 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import Swal from "sweetalert2";
 import {
   BarChart3,
   CalendarCheck2,
@@ -52,20 +51,10 @@ export default function Sidebar() {
   });
 
   // Único punto de logout del shell (dec.: se sacó del Topbar, que solo lo
-  // tenía duplicado). Mismo flujo que antes: limpia sesión, confirma con
-  // SweetAlert2 y redirige.
-  const handleLogout = async () => {
+  // tenía duplicado). Limpia sesión y redirige directo, sin alerta
+  // intermedia: no hay nada que confirmar ni de qué avisar.
+  const handleLogout = () => {
     logout();
-
-    await Swal.fire({
-      title: "Sesión cerrada",
-      text: "Serás redirigido al login.",
-      icon: "success",
-      timer: 1400,
-      showConfirmButton: false,
-      timerProgressBar: true,
-    });
-
     navigate("/login", { replace: true });
   };
 

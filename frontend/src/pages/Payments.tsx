@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import api from "@/lib/http";
 import { useLocation } from "react-router-dom";
-import { alertInfo, alertSuccessAutoClose, confirmAction } from "@/lib/alerts";
+import { toastInfo, toastSuccess } from "@/lib/toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import type { AppSettings, Client, Payment } from "@/types";
 import { DEFAULT_SETTINGS, useSettingsStore } from "@/stores/settings";
 import { useClientsQuery } from "@/services/clients.queries";
@@ -102,6 +103,7 @@ export default function PaymentsPage() {
   );
   const settings = useSettingsStore((s) => s.settings);
   const setSettings = useSettingsStore((s) => s.setSettings);
+  const { confirm, ConfirmDialog } = useConfirm();
   const [limit] = useState(20);
   const [offset, setOffset] = useState(0);
   const [sendingReminders, setSendingReminders] = useState(false);
@@ -180,19 +182,19 @@ export default function PaymentsPage() {
 
   async function handleBulkReminder() {
     if (pendingClients.length === 0) {
-      await alertInfo(
+      toastInfo(
         "Sin recordatorios pendientes",
         "No hay clientes con WhatsApp cargado y cuota pendiente para este mes."
       );
       return;
     }
 
-    const result = await confirmAction(
+    const confirmed = await confirm(
       "Enviar recordatorios de pago",
       `Se abrirán ${pendingClients.length} chat${pendingClients.length === 1 ? "" : "s"} de WhatsApp con el mensaje del mes.`
     );
 
-    if (!result.isConfirmed) return;
+    if (!confirmed) return;
 
     setSendingReminders(true);
     try {
@@ -214,10 +216,9 @@ export default function PaymentsPage() {
         // keep local trace if backend update is unavailable
       }
 
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Recordatorios preparados",
-        `Se abrieron ${pendingClients.length} chat${pendingClients.length === 1 ? "" : "s"} con el mensaje mensual.`,
-        1500
+        `Se abrieron ${pendingClients.length} chat${pendingClients.length === 1 ? "" : "s"} con el mensaje mensual.`
       );
     } finally {
       setSendingReminders(false);
@@ -228,24 +229,23 @@ export default function PaymentsPage() {
     const clientName = payment.client?.full_name ?? "este cliente";
     const period = `${String(payment.period_month).padStart(2, "0")}/${payment.period_year}`;
 
-    const result = await confirmAction(
+    const confirmed = await confirm(
       "Dar de baja pago",
       `Se eliminara el pago de ${clientName} correspondiente a ${period}. Esta accion no se puede deshacer.`
     );
 
-    if (!result.isConfirmed) return;
+    if (!confirmed) return;
 
     try {
       await deletePaymentMutation.mutateAsync(payment.id);
 
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Pago dado de baja",
-        "El movimiento se elimino correctamente.",
-        1200
+        "El movimiento se elimino correctamente."
       );
     } catch (error) {
       console.error("Error eliminando pago", error);
-      await alertInfo(
+      toastInfo(
         "No se pudo eliminar el pago",
         "Revisa permisos o intenta nuevamente en unos segundos."
       );
@@ -254,6 +254,7 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-8">
+      {ConfirmDialog}
       <section className="grid gap-4 lg:grid-cols-[1.45fr_0.95fr]">
         <div className="hero-aura rounded-xl border border-border p-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">

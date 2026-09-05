@@ -1,5 +1,5 @@
 import axios from "axios";
-import { alertError } from "./alerts";
+import { toastError } from "./toast";
 import { useSessionStore } from "@/stores/session";
 
 const apiBaseURL =
@@ -29,7 +29,7 @@ api.interceptors.response.use(
   (r) => r,
   async (error) => {
     if (error?.response?.status === 401) {
-      await alertError("Sesión expirada", "Volvé a iniciar sesión.");
+      toastError("Sesión expirada", "Volvé a iniciar sesión.");
       useSessionStore.getState().logout();
       window.location.href = "/login";
     }

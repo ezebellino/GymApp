@@ -19,7 +19,7 @@ import { useSessionStore } from "@/stores/session";
 import { useThemeStore } from "@/stores/theme";
 import { THEME_MODES } from "@/lib/theme";
 import { useUpdateMyThemeMutation } from "@/services/me.queries";
-import { alertError } from "@/lib/alerts";
+import { toastError } from "@/lib/toast";
 
 const outlineButtonClass =
   "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70";
@@ -57,7 +57,7 @@ export default function Topbar() {
     setThemeMode(nextMode);
     updateMyThemeMutation.mutate(nextMode, {
       onError: () => {
-        alertError(
+        toastError(
           "No se pudo guardar el tema",
           "El modo se aplico en este dispositivo, pero no se pudo sincronizar con tu cuenta."
         );

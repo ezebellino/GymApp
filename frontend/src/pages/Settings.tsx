@@ -17,7 +17,7 @@ import api from "@/lib/http";
 import { useSessionStore } from "@/stores/session";
 import { useSettingsStore } from "@/stores/settings";
 import type { AppSettings } from "@/types";
-import { alertError, alertSuccess } from "@/lib/alerts";
+import { toastError, toastSuccess } from "@/lib/toast";
 
 const DEFAULT_SETTINGS: AppSettings = {
   gym_name: "Mini Espacio",
@@ -164,10 +164,10 @@ export default function SettingsPage() {
       const next = normalizeSettings({ ...DEFAULT_SETTINGS, ...data });
       setSettings(next);
       setSharedSettings(next);
-      await alertSuccess("Listo", "Configuración guardada.");
+      toastSuccess("Listo", "Configuración guardada.");
     } catch {
       setSharedSettings(settings);
-      await alertError(
+      toastError(
         "Guardado local",
         "No se pudo conectar al servidor. Los cambios quedaron guardados localmente."
       );

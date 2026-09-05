@@ -23,7 +23,7 @@ import AttendanceCalendar from "./AttendanceCalendar";
 import LastPayments from "./LastPayments";
 import EditClientDialog from "./EditClientDialog";
 import api from "@/lib/http";
-import { alertInfo, alertSuccessAutoClose, toast } from "@/lib/alerts";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 
 type Props = {
   viewerRole: Role;
@@ -109,12 +109,12 @@ export default function UserCard({
         new CustomEvent("payments:created", { detail: { client_id: client.id } })
       );
 
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Pago rapido registrado",
         `Se registró la cuota vigente de ${client.full_name} por ${method === "cash" ? "efectivo" : "transferencia"}.`
       );
     } catch (error: any) {
-      await alertError(
+      toastError(
         "No se pudo crear el pago rapido",
         error?.response?.data?.detail ?? "Revisa si el periodo ya fue cobrado."
       );
@@ -373,16 +373,15 @@ export default function UserCard({
       const { blob, filename } = await fetchProgressReport();
       downloadBlob(blob, filename);
 
-      await alertSuccessAutoClose(
+      toastSuccess(
         "PDF listo",
         `Se descargo el reporte de progreso de ${client.full_name}.`
       );
     } catch (error: any) {
-      toast.fire({
-        icon: "error",
-        title: "No se pudo generar el PDF",
-        text: error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos.",
-      });
+      toastError(
+        "No se pudo generar el PDF",
+        error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos."
+      );
     } finally {
       setDownloadingReport(false);
     }
@@ -390,7 +389,7 @@ export default function UserCard({
 
   async function handleShareProgressReport() {
     if (!client.phone) {
-      await alertInfo(
+      toastInfo(
         "Falta WhatsApp",
         "Este cliente no tiene telefono cargado para compartirle el reporte."
       );
@@ -449,7 +448,7 @@ export default function UserCard({
           text: message,
           files: [file],
         });
-        await alertSuccessAutoClose(
+        toastSuccess(
           "Reporte compartido",
           `Se abrio el flujo para enviarle el PDF a ${client.full_name}.`
         );
@@ -463,16 +462,15 @@ export default function UserCard({
       const whatsappUrl = `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
       window.open(whatsappUrl, "_blank", "noopener,noreferrer");
 
-      await alertInfo(
+      toastInfo(
         "PDF listo para compartir",
         "Descargamos el reporte y abrimos WhatsApp con el mensaje preparado. En algunos navegadores el archivo se adjunta manualmente."
       );
     } catch (error: any) {
-      toast.fire({
-        icon: "error",
-        title: "No se pudo preparar el reporte",
-        text: error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos.",
-      });
+      toastError(
+        "No se pudo preparar el reporte",
+        error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos."
+      );
     } finally {
       setSharingReport(false);
     }
