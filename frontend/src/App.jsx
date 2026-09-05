@@ -3,7 +3,6 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sileo";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
-import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useSessionStore } from "./stores/session";
 import { useThemeStore } from "./stores/theme";
@@ -154,7 +153,6 @@ export default function App() {
                 </Routes>
               </Suspense>
             </div>
-            <Footer />
           </main>
         </>
       )}
