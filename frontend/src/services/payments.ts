@@ -46,10 +46,6 @@ export async function createPayment(input: CreatePaymentInput): Promise<Payment>
   return data;
 }
 
-export async function deletePayment(id: string): Promise<void> {
-  await api.delete(`/payments/${id}`);
-}
-
 // Selectores puros compartidos por Pagos y Dashboard (dec. 3/6): hoy
 // duplicados como `loadReminderTargets` (Payments.tsx) y la derivación
 // homónima dentro de `loadDashboard` (Dashboard.tsx).

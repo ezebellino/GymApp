@@ -2,10 +2,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import {
   createClient,
   fetchClients,
-  updateClient,
   type ClientsParams,
   type CreateClientInput,
-  type UpdateClientInput,
 } from "./clients";
 import { queryKeys } from "./queryKeys";
 
@@ -26,23 +24,6 @@ export function useCreateClientMutation() {
     mutationFn: (input: CreateClientInput) => createClient(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.clients.all });
-    },
-  });
-}
-
-export function useUpdateClientMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: UpdateClientInput }) =>
-      updateClient(id, input),
-    onSuccess: () => {
-      // Editar un cliente invalida tambien payments/attendance: sus filas
-      // embeben `client` (`Payment.client`, `Attendance.client`), asi que un
-      // cambio de nombre las deja mintiendo si no se invalidan (dec. 6).
-      queryClient.invalidateQueries({ queryKey: queryKeys.clients.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
     },
   });
 }

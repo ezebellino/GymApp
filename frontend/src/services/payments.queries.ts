@@ -1,7 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createPayment,
-  deletePayment,
   fetchPayments,
   fetchPaymentsKpis,
   type CreatePaymentInput,
@@ -30,17 +29,6 @@ export function useCreatePaymentMutation() {
 
   return useMutation({
     mutationFn: (input: CreatePaymentInput) => createPayment(input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
-    },
-  });
-}
-
-export function useDeletePaymentMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => deletePayment(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
     },

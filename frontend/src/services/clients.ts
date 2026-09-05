@@ -29,18 +29,3 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
   const { data } = await api.post<Client>("/clients", input);
   return data;
 }
-
-export type UpdateClientInput = {
-  full_name: string;
-  email: string | null;
-  phone: string | null;
-  is_active: boolean;
-};
-
-export async function updateClient(
-  id: string,
-  input: UpdateClientInput,
-): Promise<Client> {
-  const { data } = await api.patch<Client>(`/clients/${id}`, input);
-  return data;
-}

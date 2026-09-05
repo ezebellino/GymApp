@@ -15,9 +15,12 @@ que se eliminan en favor de un toggle simple dark/light.
 ## Stack
 
 React 19 + Vite 7 + TypeScript (adopción parcial: `.jsx`/`.tsx` conviven) + Tailwind CSS v4 +
-shadcn/ui (componentes en `src/components/ui`, config en `components.json`) + React Router 7 +
-axios + sileo para toasts (`lib/toast.ts`) + `AlertDialog` de shadcn para confirmaciones
-(`hooks/useConfirm.tsx`).
+shadcn/ui (componentes en `src/components/ui`, config en `components.json`, sin `radix-ui` como
+dependencia — ver más abajo) + React Router 7 + axios + sileo para toasts (`lib/toast.ts`). No
+hay un `AlertDialog`/confirm-before-delete genérico hoy: `hooks/useConfirm.tsx` y
+`components/ui/alert-dialog.tsx` se borraron por no tener caller (quedaron huérfanos cuando se
+vació Payments/Routines) — si una vista nueva necesita confirmar una acción destructiva, hay que
+reimplementarlo (ver dec. de `Dialog` sobre `<dialog>` nativo, mismo patrón).
 
 ## Estructura
 
@@ -211,14 +214,15 @@ npm run lint            # eslint (dentro de frontend/)
     `components/__tests__/Topbar.test.tsx` (el click del toggle cambia `data-theme`, persiste en
     `app_theme` y dispara `PATCH /auth/me/theme`, resuelto por ruta con el helper `apiMock`). Hay
     tests de interacción puntuales (el toggle de tema) pero no una suite de interacción general ni
-    E2E. `radix-ui` ya no es una dependencia del proyecto: `Switch`, `Slot`, `Dialog` y
-    `AlertDialog` (`components/ui/switch.tsx`, `lib/slot.tsx`, `components/ui/dialog.tsx`,
-    `components/ui/alert-dialog.tsx`) están reimplementados a mano sin ningún primitivo de Radix
-    debajo — `Dialog`/`AlertDialog` sobre el `<dialog>` nativo (ver `lib/use-modal-dialog.ts`:
-    showModal/close, Escape vía el evento `cancel`, scroll-lock del body, y un timeout de
-    seguridad por si `animationend` no llega a disparar — jsdom no lo simula). Por eso son los
-    únicos componentes de `ui/` con test propio (`components/ui/__tests__/switch.test.tsx`,
-    `dialog.test.tsx`, `alert-dialog.test.tsx`): a diferencia del resto de `ui/` (que en su
-    momento delegaban foco/teclado/ARIA/animación a Radix), acá esa a11y es código de este repo.
-    `src/test/setup.ts` polyfillea `HTMLDialogElement.prototype.showModal/close/show` porque
-    jsdom solo refleja el atributo `open`, no implementa esos métodos.
+    E2E. `radix-ui` ya no es una dependencia del proyecto: `Switch`, `Slot` y `Dialog`
+    (`components/ui/switch.tsx`, `lib/slot.tsx`, `components/ui/dialog.tsx`) están reimplementados
+    a mano sin ningún primitivo de Radix debajo — `Dialog` sobre el `<dialog>` nativo (ver
+    `lib/use-modal-dialog.ts`: showModal/close, Escape vía el evento `cancel`, scroll-lock del
+    body, y un timeout de seguridad por si `animationend` no llega a disparar — jsdom no lo
+    simula). `AlertDialog` (`components/ui/alert-dialog.tsx`) tuvo el mismo tratamiento pero se
+    borró junto con `hooks/useConfirm.tsx`, su único caller, al quedar huérfano (ver Stack). Por
+    eso `Switch`/`Dialog` son los únicos componentes de `ui/` con test propio
+    (`components/ui/__tests__/switch.test.tsx`, `dialog.test.tsx`): a diferencia del resto de
+    `ui/` (que en su momento delegaban foco/teclado/ARIA/animación a Radix), acá esa a11y es código
+    de este repo. `src/test/setup.ts` polyfillea `HTMLDialogElement.prototype.showModal/close/show`
+    porque jsdom solo refleja el atributo `open`, no implementa esos métodos.
