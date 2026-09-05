@@ -484,6 +484,23 @@ def _build_styled_progress_pdf(
     return bytes(pdf)
 
 
+# Metas que completan cada componente del score. Coinciden con los umbrales de
+# `_motivation_for_metrics` ("excelente constancia" = 12 registros y 8 asistencias, "gran
+# momento" = 3 mejoras) para que el numero y el texto del PDF cuenten la misma historia.
+_SCORE_LOG_GOAL = 12
+_SCORE_ATTENDANCE_GOAL = 8
+_SCORE_IMPROVEMENT_GOAL = 3
+
+
+def _progress_score(log_count: int, attendance_count: int, improvements: int) -> int:
+    """Puntaje 0-100 del reporte de progreso: 40 pts por registros, 30 por asistencia,
+    30 por ejercicios con mejora. Cada componente satura en su meta."""
+    log_points = 40 * min(max(log_count, 0), _SCORE_LOG_GOAL) / _SCORE_LOG_GOAL
+    attendance_points = 30 * min(max(attendance_count, 0), _SCORE_ATTENDANCE_GOAL) / _SCORE_ATTENDANCE_GOAL
+    improvement_points = 30 * min(max(improvements, 0), _SCORE_IMPROVEMENT_GOAL) / _SCORE_IMPROVEMENT_GOAL
+    return min(100, round(log_points + attendance_points + improvement_points))
+
+
 def _motivation_for_metrics(log_count: int, attendance_count: int, improvements: int) -> str:
     if improvements >= 3:
         return "Gran momento: ya se nota una evolucion clara en varios ejercicios. Segui asi."
@@ -978,7 +995,7 @@ def user_progress_report(
         )
         if not pdf_bytes:
             pdf_bytes = _build_simple_pdf(lines)
-    except Exception as exc:
+    except Exception:
         log.exception("Error generando PDF enriquecido de progreso para user_id=%s", user_id)
         pdf_bytes = _build_simple_pdf(lines)
     filename = f"progreso-{client.full_name.lower().replace(' ', '-')}.pdf"

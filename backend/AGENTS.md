@@ -38,6 +38,7 @@ Desde la raíz del repo (usa el venv de `backend/.venv` vía Makefile):
 make setup-backend      # crea venv + instala requirements + copia .env.example -> .env
 make backend            # uvicorn --reload en :8001
 make migrate            # alembic upgrade head
+make lint-backend        # ruff check . (config en backend/ruff.toml)
 ```
 
 Directo dentro de `backend/` (con el venv activado):
@@ -79,8 +80,17 @@ python scripts/create_owner.py     # crea usuario owner inicial
 - **Scripts**: son ejecutables sueltos pensados para correrse una vez (seed, import, fix de
   datos) — no son parte del arranque normal de la app. Si escribís uno nuevo, ponelo en
   `scripts/` con un nombre descriptivo, no lo mezcles con `app/`.
+- **Lint**: `ruff` (config en `backend/ruff.toml`, `target-version = "py313"`), select por
+  defecto (`E4` imports, `E7` statements, `E9` errores de sintaxis, `F` pyflakes — sin `E501` de
+  línea larga ni familias extra como `I`/`B`/`UP`). `per-file-ignores`: `F401` en
+  `migrations/versions/*.py` (Alembic autogenera `op`/`sa` aunque la revision no los use, y esas
+  migraciones ya aplicadas no se editan) y `E402` en `scripts/*.py` (los scripts one-off empujan
+  el root al `sys.path` antes de importar `app.*`). Se corre con `make lint-backend` desde la
+  raíz o `cd backend && .venv/bin/python -m ruff check .`; la dependencia vive en
+  `backend/requirements-dev.txt` junto a pytest.
 - **Tests**: hay suite con pytest en `backend/tests/` (`test_auth.py`, `test_roles.py`,
-  `test_health.py`, `test_theme.py`, `test_membership.py`, `test_invitations.py`).
+  `test_health.py`, `test_theme.py`, `test_membership.py`, `test_invitations.py`,
+  `test_payments.py`).
   `test_membership.py` cubre el indicador de 3 estados (`utils.membership_indicator`), el bloqueo
   de login por baja **scopeado por rol** (`auth.is_membership_blocking_login` — un Miembro dado de
   baja no entra, un Coach-miembro dado de baja sí entra y además se ve "suspended" en el listado:
@@ -112,3 +122,6 @@ python scripts/create_owner.py     # crea usuario owner inicial
     JSON antes de que corra el `field_validator` que soporta ese formato, así que el import de
     `Settings` falla con `SettingsError`. Usá formato JSON o no la setees.
   - Hay una skill `python-testing-patterns` en `.agents/skills/` con patrones de pytest.
+  - `test_payments.py` cubre alta/lectura/borrado de un pago (`POST`/`GET`/`DELETE /payments`)
+    sobre un miembro con membresía activa — la cobertura mínima que exige `make lint` haber
+    tocado `app/routers/payments.py` para el gate de `add-verification-gates-to-opsx-flow`.

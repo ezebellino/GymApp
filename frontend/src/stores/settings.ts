@@ -40,13 +40,18 @@ export const DEFAULT_SETTINGS: AppSettings = {
     "Bienvenido a Mini Espacio. Ante dudas sobre pagos, asistencias o rutinas, consulta en recepción.",
 };
 
+// Porcion de `SettingsState` que efectivamente persiste este storage a
+// medida: `setSettings` nunca se serializa, así que el tipo del storage no
+// puede ser `SettingsState` completo (TS2741).
+type PersistedSettings = Pick<SettingsState, "settings">;
+
 // PersistStorage a medida sobre la clave plana `app_settings` que ya existe
 // (mismo shim de compatibilidad que `stores/session.ts`, ver dec. 8): el
 // objeto `AppSettings` se guarda tal cual, sin el envoltorio `{state,version}`
 // del `createJSONStorage` default, para que los lectores fuera de alcance
 // (`NewPaymentDialog`, `UserCard`) lo sigan parseando sin tocarlos.
-const settingsStorage: PersistStorage<SettingsState> = {
-  getItem: (): StorageValue<SettingsState> | null => {
+const settingsStorage: PersistStorage<PersistedSettings> = {
+  getItem: (): StorageValue<PersistedSettings> | null => {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!raw) return null;
 

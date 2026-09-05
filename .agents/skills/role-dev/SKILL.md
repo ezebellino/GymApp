@@ -28,3 +28,9 @@ Implementás las tasks de un change de OpenSpec. Ver [AGENTS.md](../../../AGENTS
   `.env.docker.example`.
 - Seguí el estilo del archivo que estás editando: misma densidad de comentarios, mismos idioms.
 - Al terminar, verificá que corre de verdad (skill `run-app`), no solo que compila.
+- **Cada fila de la tabla de Tests del `## Plan de verificación`** (`design.md`) es una task
+  obligatoria, no una sugerencia: implementá el test exacto (archivo + caso) que declaró
+  `role-architect`. No se marca la última task del change sin `make lint`, `make test` y
+  `make check-plan CHANGE=<name>` en verde. Si un caso del plan no se puede escribir tal como está
+  (el escenario no es reproducible, falta infraestructura, etc.), no lo borres del plan por tu
+  cuenta: volvé a `role-architect` para que ajuste el `## Plan de verificación`.

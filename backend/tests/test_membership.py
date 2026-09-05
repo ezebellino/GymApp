@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from app import models
 from app.utils import current_period
-from tests.helpers import COACH_EMAIL, OWNER_EMAIL, PASSWORD, create_user, login
+from tests.helpers import OWNER_EMAIL, PASSWORD, create_user, login
 
 
 def _create_member(db_session, email="miembro@example.com", **kwargs):

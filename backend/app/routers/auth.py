@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from ..deps import get_db
 from ..security import optional_bearer
 from .. import models
-from ..auth import verify_password, create_access_token, hash_password, is_membership_blocking_login
+from ..auth import verify_password, create_access_token, is_membership_blocking_login
 from ..auth import get_current_user
 from .. import schemas
 

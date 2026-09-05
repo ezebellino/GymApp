@@ -239,7 +239,7 @@ export default function UserCard({
       const barH = Math.max(8, (value / maxValue) * graphH);
       const x = graphX + index * step + 28;
       lines.push(rect(x, graphY, 42, barH, index % 2 === 0 ? amber : orange));
-      lines.push(text(x + 4, graphY - 12, 8, label, zinc));
+      lines.push(text(x + 4, graphY - 12, 8, String(label), zinc));
       lines.push(text(x + 6, graphY + barH + 5, 8, `${value}`, white));
     });
 

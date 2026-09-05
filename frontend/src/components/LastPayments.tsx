@@ -31,7 +31,7 @@ export default function LastPayments({ clientId, limit = 3 }: Props) {
         console.error(e);
         if (mounted) setErr("No se pudieron cargar pagos.");
       } finally {
-        mounted && setLoading(false);
+        if (mounted) setLoading(false);
       }
     })();
 

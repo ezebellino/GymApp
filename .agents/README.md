@@ -14,6 +14,8 @@ acá, funciona en los dos.
 ├── README.md                  este archivo
 ├── registry.json              qué se linkea y config por proveedor de cada rol
 ├── bin/sync.py                materializa .claude/ y .codex/ desde acá
+├── bin/check_plan.py          gate mecánico: chequea el `## Plan de verificación` de un design.md
+│                               (make check-plan CHANGE=<nombre>) — lo corre `verify-change`
 ├── skills/                    ← ruta NATIVA de Codex ($REPO_ROOT/.agents/skills)
 │   ├── openspec-*/            flujo de OpenSpec (cuerpo canónico, generado por openspec)
 │   ├── verify-change/         gate de verificación previo a archivar (propia)
@@ -76,8 +78,10 @@ Cada rol es **a la vez** una skill (invocable en cualquier proveedor) y un subag
 (aislamiento de contexto y permisos, en el proveedor que lo soporte).
 
 Los comandos `/opsx:*` delegan en ellos: `propose` reparte entre Product Owner y Arquitecto,
-`apply` implementa con Dev, y `verify` corre Code Reviewer + QA y deja el veredicto en
-`verification.md` del change (gate previo a `archive`).
+`apply` implementa con Dev, y `verify` corre primero un gate mecánico (`make check-plan` +
+`make lint` + `make test`; corta antes de gastar un turno de agente si algo sale en rojo) y recién
+después Code Reviewer + QA (QA se omite con riesgo declarado bajo y el gate en verde), dejando el
+veredicto en `verification.md` del change (gate previo a `archive`).
 
 ## Cosas que muerden
 

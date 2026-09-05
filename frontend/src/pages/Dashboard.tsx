@@ -71,7 +71,6 @@ export default function Dashboard() {
   const {
     clientsTotal,
     activeClients,
-    clientsWithoutPayment,
     revenueMonth,
     checkinsToday,
     payments,

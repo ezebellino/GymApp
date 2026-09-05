@@ -35,8 +35,8 @@ acciones), sin la card lateral de marca/estado de sesión.
 - **THEN** el hero no muestra una card lateral con logo, rol actual y período visible
 
 ### Requirement: Comportamiento funcional sin cambios
-Los KPIs, quick actions, check-in rápido, pago rápido, pagos recientes y seguimiento de cobros
-SHALL seguir funcionando igual que antes de este cambio.
+El dashboard SHALL mantener operativos los KPIs, quick actions, check-in rápido, pago rápido,
+pagos recientes y seguimiento de cobros, con independencia de los cambios visuales de la vista.
 
 #### Scenario: KPIs siguen visibles
 - **WHEN** el usuario navega a `/dashboard`

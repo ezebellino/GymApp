@@ -72,10 +72,18 @@ src/services/
 make setup-frontend   # npm install + copia .env.example -> .env
 make frontend         # vite dev
 npm run build          # build de producción (dentro de frontend/)
-npm run lint            # eslint (dentro de frontend/)
+npm run lint            # eslint, JS y TS/TSX vía typescript-eslint (dentro de frontend/)
+npm run typecheck        # tsc --noEmit -p tsconfig.json (dentro de frontend/)
+make lint-frontend       # eslint + typecheck juntos, desde la raíz
 ```
 
-`VITE_API_URL` en `.env` apunta al backend (ver `.env.example`).
+`VITE_API_URL` en `.env` apunta al backend (ver `.env.example`). `typescript` es una
+`devDependency` real desde `add-verification-gates-to-opsx-flow` (antes no estaba instalado, así
+que nada chequeaba los tipos pese a `tsconfig.json` con `strict: true`); `npm run build` (esbuild
+vía Vite) sigue sin chequear tipos — ese chequeo lo hace el gate (`make lint-frontend`/
+`make lint`), no el build. Los `PersistStorage` a medida de `stores/session.ts`, `settings.ts` y
+`theme.ts` quedaron tipados con la porción `Pick<...>` que efectivamente persisten (no el estado
+completo con acciones).
 
 ## Convenciones
 

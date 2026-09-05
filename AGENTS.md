@@ -38,6 +38,7 @@ make dev        # levanta backend (uvicorn) + frontend (vite) juntos
 make backend    # solo backend, puerto 8001
 make frontend   # solo frontend
 make migrate    # alembic upgrade head
+make lint       # ruff (backend) + eslint/tsc (frontend), ver bullet Tests
 make docker-up  # stack completo en Docker (db + backend + frontend)
 ```
 
@@ -83,12 +84,19 @@ Flujo (comandos definidos una sola vez en `.agents/commands/`: `/opsx:<x>` en Cl
 
 1. `/opsx:propose "<qué querés construir>"` — crea `openspec/changes/<nombre>/` con
    `proposal.md`, `specs/`, `design.md` y `tasks.md`. Cada artifact lo escribe su rol dueño:
-   Product Owner el proposal y las specs, Arquitecto el design y las tasks.
+   Product Owner el proposal y las specs, Arquitecto el design y las tasks — que en todo change
+   con código (`backend/` o `frontend/src/`) incluye además un `## Plan de verificación` en
+   `design.md`: invariantes, tests por capa nombrados (archivo + caso) y un riesgo declarado
+   (bajo/medio/alto).
 2. Revisar y ajustar los artifacts generados si hace falta.
-3. `/opsx:apply` — el rol Dev implementa las tasks del change.
-4. `/opsx:verify` — **gate**: Code Reviewer revisa el diff y QA verifica los escenarios de la
-   spec; el veredicto queda en `verification.md` dentro del change. OpenSpec solo tiene gates
-   antes de implementar (`apply.requires`), así que este cubre el después.
+3. `/opsx:apply` — el rol Dev implementa las tasks del change, incluidos los tests que nombra el
+   Plan de verificación.
+4. `/opsx:verify` — **gate**: primero un paso 0 mecánico (`make check-plan`, `make lint`,
+   `make test`; FALLA sin gastar un turno de agente si alguno sale en rojo), y recién si pasa,
+   Code Reviewer revisa el diff y QA verifica los escenarios de la spec — salvo que el riesgo
+   declarado sea bajo y el paso 0 esté verde, en cuyo caso QA manual se omite y queda registrado
+   como tal en `verification.md`. El veredicto queda en ese mismo archivo. OpenSpec solo tiene
+   gates antes de implementar (`apply.requires`), así que este cubre el después.
 5. `/opsx:sync` — sincroniza las delta specs a `openspec/specs/` (sin archivar).
 6. `/opsx:archive` — con veredicto PASA, archiva el change y actualiza las specs principales.
 
@@ -114,6 +122,10 @@ decirlo explícitamente y el resumen del archive debe registrarlo.
   (`frontend/src/**/__tests__/*.test.tsx`). Ninguna requiere levantar la app ni Docker. Cubre el
   piso, no el techo: auth + autorización por rol en backend y render de las 4 vistas con spec en
   frontend. Si agregás tests, documentalo en el `AGENTS.md` de esa app.
+- **Lint**: `make lint` corre el linter de las dos apps y termina en código de salida distinto de
+  cero si cualquiera encuentra una offense — `make lint-backend` (ruff, ver `backend/AGENTS.md`)
+  y `make lint-frontend` (`eslint` + `tsc --noEmit`, ver `frontend/AGENTS.md`) corren cada uno
+  por separado. Tampoco requiere levantar la app ni Docker.
 
 ## Configuración de agentes: `.agents/` es la única fuente de verdad
 

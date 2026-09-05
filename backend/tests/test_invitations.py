@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 
 from app import models
-from tests.helpers import OWNER_EMAIL, PASSWORD, create_user
+from tests.helpers import OWNER_EMAIL, create_user
 
 
 def _create_member_without_access(db_session, *, email, phone="1122334455"):

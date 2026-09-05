@@ -21,7 +21,7 @@ import type { Role } from "@/types";
 export type NavItem = {
   to: string;
   label: string;
-  icon: FC<{ size?: number }>;
+  icon: FC<{ size?: number; className?: string }>;
 };
 
 export const NAV_ITEMS: NavItem[] = [

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, Query
-from sqlalchemy.orm import Session, joinedload, contains_eager
-from sqlalchemy import func, and_, or_
+from sqlalchemy.orm import Session, contains_eager
+from sqlalchemy import func, or_
 from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime, timedelta, date
 
@@ -83,7 +83,9 @@ def create_payment(
         period_year=payload.period_year,
         created_by_user_id=user.id,
     )
-    db.add(obj); db.commit(); db.refresh(obj)
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
 
     loc = request.url_for("payments:get_one", payment_id=obj.id)
     response.headers["Location"] = str(loc)
@@ -153,7 +155,8 @@ def delete_payment(payment_id: str, db: Session = Depends(get_db)):
     obj = db.get(models.Payment, payment_id)
     if not obj:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Payment not found")
-    db.delete(obj); db.commit()
+    db.delete(obj)
+    db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

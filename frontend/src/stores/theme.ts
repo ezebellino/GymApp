@@ -27,13 +27,18 @@ function readLegacySettingsTheme(): ThemeMode | null {
   }
 }
 
+// Porcion de `ThemeState` que efectivamente persiste este storage a medida:
+// `setMode` nunca se serializa, así que el tipo del storage no puede ser
+// `ThemeState` completo (TS2741).
+type PersistedTheme = Pick<ThemeState, "mode">;
+
 // PersistStorage a medida sobre la clave plana ya existente `app_theme` (mismo
 // patron que `session.ts`/`settings.ts`): el valor persistido es el string
 // plano del modo, sin el envoltorio `{state,version}` del `createJSONStorage`
 // default, para que siga siendo compatible con lo que ya escribia el
 // `lib/theme.ts` viejo.
-const themePersistStorage: PersistStorage<ThemeState> = {
-  getItem: (): StorageValue<ThemeState> | null => {
+const themePersistStorage: PersistStorage<PersistedTheme> = {
+  getItem: (): StorageValue<PersistedTheme> | null => {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
     const mode = stored ? normalizeThemeMode(stored) : (readLegacySettingsTheme() ?? DEFAULT_THEME_MODE);
     return { state: { mode }, version: 0 };

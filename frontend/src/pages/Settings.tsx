@@ -72,7 +72,7 @@ function normalizeSettings(settings: AppSettings): AppSettings {
 
 function buildReminderPreviewMessage(settings: AppSettings) {
   const template =
-    settings.payment_reminder_message || DEFAULT_SETTINGS.payment_reminder_message;
+    (settings.payment_reminder_message || DEFAULT_SETTINGS.payment_reminder_message) ?? "";
 
   return template
     .replaceAll("{client_name}", "Cliente de ejemplo")

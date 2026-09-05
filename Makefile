@@ -1,5 +1,6 @@
 .PHONY: help setup setup-backend setup-frontend dev backend frontend migrate stop clean \
 	test test-backend test-frontend \
+	lint lint-backend lint-frontend check-plan \
 	docker-up docker-down docker-build docker-logs docker-ps docker-clean \
 	agents-sync agents-check
 
@@ -50,6 +51,27 @@ test: ## Corre backend + frontend y reporta el estado combinado
 	$(MAKE) test-backend || fail=1; \
 	$(MAKE) test-frontend || fail=1; \
 	exit $$fail
+
+lint-backend: ## Corre el linter del backend (ruff)
+	@echo "==> lint backend (ruff)"
+	cd backend && ../$(PYTHON) -m ruff check . --output-format concise
+
+lint-frontend: ## Corre eslint + chequeo de tipos del frontend
+	@echo "==> lint frontend (eslint + tsc)"
+	@fail=0; \
+	(cd frontend && npm run lint) || fail=1; \
+	(cd frontend && npm run typecheck) || fail=1; \
+	exit $$fail
+
+lint: ## Corre lint de backend + frontend y reporta el estado combinado
+	@fail=0; \
+	$(MAKE) lint-backend || fail=1; \
+	$(MAKE) lint-frontend || fail=1; \
+	exit $$fail
+
+check-plan: ## Verifica el Plan de verificacion de un change (uso: make check-plan CHANGE=<nombre>)
+	@test -n "$(CHANGE)" || { echo "ERROR: falta CHANGE=<nombre-del-change>. Uso: make check-plan CHANGE=<nombre>"; exit 2; }
+	python3 .agents/bin/check_plan.py --change $(CHANGE)
 
 stop: ## Mata procesos de uvicorn/vite que hayan quedado colgados
 	-pkill -f "uvicorn app.main:app" || true

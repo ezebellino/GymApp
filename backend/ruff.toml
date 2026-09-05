@@ -1,0 +1,12 @@
+target-version = "py313"      # Dockerfile: python:3.13-slim; venv: python3.13
+
+[lint]
+# Default de ruff: E4 (imports), E7 (statements), E9 (errores de sintaxis), F (pyflakes).
+select = ["E4", "E7", "E9", "F"]
+
+[lint.per-file-ignores]
+# Alembic autogenera `from alembic import op` / `import sqlalchemy as sa` aunque la
+# revision no los use, y las migraciones ya aplicadas no se editan (AGENTS.md).
+"**/migrations/versions/*.py" = ["F401"]
+# Los scripts one-off empujan el root al sys.path antes de importar `app.*`.
+"**/scripts/*.py" = ["E402"]

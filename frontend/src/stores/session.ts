@@ -88,14 +88,19 @@ function scheduleAutoLogout(exp: number | null) {
   }, cappedDelay);
 }
 
+// Porcion de `SessionState` que efectivamente persiste este storage a medida:
+// las acciones (`setSession`/`logout`) nunca se serializan, así que el tipo
+// del storage no puede ser `SessionState` completo (TS2739).
+type PersistedSession = Pick<SessionState, "token" | "userName" | "role" | "email" | "exp">;
+
 // PersistStorage a medida: mapea el estado a las tres claves planas que ya usa
 // el resto del repo (`access_token`, `user_name`, `user_role`) en vez de la
 // clave nueva con el envoltorio `{state, version}` que usaria el
 // `createJSONStorage` default. Shim de compatibilidad con fecha de
 // vencimiento (ver frontend/AGENTS.md): cero migracion de sesiones existentes
 // y los lectores fuera de alcance de `localStorage` siguen andando.
-const sessionPersistStorage: PersistStorage<SessionState> = {
-  getItem: (): StorageValue<SessionState> | null => {
+const sessionPersistStorage: PersistStorage<PersistedSession> = {
+  getItem: (): StorageValue<PersistedSession> | null => {
     const token = localStorage.getItem("access_token");
     if (!token) return null;
 

@@ -101,5 +101,7 @@ def checkin(
         coach_id=user.id if user.role == models.UserRole.coach else None,
         checkin_at=now_ar().replace(tzinfo=None),
     )
-    db.add(a); db.commit(); db.refresh(a)
+    db.add(a)
+    db.commit()
+    db.refresh(a)
     return a

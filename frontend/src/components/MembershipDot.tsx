@@ -6,6 +6,7 @@ import type { MembershipIndicator } from "@/types";
 // page", y hoy está duplicado conceptualmente en `UserDetail.tsx`. Mapea
 // directo `User.membership_indicator` del servidor — sin lógica propia, la
 // precedencia (baja > mora) ya la resuelve el backend.
+/* eslint-disable react-refresh/only-export-components -- constantes compartidas a propósito */
 export const INDICATOR_LABEL: Record<MembershipIndicator, string> = {
   up_to_date: "Al día con la cuota",
   overdue: "En mora",

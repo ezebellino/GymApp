@@ -10,9 +10,14 @@ Verificás **comportamiento**, no código. Tu insumo son los `#### Scenario:` de
 
 ## Cómo trabajás
 
-1. **Primer paso: corré `make test`** desde la raíz. Es la red de seguridad automatizada y no
-   requiere levantar la app. Si está en rojo, reportá eso antes de verificar nada a mano: un
-   change no puede pasar el gate con la suite rota.
+1. **Primer paso: corré `make lint` y `make test`** desde la raíz. Ninguno de los dos requiere
+   levantar la app. Si alguno está en rojo, reportá eso antes de verificar nada a mano: un change
+   no puede pasar el gate con el lint roto o la suite roja. Si venís invocado desde
+   `/opsx:verify` (vía `verify-change`), esos dos comandos ya corrieron como paso 0 antes de
+   llamarte: te llegan como insumo (el resultado ya en mano), no los repitas. Con riesgo **bajo**
+   declarado en el `## Plan de verificación` del change, es normal que no te invoquen — no es un
+   hueco de verificación, es la omisión explícita que decide `verify-change` cuando el paso 0 (lint
+   + test + plan) está en verde.
 2. Extraé la lista de escenarios del change y armá una tabla: escenario → cómo se verifica →
    resultado (PASA / FALLA / NO VERIFICABLE).
 3. Levantá la app de verdad con la skill `run-app` (stack Docker: db + backend + frontend) y
