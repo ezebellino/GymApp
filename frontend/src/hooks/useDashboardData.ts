@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { useClientsQuery } from "@/services/clients.queries";
+import { useUsersQuery } from "@/services/users.queries";
 import { usePaymentsQuery, usePaymentsKpisQuery } from "@/services/payments.queries";
 import { useAttendanceCountQuery } from "@/services/attendance.queries";
 import { getPendingClients } from "@/services/payments";
-import type { Client, Payment } from "@/types";
+import type { Payment, User } from "@/types";
 
 // Descomposición del Dashboard (design.md dec. 7): cuatro queries
 // independientes en vez del `Promise.allSettled` original, con los
@@ -64,7 +64,7 @@ export function useDashboardData() {
   const monthRange = monthBounds();
   const todayRange = todayAndTomorrow();
 
-  const clientsQuery = useClientsQuery({ limit: CLIENTS_SAMPLE_LIMIT });
+  const clientsQuery = useUsersQuery({ limit: CLIENTS_SAMPLE_LIMIT });
   const paymentsQuery = usePaymentsQuery({ limit: 200 });
   const kpisQuery = usePaymentsKpisQuery(monthRange);
   const attendanceCountQuery = useAttendanceCountQuery(todayRange);
@@ -72,9 +72,19 @@ export function useDashboardData() {
   const clients = clientsQuery.data?.items ?? [];
   const allPayments = paymentsQuery.data?.items ?? [];
 
-  const clientsTotal = clientsQuery.data?.total ?? clients.length;
+  // "Clientes activos" es membresía activa, no cuenta habilitada (`is_active`
+  // vale para cualquier rol) — un Dueño/Coach sin membresía no debe sumar acá
+  // (hallazgo 3 de verification.md de unify-clients-into-users).
   const activeClients = useMemo(
-    () => clients.filter((client) => client.is_active !== false).length,
+    () => clients.filter((client) => client.membership_status === "active").length,
+    [clients]
+  );
+  // El "total" del hint tiene que hablar de lo mismo que el número principal
+  // (membresía), no de `X-Total-Count` de `/users` (que ahora es cualquier
+  // rol, Dueños/Coaches incluidos) — mismo tipo de mezcla del hallazgo 3, acá
+  // en el copy de contexto en vez del dato principal (hallazgo N8).
+  const clientsTotal = useMemo(
+    () => clients.filter((client) => client.membership_status !== "none").length,
     [clients]
   );
 
@@ -93,7 +103,7 @@ export function useDashboardData() {
     return kpisQuery.data?.amount_sum ?? revenueFromPayments;
   }, [allPayments, kpisQuery.data, period.month, period.year]);
 
-  const pendingClientsAll = useMemo<Client[]>(
+  const pendingClientsAll = useMemo<User[]>(
     () => getPendingClients(clients, allPayments, period),
     [clients, allPayments, period.month, period.year]
   );

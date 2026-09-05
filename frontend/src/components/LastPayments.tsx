@@ -21,7 +21,7 @@ export default function LastPayments({ clientId, limit = 3 }: Props) {
       try {
         const { data } = await api.get<Payment[]>("/payments", {
           params: {
-            client_id: clientId, // 👈 filtramos por cliente
+            user_id: clientId, // 👈 filtramos por usuario
             limit,
             offset: 0,
           },

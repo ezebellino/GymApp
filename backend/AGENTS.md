@@ -54,19 +54,43 @@ python scripts/create_owner.py     # crea usuario owner inicial
   el autogenerate (`alembic revision --autogenerate`) siempre a mano antes de aplicar — a veces
   genera drops o cambios de tipo no deseados.
 - **Auth**: el enum `models.UserRole` tiene **tres** roles — `owner` (Dueño), `coach` (Coach) y
-  `user` (Cliente, el portal self-service). Los nombres en español son solo de producto; en
-  código y en la API se usan los del enum (ver `routers/auth.py` y `routers/coaches.py`). Los
-  endpoints protegidos usan dependencias de `deps.py` — no reimplementes chequeo de token a mano
-  en un router nuevo.
+  `member` (Miembro, el portal self-service; renombrado desde `user` en `unify-clients-into-users`
+  — el modelo `Client` ya no existe, se fusionó en `User`). Los nombres en español son solo de
+  producto; en código y en la API se usan los del enum (ver `routers/auth.py` y `routers/users.py`,
+  que reemplazó a `routers/clients.py` + `routers/coaches.py`). Los endpoints protegidos usan
+  dependencias de `deps.py` (`require_role`, `require_can_manage_user`) — no reimplementes chequeo
+  de token o de permisos a mano en un router nuevo.
+  - Ser "miembro del gimnasio" (con rutinas, asistencia y pagos) es un atributo funcional
+    (`membership_status: none|active|cancelled`) independiente del rol: un Dueño o Coach puede
+    además estar marcado como miembro. Dos reglas separadas a propósito, en módulos distintos:
+    `utils.membership_indicator()` (color del listado, no mira el rol) y
+    `auth.is_membership_blocking_login()` (bloqueo de acceso, solo aplica a rol `member`, no mira
+    los pagos). Nunca fusionar esa lógica.
 - **CORS**: origins permitidos vienen de `CORS_ORIGINS` en `.env` (coma-separado). Si agregás un
   dominio de frontend nuevo, actualizá `.env.example` y `.env.docker.example` también.
+- **Invitación de miembro** (`member-invitation`): `app/notifications.py` define
+  `NotificationSender` (`NOTIFICATIONS_BACKEND=log` por default, escribe el link en
+  `backend/logs/invitations.log`; `smtp` usa `smtplib` de la stdlib con `SMTP_*` en `.env`, sin
+  dependencias nuevas) y `FRONTEND_BASE_URL` arma el link `/invitacion/{channel}/{token}`. El
+  WhatsApp **no** tiene integración real: el link se genera y la UI ofrece un botón `wa.me`, igual
+  que el patrón ya usado para recordatorios de pago — no hay envío automático.
 - **Logs**: `app/logging_conf.py` escribe a `backend/logs/` (access/app/error). No commitear
   contenido de `logs/` (ya está en `.gitignore`).
 - **Scripts**: son ejecutables sueltos pensados para correrse una vez (seed, import, fix de
   datos) — no son parte del arranque normal de la app. Si escribís uno nuevo, ponelo en
   `scripts/` con un nombre descriptivo, no lo mezcles con `app/`.
 - **Tests**: hay suite con pytest en `backend/tests/` (`test_auth.py`, `test_roles.py`,
-  `test_health.py`, `test_theme.py`). `test_theme.py` cubre la preferencia de tema por usuario
+  `test_health.py`, `test_theme.py`, `test_membership.py`, `test_invitations.py`).
+  `test_membership.py` cubre el indicador de 3 estados (`utils.membership_indicator`), el bloqueo
+  de login por baja **scopeado por rol** (`auth.is_membership_blocking_login` — un Miembro dado de
+  baja no entra, un Coach-miembro dado de baja sí entra y además se ve "suspended" en el listado:
+  las dos reglas están desacopladas a propósito), el enforcement en sesión abierta (401 inmediato
+  en `get_current_user`, no solo en `POST /auth/token`) y las fechas de baja/reactivación.
+  `test_invitations.py` cubre el flujo completo de `member-invitation` (alta, verificación
+  independiente de los dos canales, expiración, reenvío, y que una baja posterior a una invitación
+  ya completada vuelve a bloquear el login). `tests/helpers.py` expone `create_user(...)` para
+  crear usuarios directo en la base con cualquier rol/`membership_status` — no hay auto-registro
+  (`/auth/client-register` se retiró). `test_theme.py` cubre la preferencia de tema por usuario
   (`theme_preference` en `users`, adoptada en `adopt-kinetic-obsidian-theme`): `GET /auth/me`
   incluye `theme_preference` (`null` para un usuario nuevo); `PATCH /auth/me/theme` con
   `{"theme_preference": "light"}` responde 200 y un `GET` posterior lo devuelve; con un valor que

@@ -6,10 +6,21 @@ import type { Role } from "@/types";
 
 type TokenPayload = {
   exp: number;
-  role?: Role;
+  role?: Role | "user";
   name?: string;
   email?: string;
 };
+
+// Compatibilidad con JWT emitidos antes del deploy de `unify-clients-into-users`
+// (design.md, decision 3): esos tokens todavia traen `role: "user"`. Mismo
+// patron que `normalizeThemeMode` (`lib/theme.ts`) — sin este mapeo, cualquiera
+// con sesion abierta queda con un rol desconocido y sin rutas (`ProtectedRoute`
+// no reconoce "user").
+export function normalizeRole(raw: unknown): Role | null {
+  if (raw === "owner" || raw === "coach" || raw === "member") return raw;
+  if (raw === "user") return "member";
+  return null;
+}
 
 export type SessionState = {
   token: string | null;
@@ -89,7 +100,7 @@ const sessionPersistStorage: PersistStorage<SessionState> = {
     if (!token) return null;
 
     const userName = localStorage.getItem("user_name");
-    const role = localStorage.getItem("user_role") as Role | null;
+    const role = normalizeRole(localStorage.getItem("user_role"));
 
     // `exp` y `email` no se persisten: se recalculan del token en cada
     // rehidratacion.
@@ -146,7 +157,7 @@ export const useSessionStore = create<SessionState>()(
           } catch {
             payload = {};
           }
-          const role = over?.role ?? payload.role ?? null;
+          const role = normalizeRole(over?.role ?? payload.role);
           const userName = over?.name ?? payload.name ?? payload.email ?? null;
           const email = over?.email ?? payload.email ?? null;
           const exp = payload.exp ?? null;

@@ -84,4 +84,25 @@ describe("Dialog (sin Radix, sobre <dialog> nativo)", () => {
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it("montado con open=false no lleva la clase grid (pisaría el display:none nativo del <dialog> cerrado)", () => {
+    render(
+      <Dialog open={false}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Titulo</DialogTitle>
+            <DialogDescription>Descripcion</DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+    );
+
+    // El <dialog> no tiene `role="dialog"` expuesto por accesibilidad cuando
+    // esta cerrado, asi que se busca por su data-slot en vez de por rol.
+    const dialog = document.querySelector('[data-slot="dialog-content"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.hasAttribute("open")).toBe(false);
+    expect(dialog?.className).toContain("hidden");
+    expect(dialog?.className).not.toMatch(/(^|\s)grid(\s|$)/);
+  });
 });

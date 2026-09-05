@@ -30,7 +30,7 @@ export async function fetchAttendanceCount(period: PeriodRange): Promise<number>
   return readTotalCount(headers, 0);
 }
 
-export type CheckinInput = { client_id?: string; q?: string };
+export type CheckinInput = { user_id?: string; q?: string };
 
 export async function checkin(input: CheckinInput): Promise<void> {
   await api.post("/attendance/checkin", input);

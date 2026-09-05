@@ -30,11 +30,17 @@ from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 
 from app import models  # noqa: E402
-from app.auth import hash_password  # noqa: E402
 from app.deps import get_db  # noqa: E402
 from app.models import Base  # noqa: E402
 from app.main import app  # noqa: E402
-from tests.helpers import CLIENT_EMAIL, COACH_EMAIL, OWNER_EMAIL, PASSWORD, login  # noqa: E402
+from tests.helpers import (  # noqa: E402
+    CLIENT_EMAIL,
+    COACH_EMAIL,
+    OWNER_EMAIL,
+    PASSWORD,
+    create_user,
+    login,
+)
 
 test_engine = create_engine(TEST_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
@@ -78,59 +84,51 @@ def client():
 
 # --- Usuarios ---------------------------------------------------------------
 # bcrypt cuesta ~0.28 s por hash: no crear usuarios que el test no use.
-# Los emails y el helper `login` viven en `tests/helpers.py`: importarlos desde acá
-# con `from tests.conftest import ...` cargaria el conftest una segunda vez.
-
-
-def _create_user(session, *, email, full_name, role):
-    user = models.User(
-        full_name=full_name,
-        email=email,
-        password_hash=hash_password(PASSWORD),
-        email_verified=True,
-        role=role,
-        is_active=True,
-    )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    return user
+# `create_user`, los emails y el helper `login` viven en `tests/helpers.py`:
+# importarlos desde un test con `from tests.conftest import ...` cargaria el
+# conftest una segunda vez (ver docstring de helpers.py).
 
 
 @pytest.fixture
 def owner_user(db_session):
-    return _create_user(
+    return create_user(
         db_session,
         email=OWNER_EMAIL,
-        full_name="Duenio de Test",
+        first_name="Duenio",
+        last_name="de Test",
         role=models.UserRole.owner,
     )
 
 
 @pytest.fixture
 def coach_user(db_session):
-    return _create_user(
+    return create_user(
         db_session,
         email=COACH_EMAIL,
-        full_name="Coach de Test",
+        first_name="Coach",
+        last_name="de Test",
         role=models.UserRole.coach,
     )
 
 
 @pytest.fixture
-def client_user(client):
-    """Rol `user`, creado por el endpoint real de registro.
+def client_user(client, db_session):
+    """Rol Miembro con membresía activa y acceso ya creado directamente en la base.
 
-    Es el unico camino que linkea `client_id`, y sin ese link
-    `GET /routines/my/client` no devuelve 200.
+    Ya no hay auto-registro (`/auth/client-register` se retiró: ver capability
+    `register-client-view`); el alta de un Miembro y su acceso al portal los inicia
+    siempre un admin/coach a través de `member-invitation`. Para el smoke de
+    autenticación alcanza con una cuenta ya seedeada, así que se crea directo acá.
     """
+    create_user(
+        db_session,
+        email=CLIENT_EMAIL,
+        first_name="Cliente",
+        last_name="de Test",
+        role=models.UserRole.member,
+    )
     response = client.post(
-        "/auth/client-register",
-        json={
-            "full_name": "Cliente de Test",
-            "email": CLIENT_EMAIL,
-            "password": PASSWORD,
-        },
+        "/auth/token", data={"username": CLIENT_EMAIL, "password": PASSWORD}
     )
     assert response.status_code == 200, response.text
     return {"email": CLIENT_EMAIL, "token": response.json()["access_token"]}

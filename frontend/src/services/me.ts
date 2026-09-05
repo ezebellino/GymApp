@@ -8,9 +8,8 @@ import type { ThemeMode } from "@/lib/theme";
 export type MeUser = {
   id: string;
   full_name: string;
-  email: string;
+  email: string | null;
   role: Role;
-  client_id: string | null;
   is_active: boolean;
   email_verified: boolean;
   theme_preference: ThemeMode | null;

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, date
 from .. import models, schemas
 from ..deps import get_db
 from ..auth import get_current_user, require_role
-from ..models import UserRole
+from ..models import UserRole, MembershipStatus
 import logging
 
 log = logging.getLogger("request")
@@ -45,14 +45,25 @@ def create_payment(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    # 👉 Normalizá el client_id a str (viene como UUID del schema)
-    client_id_str = str(payload.client_id)
+    # 👉 Normalizá el user_id a str (viene como UUID del schema)
+    user_id_str = str(payload.user_id)
 
-    # Regla: 1 pago por cliente/mes
+    target = db.get(models.User, user_id_str)
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado")
+    # Rutinas, asistencia y pagos aplican unicamente a usuarios con membresia activa
+    # (`user-management`, "Estado de membresía, fecha de baja y bloqueo de acceso").
+    if target.membership_status != MembershipStatus.active:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "El usuario no tiene una membresía activa",
+        )
+
+    # Regla: 1 pago por usuario/mes
     exists = (
         db.query(models.Payment)
         .filter(
-            models.Payment.client_id == client_id_str,          
+            models.Payment.user_id == user_id_str,
             models.Payment.period_year == payload.period_year,
             models.Payment.period_month == payload.period_month,
         )
@@ -61,9 +72,9 @@ def create_payment(
     if exists:
         raise HTTPException(status.HTTP_409_CONFLICT, "Payment for this period already exists")
 
-    # Crear el pago usando el client_id como str
+    # Crear el pago usando el user_id como str
     obj = models.Payment(
-        client_id=client_id_str,                                
+        user_id=user_id_str,
         amount=payload.amount,
         method=payload.method,
         method_channel=payload.method_channel,
@@ -84,7 +95,7 @@ def list_payments(
     response: Response,
     request: Request,
     db: Session = Depends(get_db),
-    client_id: Optional[str] = None,   # sigue disponible
+    user_id: Optional[str] = None,   # sigue disponible
     q: Optional[str] = Query(None, description="nombre, email o teléfono"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -96,20 +107,20 @@ def list_payments(
         log.debug("[dbg] list_payments unable to read query params")
     query = (
         db.query(models.Payment)
-          .join(models.Client)
-          .options(contains_eager(models.Payment.client))
+          .join(models.User, models.Payment.user_id == models.User.id)
+          .options(contains_eager(models.Payment.user))
     )
 
-    if client_id:
-        query = query.filter(models.Payment.client_id == client_id)
+    if user_id:
+        query = query.filter(models.Payment.user_id == user_id)
 
     if q:
         like = f"%{q}%"
         query = query.filter(
             or_(
-                models.Client.full_name.ilike(like),
-                models.Client.email.ilike(like),
-                models.Client.phone.ilike(like),
+                models.User.full_name.ilike(like),
+                models.User.email.ilike(like),
+                models.User.phone.ilike(like),
             )
         )
 
@@ -159,7 +170,7 @@ def payments_kpis(
         func.count(models.Payment.id),              # n_payments
         func.coalesce(func.sum(models.Payment.amount), 0.0),  # amount_sum
         func.coalesce(func.avg(models.Payment.amount), 0.0),  # amount_avg
-        func.count(func.distinct(models.Payment.client_id)),  # unique_clients
+        func.count(func.distinct(models.Payment.user_id)),  # unique_users
     ).filter(
         models.Payment.created_at >= start,
         models.Payment.created_at < end_inclusive,
@@ -167,11 +178,11 @@ def payments_kpis(
     if method:
         q = q.filter(models.Payment.method == method)
 
-    n_payments, amount_sum, amount_avg, unique_clients = q.one()
+    n_payments, amount_sum, amount_avg, unique_users = q.one()
 
     return {
         "n_payments": int(n_payments),
-        "unique_clients": int(unique_clients),
+        "unique_clients": int(unique_users),
         "amount_sum": float(amount_sum),
         "amount_avg": float(amount_avg),
         "start": str(start),

@@ -44,8 +44,11 @@ transversales:
 src/services/
   queryKeys.ts             # única factory de claves del repo (ver Convenciones)
   pagination.ts            # PaginatedResult<T> = { items, total } + readTotalCount(headers, fallback)
-  clients.ts                # fetchers puros: fetchClients, createClient, updateClient
-  clients.queries.ts        # hooks: useClientsQuery, useCreateClientMutation, ...
+  users.ts                  # fetchers puros: fetchUsers, createUser, updateUser, cancelMembership,
+                             #   activateMembership, inviteUser (perfil unificado owner/coach/member)
+  users.queries.ts           # hooks: useUsersQuery, useCreateUserMutation, useUpdateUserMutation,
+                             #   useCancelMembershipMutation, useActivateMembershipMutation,
+                             #   useInviteUserMutation
   payments.ts                # fetchers puros + selectores derivados (getPaidClientIds, getPendingClients)
   payments.queries.ts
   attendance.ts
@@ -145,10 +148,33 @@ npm run lint            # eslint (dentro de frontend/)
     todo el repo y lo traduce a `invalidateQueries({ queryKey: queryKeys.payments.all })` — dec. 13
     de ese `design.md`. Se borra entero cuando esos diálogos migren a `useMutation`; no agregues
     un segundo oyente ni un nuevo emisor de este evento.
-- **Roles**: la UI difiere por rol (Dueño, Coach, portal cliente) — el rol vive en
-  `useSessionStore` (`role`, derivado del JWT en `setSession`) y lo lee `ProtectedRoute` en
+- **Roles**: `"owner" | "coach" | "member"` (`types.ts::Role`; `member` reemplaza al `"user"` de
+  antes de `unify-clients-into-users` — el modelo `Client` se fusionó en `User`). La UI difiere por
+  rol (Dueño, Coach, portal miembro) — el rol vive en `useSessionStore` (`role`, derivado del JWT
+  en `setSession` vía `normalizeRole()`, que mapea el legacy `"user"` -> `"member"` para sesiones
+  abiertas antes del deploy, mismo patrón que `normalizeThemeMode`) y lo lee `ProtectedRoute` en
   `src/components/ProtectedRoute.tsx`; revisar ese guard y las rutas de `App.jsx` antes de agregar
   una vista nueva.
+- **Usuarios** (antes "Clientes"): `pages/Users.tsx` (ruta `/users`, con redirect desde `/clients`
+  para bookmarks) es el listado único de Dueños/Coaches/Miembros, con un hero de página (mismo
+  patrón `hero-aura` de `Reports.tsx`/`NewCoach.tsx`) más una card de leyenda que explica los
+  colores de rol y del indicador de membresía, y el círculo de 3 colores + ausente que mapea
+  directo `User.membership_indicator` del servidor (`up_to_date`/`overdue`/`suspended`/`none`) —
+  **sin lógica propia**: la precedencia (baja > mora) ya la resuelve el backend. El badge de rol
+  usa un color fijo por rol (`ROLE_BADGE_CLASS` en `Users.tsx`/`UserDetail.tsx`: violeta=Dueño,
+  celeste=Coach, índigo=Miembro), deliberadamente distinto de verde/naranja/rojo del indicador de
+  membresía para que "quién es" y "cómo está" no compitan por el mismo lenguaje visual. El botón
+  "Crear usuario" del hero abre `components/CreateUserDialog.tsx` (alta con perfil mínimo,
+  rol restringido a Miembro para un Coach); la acción "Ver" de cada fila navega a
+  `pages/UserDetail.tsx` (`/users/:id`, fuera de `routePreload.ts` como `NewCoach`: no tiene
+  entrada en el Sidebar), la ficha de solo lectura del perfil/membresía/invitación, con su propio
+  botón "Editar". `components/EditUserDialog.tsx` es el ABM (perfil, rol si sos owner, membresía
+  con dar de baja/reactivar, e invitación si el rol es Miembro) — no hay acción de eliminar, la
+  única baja posible es la de membresía; se monta solo mientras está abierto (nunca queda
+  persistente en el árbol con `open=false`, ver nota de `Dialog` más abajo).
+  `pages/InvitationAccept.tsx` (`/invitacion/:channel/:token`, ruta pública) es donde un Miembro
+  invitado verifica sus dos canales y define su contraseña; reemplaza al viejo `/register-client`
+  (retirado, ya no hay auto-registro).
 - **Estilos**: Tailwind v4 (config vía `@tailwindcss/vite`, sin `tailwind.config.js` clásico si
   no existe — confirmar antes de asumir). Evitar CSS inline salvo casos puntuales.
 - **Layout del shell autenticado**: el contenedor de contenido (gutter horizontal, gutter
@@ -205,10 +231,19 @@ npm run lint            # eslint (dentro de frontend/)
     `refetchOnWindowFocus: false` — sin esto un fetcher que rechaza reintenta con backoff y el
     test se cuelga hasta el timeout, y jsdom puede disparar refetches después del `cleanup()`.
     Acepta un `queryClient` propio por parámetro para tests que lo necesiten.
-  - Cobertura actual: un test de render por cada vista con spec (`Login`, `RegisterClient`,
-    `Dashboard`, `Settings`), más `Sidebar` (accesos ocultos por rol, badge de rol y card de
-    identidad — nombre + email del usuario logueado, en reemplazo del bloque "Contexto" viejo).
-    `Login.test.tsx` mockea `/auth/me` incluyendo `theme_preference`. Suma de tema (`adopt-
+  - Cobertura actual: un test de render por cada vista con spec (`Login`, `Dashboard`, `Settings`),
+    más `Users.tsx` (columnas de la spec y los 4 estados del círculo — verde/naranja/rojo/ausente,
+    afirmando sobre el texto accesible del indicador, no la clase de color; también que "Crear
+    usuario" abre `CreateUserDialog` y que "Ver" navega a la ficha — este segundo con un `<Routes>`
+    propio en el test, no la ruta real de `App.jsx`) e `InvitationAccept.tsx` (formulario de
+    contraseña deshabilitado con un solo canal verificado, habilitado con los dos), más
+    `UserDetail.tsx` (perfil/membresía/invitación de la ficha, y que la sección de invitación no
+    aparece para un rol que no es Miembro) y `Sidebar` (accesos ocultos por rol, badge de rol, card
+    de identidad, y el rename de nav "Clientes" -> "Usuarios"). `RegisterClient` ya no tiene test de
+    render: la vista se retiró junto con `/auth/client-register` (ver `unify-clients-into-users`),
+    reemplazada por `InvitationAccept`. `Login.test.tsx` mockea `/auth/me` incluyendo
+    `theme_preference` y ya no asume un link "Registrar cuenta" (retirado de `login-view`). Suma de
+    tema (`adopt-
     kinetic-obsidian-theme`): `lib/__tests__/theme.test.ts` (`normalizeThemeMode` — los 3 ids
     legacy, `null`, string vacío y basura resuelven a `"dark"`) y
     `components/__tests__/Topbar.test.tsx` (el click del toggle cambia `data-theme`, persiste en
@@ -226,3 +261,16 @@ npm run lint            # eslint (dentro de frontend/)
     `ui/` (que en su momento delegaban foco/teclado/ARIA/animación a Radix), acá esa a11y es código
     de este repo. `src/test/setup.ts` polyfillea `HTMLDialogElement.prototype.showModal/close/show`
     porque jsdom solo refleja el atributo `open`, no implementa esos métodos.
+    **Trampa de `DialogContent` con clases de Tailwind sobre `<dialog>` nativo**: cualquier clase
+    de autor que fije `display` o `margin` en el propio `<dialog>` gana SIEMPRE sobre la hoja de
+    estilos del user-agent (`dialog:not([open]){display:none}` y `dialog:modal{margin:auto}`), sin
+    importar especificidad — el origen "author" le gana a "UA". Por eso `DialogContent` nunca deja
+    esas dos propiedades a un default implícito: `display` alterna explícito entre `"grid"`
+    (abierto/cerrando) y `"hidden"` (cerrado), y la posición va con `fixed inset-0 m-auto`
+    explícitos en vez de confiar en el centrado nativo. Sin esto, un diálogo montado una vez con
+    `open=false` (el patrón normal en este repo: `<Dialog open={state}>` en vez de
+    trigger/portal descontrolado) queda visible y focuseable en la esquina superior izquierda
+    aunque nunca se llamó a `showModal()` — un bug real que solo aparece en un navegador de verdad
+    (jsdom no implementa esa hoja de estilos del UA, así que la suite no lo detecta) y que
+    `dialog.test.tsx` cubre con un caso montado-cerrado que afirma sobre las clases, no sobre
+    estilos computados.

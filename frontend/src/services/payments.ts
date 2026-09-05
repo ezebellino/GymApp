@@ -4,7 +4,7 @@ import { readTotalCount, type PaginatedResult } from "./pagination";
 
 export type PaymentsParams = {
   q?: string;
-  client_id?: string;
+  user_id?: string;
   limit?: number;
   offset?: number;
 };
@@ -32,7 +32,7 @@ export async function fetchPaymentsKpis(period: PeriodRange): Promise<PaymentsKp
 }
 
 export type CreatePaymentInput = {
-  client_id: string;
+  user_id: string;
   amount: number;
   method: "cash" | "transfer" | null;
   method_channel?: string | null;
@@ -48,7 +48,10 @@ export async function createPayment(input: CreatePaymentInput): Promise<Payment>
 
 // Selectores puros compartidos por Pagos y Dashboard (dec. 3/6): hoy
 // duplicados como `loadReminderTargets` (Payments.tsx) y la derivación
-// homónima dentro de `loadDashboard` (Dashboard.tsx).
+// homónima dentro de `loadDashboard` (Dashboard.tsx). Se mantienen estos
+// nombres (no son parte del rename Client->User de la vista/tipo): responden
+// "quién no pagó *ese período*", distinto del `membership_indicator` que ya
+// calcula el servidor para el listado de Usuarios.
 export function getPaidClientIds(
   payments: Payment[],
   period: { month: number; year: number },
@@ -59,17 +62,21 @@ export function getPaidClientIds(
         (payment) =>
           payment.period_month === period.month && payment.period_year === period.year,
       )
-      .map((payment) => payment.client_id),
+      .map((payment) => payment.user_id),
   );
 }
 
-export function getPendingClients<C extends { id: string; is_active?: boolean }>(
-  clients: C[],
+export function getPendingClients<U extends { id: string; membership_status?: string }>(
+  users: U[],
   payments: Payment[],
   period: { month: number; year: number },
-): C[] {
-  const paidClientIds = getPaidClientIds(payments, period);
-  return clients.filter(
-    (client) => client.is_active !== false && !paidClientIds.has(client.id),
+): U[] {
+  // `membership_status === "active"` (no `is_active`, que hoy es "cuenta
+  // habilitada" para cualquier rol): un Dueño/Coach sin membresía no debe
+  // aparecer acá aunque su cuenta esté activa (hallazgo 3 de
+  // verification.md de unify-clients-into-users).
+  const paidUserIds = getPaidClientIds(payments, period);
+  return users.filter(
+    (user) => user.membership_status === "active" && !paidUserIds.has(user.id),
   );
 }

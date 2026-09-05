@@ -74,7 +74,25 @@ function DialogContent({
       aria-describedby={descriptionId}
       onClick={handleBackdropClick}
       className={cn(
-        "grid max-h-[85vh] w-full max-w-[calc(100%-2rem)] gap-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-lg sm:max-w-lg",
+        // `display` va condicionado por clase, nunca fijo en "grid": el
+        // <dialog> nativo solo se auto-oculta (`dialog:not([open])
+        // { display: none }`) via la hoja de estilos del user-agent, y esa
+        // regla pierde contra CUALQUIER clase de autor que fije `display`
+        // (el origen "author" gana sobre "UA" sin importar especificidad).
+        // Si "grid" quedara siempre puesta, un <dialog> montado con
+        // `open=false` (el patrón normal: montado una vez, alternado por
+        // prop) se ve y es focuseable aunque nunca se llamó a showModal().
+        open || closing ? "grid" : "hidden",
+        // Idem con el centrado: la hoja de estilos del user-agent centra un
+        // <dialog> mostrado con showModal() via `dialog:modal { position:
+        // fixed; inset: 0; margin: auto }`, pero el preflight de Tailwind
+        // resetea `margin` a 0 en todos los elementos — un author-origin que
+        // también gana sobre esa regla de UA — y sin `margin: auto` el
+        // `inset: 0` deja el dialogo pegado a la esquina superior izquierda
+        // en vez de centrado. Fijar la posición acá, explícita, en vez de
+        // depender del comportamiento nativo por default.
+        "fixed inset-0 m-auto",
+        "max-h-[85vh] w-full max-w-[calc(100%-2rem)] gap-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-lg sm:max-w-lg",
         open && !closing && "animate-in fade-in-0 zoom-in-95 duration-200",
         closing && "animate-out fade-out-0 zoom-out-95 duration-200",
         className

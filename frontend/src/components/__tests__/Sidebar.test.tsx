@@ -37,7 +37,7 @@ describe("Sidebar", () => {
       seedRole("owner");
     });
 
-    it("no muestra Atajos, Gestionar clientes ni Ir a rutinas, y sí el badge de rol + la identidad", () => {
+    it("no muestra Atajos, Gestionar clientes ni Ir a rutinas, y sí el badge de rol + la identidad + el link Usuarios", () => {
       renderWithProviders(<Sidebar />);
 
       expect(screen.queryByText("Atajos")).toBeNull();
@@ -51,6 +51,9 @@ describe("Sidebar", () => {
       expect(screen.getByText("Ana Dueña")).toBeInTheDocument();
       expect(screen.getByText("dueno@miniespacio.test")).toBeInTheDocument();
       expect(screen.queryByText("Contexto")).toBeNull();
+      // Rename de navegación (unify-clients-into-users): "Clientes" -> "Usuarios".
+      expect(screen.getByText("Usuarios")).toBeInTheDocument();
+      expect(screen.queryByText("Clientes")).toBeNull();
     });
   });
 
@@ -59,7 +62,7 @@ describe("Sidebar", () => {
       seedRole("coach");
     });
 
-    it("no muestra Atajos, Gestionar clientes ni Ir a rutinas, y sí el badge de rol + la identidad", () => {
+    it("no muestra Atajos, Gestionar clientes ni Ir a rutinas, y sí el badge de rol + la identidad + el link Usuarios", () => {
       renderWithProviders(<Sidebar />);
 
       expect(screen.queryByText("Atajos")).toBeNull();
@@ -69,6 +72,8 @@ describe("Sidebar", () => {
       expect(screen.getByText("Ana Dueña")).toBeInTheDocument();
       expect(screen.getByText("dueno@miniespacio.test")).toBeInTheDocument();
       expect(screen.queryByText("Contexto")).toBeNull();
+      expect(screen.getByText("Usuarios")).toBeInTheDocument();
+      expect(screen.queryByText("Clientes")).toBeNull();
     });
   });
 });

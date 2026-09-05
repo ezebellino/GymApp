@@ -17,11 +17,18 @@ def main():
     db = Session()
 
     try:
-        # Trae solo IDs activos (como str)
-        client_rows = db.query(models.Client.id).filter(models.Client.is_active.is_(True)).all()
+        # Trae solo miembros con membresía activa (como str)
+        client_rows = (
+            db.query(models.User.id)
+            .filter(
+                models.User.role == models.UserRole.member,
+                models.User.membership_status == models.MembershipStatus.active,
+            )
+            .all()
+        )
         client_ids = [str(c.id) for (c,) in client_rows] if client_rows and isinstance(client_rows[0], tuple) else [str(c.id) for c in client_rows]
         if not client_ids:
-            print("⚠️ No hay clientes activos. Abortando seed de asistencias.")
+            print("⚠️ No hay miembros con membresía activa. Abortando seed de asistencias.")
             return
 
         random.seed(54321)
@@ -43,7 +50,7 @@ def main():
 
                 a = models.Attendance(
                     # id: si tu modelo tiene default UUID en DB o en modelo, podés omitirlo
-                    client_id=cid,           # 👈 str
+                    user_id=cid,             # 👈 str
                     coach_id=None,           # si querés, populate luego
                     checkin_at=checkin_at,
                 )

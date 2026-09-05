@@ -68,7 +68,7 @@ export default function Login() {
 
         setSession(data.access_token, {
           name: me.full_name ?? me.email ?? "Usuario",
-          role: (me.role ?? "coach") as "owner" | "coach" | "user",
+          role: (me.role ?? "coach") as "owner" | "coach" | "member",
           email: me.email,
         });
         setThemeMode(normalizeThemeMode(me.theme_preference));
@@ -160,14 +160,6 @@ export default function Login() {
           <LogIn className="h-4 w-4" />
           {loading ? "Ingresando..." : "Entrar"}
         </Button>
-
-        <button
-          type="button"
-          onClick={() => navigate("/register-client")}
-          className="mt-4 w-full rounded-xl border border-border bg-surface-2 px-4 py-2 text-sm text-foreground transition hover:opacity-80"
-        >
-          Registrar Cuenta
-        </button>
       </form>
     </div>
   );

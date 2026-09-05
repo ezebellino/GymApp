@@ -17,9 +17,17 @@ def main():
     db = Session()
 
     try:
-        clients = db.query(models.Client.id, models.Client.join_date).all()
+        clients = (
+            db.query(models.User.id, models.User.membership_start_date)
+            .filter(
+                models.User.role == models.UserRole.member,
+                models.User.membership_status == models.MembershipStatus.active,
+                models.User.membership_start_date.isnot(None),
+            )
+            .all()
+        )
         if not clients:
-            print("⚠️ No hay clientes. Abortando seed de pagos.")
+            print("⚠️ No hay miembros con membresía activa. Abortando seed de pagos.")
             return
 
         methods = ["cash", "card", "transfer"]
@@ -56,7 +64,7 @@ def main():
                 exists = (
                     db.query(models.Payment.id)
                     .filter(
-                        models.Payment.client_id == cid,
+                        models.Payment.user_id == cid,
                         models.Payment.period_year == yy,
                         models.Payment.period_month == mm,
                     )
@@ -66,7 +74,7 @@ def main():
                     continue
 
                 p = models.Payment(
-                    client_id=cid,                         # 👈 str
+                    user_id=cid,                            # 👈 str
                     amount=random.choice(prices),          # Decimal
                     period_year=yy,
                     period_month=mm,

@@ -14,7 +14,7 @@ type AxiosLikeResponse = {
   config: Record<string, unknown>;
 };
 
-const EMPTY_LIST_ROUTES = ["/clients", "/payments", "/attendance"];
+const EMPTY_LIST_ROUTES = ["/users", "/payments", "/attendance"];
 
 /** Payload por defecto segun la ruta pedida. */
 export function defaultPayloadFor(url: string): unknown {

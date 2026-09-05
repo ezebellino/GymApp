@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toastError, toastSuccess } from "@/lib/toast";
-import type { Client, RoutineDay, RoutineDayProgress, WorkoutLog } from "@/types";
+import type { RoutineDay, RoutineDayProgress, User, WorkoutLog } from "@/types";
 
 type ExerciseDraft = {
   sets_count: string;
@@ -30,7 +30,7 @@ function formatDateTime(value?: string | null) {
 }
 
 export default function UserRoutine() {
-  const [client, setClient] = useState<Client | null>(null);
+  const [client, setClient] = useState<User | null>(null);
   const [days, setDays] = useState<RoutineDay[]>([]);
   const [dayProgress, setDayProgress] = useState<RoutineDayProgress[]>([]);
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
@@ -62,7 +62,7 @@ export default function UserRoutine() {
       setLoading(true);
       try {
         const [clientResp, daysResp, overviewResp] = await Promise.all([
-          api.get<Client>("/routines/my/client"),
+          api.get<User>("/routines/my/profile"),
           api.get<RoutineDay[]>("/routines/my/days"),
           api.get<RoutineDayProgress[]>("/routines/my/overview"),
         ]);
@@ -76,10 +76,10 @@ export default function UserRoutine() {
           setSelectedDayId(fetchedDays[0].id);
         }
       } catch (error) {
-        console.error("Error cargando rutina del cliente", error);
+        console.error("Error cargando rutina del usuario", error);
         toastError(
           "No se pudo cargar tu rutina",
-          "Tu cuenta todavía puede no estar vinculada a un cliente."
+          "Intentá nuevamente en unos instantes."
         );
       } finally {
         setLoading(false);

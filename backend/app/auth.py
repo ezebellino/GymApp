@@ -30,6 +30,21 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+
+def is_membership_blocking_login(user: models.User) -> bool:
+    """Gate de acceso por baja de membresía (`user-management`, dec. 4 (b) del design).
+
+    Solo bloquea a un rol Miembro con membresía dada de baja. **No mira los pagos** —
+    esa es otra regla, `utils.membership_indicator`, que vive en otro módulo a
+    propósito: un Coach/Dueño marcado como miembro y dado de baja se ve rojo en el
+    listado pero sigue entrando, porque esta función ignora ese caso.
+    """
+    return (
+        user.role == models.UserRole.member
+        and user.membership_status == models.MembershipStatus.cancelled
+    )
+
+
 def get_current_user(
     db: Session = Depends(get_db),
     token: str = Depends(strict_oauth2),  # 👈 usamos el esquema estricto aquí
@@ -57,7 +72,18 @@ def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email not verified. Please check your inbox.",
         )
-    
+
+    # 401 (no 403): el interceptor de frontend/src/lib/http.ts solo desloguea limpio
+    # en 401. Sin este chequeo aca (ademas del de POST /auth/token), dar de baja a un
+    # Miembro no lo saca del sistema hasta que expire el JWT (ACCESS_TOKEN_EXPIRE_MINUTES
+    # = 600 en config.py, o sea hasta 10 horas despues).
+    if is_membership_blocking_login(user):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Tu membresía está dada de baja",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     return user
 
 def require_role(*roles: models.UserRole):

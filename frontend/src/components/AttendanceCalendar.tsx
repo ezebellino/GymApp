@@ -27,7 +27,7 @@ export default function AttendanceCalendar({ clientId, monthsBack = 3 }: Props) 
       setErr(null);
       try {
         const { data } = await api.get<AttendanceRow[]>("/attendance", {
-          params: { client_id: clientId, limit: 200, offset: 0 },
+          params: { user_id: clientId, limit: 200, offset: 0 },
         });
         if (!mounted) return;
 

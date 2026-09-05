@@ -13,26 +13,26 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type {
   AppSettings,
-  Client,
-  ClientProgressSummary,
   Payment,
   Role,
+  User,
+  UserProgressSummary,
 } from "@/types";
 import NewPaymentDialog from "./NewPaymentDialog";
 import AttendanceCalendar from "./AttendanceCalendar";
 import LastPayments from "./LastPayments";
-import EditClientDialog from "./EditClientDialog";
+import EditUserDialog from "./EditUserDialog";
 import api from "@/lib/http";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 
 type Props = {
   viewerRole: Role;
-  client: Client;
+  client: User;
   stats?: {
     lastPayment?: Payment | null;
     attendanceCount?: number;
   };
-  onAction?: (action: "checkin" | "newPayment" | "viewHistory", client: Client) => void;
+  onAction?: (action: "checkin" | "newPayment" | "viewHistory", client: User) => void;
   onRefresh?: () => void;
   onCloseAll?: () => void;
 };
@@ -95,7 +95,7 @@ export default function UserCard({
     try {
       const now = new Date();
       await api.post("/payments", {
-        client_id: client.id,
+        user_id: client.id,
         amount: defaultFee,
         method,
         method_channel: null,
@@ -123,7 +123,7 @@ export default function UserCard({
     }
   }
 
-  function buildClientProgressPdf(summary: ClientProgressSummary) {
+  function buildClientProgressPdf(summary: UserProgressSummary) {
     const escapePdf = (value: string) =>
       value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
 
@@ -173,7 +173,7 @@ export default function UserCard({
         44,
         688,
         10,
-        `Cliente: ${summary.client_name} | Emitido: ${new Date().toLocaleDateString("es-AR")}`,
+        `Cliente: ${summary.user_name} | Emitido: ${new Date().toLocaleDateString("es-AR")}`,
         zinc
       )
     );
@@ -347,8 +347,8 @@ export default function UserCard({
   }
 
   async function fetchProgressReport() {
-    const { data } = await api.get<ClientProgressSummary>(
-      `/routines/clients/${client.id}/progress-summary`
+    const { data } = await api.get<UserProgressSummary>(
+      `/routines/users/${client.id}/progress-summary`
     );
     const blob = buildClientProgressPdf(data);
     const safeName = client.full_name.toLowerCase().replace(/\s+/g, "-");
@@ -404,8 +404,8 @@ export default function UserCard({
         `Segui asi, tu constancia ya esta mostrando resultados.`;
 
       try {
-        const { data } = await api.get<ClientProgressSummary>(
-          `/routines/clients/${client.id}/progress-summary`
+        const { data } = await api.get<UserProgressSummary>(
+          `/routines/users/${client.id}/progress-summary`
         );
         const highlights: string[] = [];
 
@@ -488,9 +488,14 @@ export default function UserCard({
               <span className="warm-accent-text">{client.full_name}</span>
             </CardTitle>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-foreground">
-              <span>Alta: {new Date(client.join_date).toLocaleDateString("es-AR")}</span>
+              <span>
+                Alta:{" "}
+                {new Date(client.membership_start_date ?? client.created_at).toLocaleDateString(
+                  "es-AR"
+                )}
+              </span>
               <span className="text-muted-foreground">•</span>
-              {client.is_active ? (
+              {client.membership_status === "active" ? (
                 <Badge className="border-primary/30 bg-primary/10 text-primary-strong hover:bg-primary/10">
                   Activo
                 </Badge>
@@ -499,7 +504,7 @@ export default function UserCard({
                   variant="outline"
                   className="border-border bg-surface-2/30 text-muted-foreground"
                 >
-                  Inactivo
+                  {client.membership_status === "cancelled" ? "Dado de baja" : "Sin membresía"}
                 </Badge>
               )}
             </div>
@@ -678,10 +683,10 @@ export default function UserCard({
         defaultFee={defaultFee}
         onSuccess={onRefresh}
       />
-      <EditClientDialog
+      <EditUserDialog
         open={openEdit}
         onOpenChange={setOpenEdit}
-        client={client}
+        user={client}
         onSuccess={onRefresh}
       />
     </Card>

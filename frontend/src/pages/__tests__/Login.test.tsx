@@ -20,18 +20,16 @@ describe("vista de login", () => {
     // La UI escribe "Contrasena" sin tilde; la spec la nombra "Contraseña".
     expect(screen.getByText(/contrase[nñ]a/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /entrar/i })).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /registrar cuenta/i }),
-    ).toBeInTheDocument();
   });
 
-  it("no muestra banner de demo, contador de conexion ni aviso de backend", () => {
+  it("no muestra banner de demo, contador de conexion, aviso de backend ni link de registro", () => {
     renderWithProviders(<Login />, { route: "/login" });
 
     expect(screen.queryByText(/demo/i)).toBeNull();
     expect(screen.queryByText(/conexi[oó]n/i)).toBeNull();
     expect(screen.queryByText(/reactiv/i)).toBeNull();
     expect(screen.queryByText(/backend/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /registrar cuenta/i })).toBeNull();
   });
 });
 

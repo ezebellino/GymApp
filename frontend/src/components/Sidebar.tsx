@@ -23,7 +23,7 @@ type NavItem = {
 const items: NavItem[] = [
   { to: "/my-routine", label: "Mi rutina", icon: Dumbbell },
   { to: "/routines", label: "Rutinas", icon: Dumbbell },
-  { to: "/clients", label: "Clientes", icon: Users },
+  { to: "/users", label: "Usuarios", icon: Users },
   { to: "/attendance", label: "Asistencias", icon: CalendarCheck2 },
   { to: "/dashboard", label: "Seguimiento", icon: LayoutDashboard },
   { to: "/payments", label: "Pagos", icon: CreditCard },
@@ -44,7 +44,7 @@ export default function Sidebar() {
   const logout = useSessionStore((s) => s.logout);
   const navigate = useNavigate();
   const allowed = items.filter((item) => {
-    if (role === "user") return item.to === "/my-routine";
+    if (role === "member") return item.to === "/my-routine";
     if (item.to === "/my-routine") return false;
     if (item.to === "/reports" && role !== "owner") return false;
     return true;

@@ -11,7 +11,7 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
 from app.config import settings
-from app.models import Client
+from app.models import MembershipStatus, User, UserRole
 
 
 def parse_bool(value: str | None) -> bool:
@@ -29,8 +29,10 @@ def parse_date(value: str | None) -> datetime:
 def main():
     if len(sys.argv) < 2:
         print(
-            "Uso: python scripts/import_clients_csv.py <ruta_csv>\n"
-            "Columnas esperadas: full_name,email,phone,is_active,join_date"
+            "Uso: python scripts/import_users_csv.py <ruta_csv>\n"
+            "Columnas esperadas: first_name,last_name,email,phone,is_active,join_date\n"
+            "(is_active acá es el estado de MEMBRESÍA -> membership_status "
+            "active/cancelled, no la cuenta; join_date -> membership_start_date)"
         )
         return
 
@@ -48,23 +50,35 @@ def main():
 
         with Session() as db:
             for row in reader:
-                full_name = (row.get("full_name") or "").strip()
-                if not full_name:
+                first_name = (row.get("first_name") or "").strip()
+                if not first_name:
                     continue
 
-                client = Client(
-                    full_name=full_name,
+                membership_active = parse_bool(row.get("is_active"))
+                join_date = parse_date(row.get("join_date"))
+
+                user = User(
+                    first_name=first_name,
+                    last_name=(row.get("last_name") or "").strip() or None,
                     email=(row.get("email") or "").strip() or None,
                     phone=(row.get("phone") or "").strip() or None,
-                    is_active=parse_bool(row.get("is_active")),
-                    join_date=parse_date(row.get("join_date")),
+                    role=UserRole.member,
+                    is_active=True,
+                    membership_status=(
+                        MembershipStatus.active if membership_active else MembershipStatus.cancelled
+                    ),
+                    membership_start_date=join_date,
+                    membership_cancelled_at=None if membership_active else datetime.utcnow(),
+                    password_hash=None,
+                    email_verified=False,
+                    phone_verified=False,
                 )
-                db.add(client)
+                db.add(user)
                 created += 1
 
             db.commit()
 
-    print(f"Importacion finalizada. Clientes creados: {created}")
+    print(f"Importacion finalizada. Usuarios (rol Miembro) creados: {created}")
 
 
 if __name__ == "__main__":

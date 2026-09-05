@@ -59,15 +59,17 @@ def new_clients_report(
     end: date = Query(...),
     bucket: Literal["day", "week", "month"] = Query("week"),
 ):
-    ts = schemas._bucket_expr(models.Client.join_date, bucket).label("ts")
+    # Cuenta usuarios con perfil de miembro (membership_start_date != NULL), no
+    # `clients.join_date` (esa tabla ya no existe: ver `unify-clients-into-users`).
+    ts = schemas._bucket_expr(models.User.membership_start_date, bucket).label("ts")
     start_dt = datetime.combine(start, time.min)
     end_exclusive = _end_exclusive(end)
 
     rows = (
-        db.query(ts, func.count(models.Client.id))
+        db.query(ts, func.count(models.User.id))
         .filter(
-            models.Client.join_date >= start_dt,
-            models.Client.join_date < end_exclusive,
+            models.User.membership_start_date >= start_dt,
+            models.User.membership_start_date < end_exclusive,
         )
         .group_by(ts)
         .order_by(ts)
@@ -116,7 +118,7 @@ def attendance_detail(
 
     rows = (
         db.query(models.Attendance)
-        .options(selectinload(models.Attendance.client))
+        .options(selectinload(models.Attendance.user))
         .filter(
             models.Attendance.checkin_at >= start_dt,
             models.Attendance.checkin_at < end_dt,

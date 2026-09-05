@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from sqlalchemy import (
-    Column, Index, String, DateTime, Boolean, Integer, Float,
-    ForeignKey, UniqueConstraint, Enum
+    Column, Index, String, DateTime, Date, Boolean, Integer, Float,
+    ForeignKey, UniqueConstraint, Enum, text
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import declarative_base, relationship
 import enum
 
@@ -12,47 +13,111 @@ Base = declarative_base()
 class UserRole(str, enum.Enum):
     owner = "owner"
     coach = "coach"
-    user = "user"
+    member = "member"
+
+
+class MembershipStatus(str, enum.Enum):
+    none = "none"
+    active = "active"
+    cancelled = "cancelled"
+
 
 class User(Base):
+    """Persona que interactua con la plataforma (Dueño, Coach o Miembro).
+
+    Fusiona lo que antes eran dos tablas (`users` + `clients`, ver migracion
+    `unify-clients-into-users`): el rol define permisos, y el atributo funcional de
+    "membresia" (rutinas/asistencia/pagos) es independiente del rol — un Dueño o
+    Coach puede además ser miembro del gimnasio sin perder sus permisos.
+    """
+
     __tablename__ = "users"
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    full_name = Column(String, nullable=False)
-    email = Column(String, unique=True, nullable=False, index=True)
-    password_hash = Column(String, nullable=False)
-    email_verified = Column(Boolean, default=False)
+
+    # --- Perfil ---------------------------------------------------------
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=True)  # nullable en DB: el backfill no puede garantizarlo
+    birth_date = Column(Date, nullable=True)
+    weight_kg = Column(Float, nullable=True)
+    height_cm = Column(Float, nullable=True)
+    email = Column(String, nullable=True)  # nullable + índice único parcial (ver __table_args__)
+    email_verified = Column(Boolean, default=False, nullable=False)
+    phone = Column(String, nullable=True)
+    phone_verified = Column(Boolean, default=False, nullable=False)
+
+    # --- Acceso ----------------------------------------------------------
+    password_hash = Column(String, nullable=True)  # NULL = todavia sin acceso de login
     role = Column(Enum(UserRole), default=UserRole.coach, nullable=False)
-    client_id = Column(String, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, unique=True, index=True)
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True)  # cuenta habilitada, NO la membresia
+
+    # --- Membresia/suscripcion --------------------------------------------
+    membership_status = Column(
+        Enum(MembershipStatus), default=MembershipStatus.none, nullable=False
+    )
+    membership_start_date = Column(DateTime, nullable=True)
+    membership_cancelled_at = Column(DateTime, nullable=True)
+
+    # --- Auditoria / metadata ----------------------------------------------
     created_at = Column(DateTime, default=datetime.utcnow)
+    created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     theme_preference = Column(String, nullable=True)
 
-class Client(Base):
-    __tablename__ = "clients"
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    full_name = Column(String, nullable=False)
-    phone = Column(String, nullable=True)
-    email = Column(String, nullable=True, unique=False)
-    join_date = Column(DateTime, default=datetime.utcnow)
-    is_active = Column(Boolean, default=True)
-    created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    
-    payments = relationship("Payment", back_populates="client")
-    attendance = relationship("Attendance", back_populates="client", cascade="all, delete-orphan")
-    workout_logs = relationship("WorkoutLog", back_populates="client", cascade="all, delete-orphan")
-    
+    # Rastro temporal de la migracion (ver design.md, decision 6). Se borra en un
+    # change de seguimiento una vez validado el resultado en produccion.
+    legacy_client_id = Column(String, nullable=True, index=True)
+
+    payments = relationship(
+        "Payment", back_populates="user", foreign_keys="Payment.user_id"
+    )
+    attendance = relationship(
+        "Attendance", back_populates="user", foreign_keys="Attendance.user_id"
+    )
+    workout_logs = relationship(
+        "WorkoutLog", back_populates="user", foreign_keys="WorkoutLog.user_id"
+    )
+
+    @hybrid_property
+    def full_name(self):
+        if self.last_name:
+            return f"{self.first_name} {self.last_name}"
+        return self.first_name
+
+    @full_name.expression
+    def full_name(cls):
+        from sqlalchemy import func
+        return func.trim(func.concat(cls.first_name, " ", func.coalesce(cls.last_name, "")))
+
+    @property
+    def age(self) -> int | None:
+        if not self.birth_date:
+            return None
+        today = date.today()
+        birth = self.birth_date
+        years = today.year - birth.year
+        if (today.month, today.day) < (birth.month, birth.day):
+            years -= 1
+        return years
+
     __table_args__ = (
-    Index("ix_clients_full_name", "full_name"),
-    Index("ix_clients_email", "email"),
-    Index("ix_clients_join_date", "join_date"),
-    Index("ix_clients_is_active", "is_active"),
-)
+        Index(
+            "ix_users_email_unique",
+            "email",
+            unique=True,
+            postgresql_where=text("email IS NOT NULL"),
+        ),
+        Index("ix_users_full_name", text("(first_name || ' ' || coalesce(last_name, ''))")),
+        Index("ix_users_phone", "phone"),
+        Index("ix_users_membership_status", "membership_status"),
+        Index("ix_users_membership_start_date", "membership_start_date"),
+    )
+
 
 class Payment(Base):
     __tablename__ = "payments"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    client_id = Column(String, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
-    client = relationship("Client", back_populates="payments")
+    user_id = Column(String, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    user = relationship("User", back_populates="payments", foreign_keys=[user_id])
     amount = Column(Float, nullable=False)
     method = Column(String, nullable=False)  # efectivo, transferencia, etc.
     method_channel = Column(String, nullable=True)  # detalles adicionales del método
@@ -63,7 +128,7 @@ class Payment(Base):
     created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("client_id", "period_month", "period_year", name="uq_payment_period"),
+        UniqueConstraint("user_id", "period_month", "period_year", name="uq_payment_period"),
         Index("ix_payments_method", "method"),
         Index("ix_payments_method_channel", "method_channel"),
     )
@@ -71,11 +136,11 @@ class Payment(Base):
 class Attendance(Base):
     __tablename__ = "attendances"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    client_id = Column(String, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
     checkin_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     coach_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    
-    client = relationship("Client", back_populates="attendance")
+
+    user = relationship("User", back_populates="attendance", foreign_keys=[user_id])
 
 
 class TrainingDay(Base):
@@ -126,7 +191,7 @@ class TrainingDayExercise(Base):
 class WorkoutLog(Base):
     __tablename__ = "workout_logs"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    client_id = Column(String, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
     day_id = Column(String, ForeignKey("training_days.id", ondelete="CASCADE"), nullable=False, index=True)
     exercise_id = Column(String, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False, index=True)
     sets_count = Column(Integer, nullable=True)
@@ -136,9 +201,48 @@ class WorkoutLog(Base):
     performed_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
     created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
-    client = relationship("Client", back_populates="workout_logs")
+    user = relationship("User", back_populates="workout_logs", foreign_keys=[user_id])
     day = relationship("TrainingDay", back_populates="logs")
     exercise = relationship("Exercise", back_populates="logs")
+
+
+class MemberInvitation(Base):
+    """Invitacion por link para que un Miembro complete su acceso al portal.
+
+    Ver design.md decision 9: dos tokens independientes (email/whatsapp), se guarda
+    solo el hash, y el reenvio revoca la fila viva e inserta una nueva (garantizado por
+    el índice único parcial de abajo).
+    """
+
+    __tablename__ = "member_invitations"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    email_token_hash = Column(String, nullable=False, unique=True)
+    phone_token_hash = Column(String, nullable=False, unique=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    email_verified_at = Column(DateTime, nullable=True)
+    phone_verified_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    revoked_at = Column(DateTime, nullable=True)
+    created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (
+        Index(
+            "ix_member_invitations_user_id_live",
+            "user_id",
+            unique=True,
+            postgresql_where=text("revoked_at IS NULL AND completed_at IS NULL"),
+            # SQLite sí soporta índices parciales (3.8+) pero ignora
+            # `postgresql_where`: sin este kwarg, el índice sale como UNIQUE liso
+            # sobre `user_id` en la suite de tests (que corre en SQLite) y el
+            # reenvío (revocar + insertar) rompe con un 409 espurio.
+            sqlite_where=text("revoked_at IS NULL AND completed_at IS NULL"),
+        ),
+    )
 
 
 class AppSettings(Base):

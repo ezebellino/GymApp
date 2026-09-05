@@ -15,10 +15,10 @@ import "./index.css";
 
 // Los 8 lazy() de abajo con ruta propia en el Sidebar usan `routeImporters`
 // (misma factory), así el sidebar puede precargar el chunk en hover/focus sin
-// duplicar el specifier del import dinámico en dos archivos. Login/Register/
-// NewCoach no tienen entrada ahí (no se navegan desde el sidebar).
+// duplicar el specifier del import dinámico en dos archivos. Login/Invitacion/
+// NewCoach/UserDetail no tienen entrada ahí (no se navegan desde el sidebar).
 const Dashboard = lazy(routeImporters["/dashboard"]);
-const Clients = lazy(routeImporters["/clients"]);
+const Users = lazy(routeImporters["/users"]);
 const Payments = lazy(routeImporters["/payments"]);
 const Attendance = lazy(routeImporters["/attendance"]);
 const Routines = lazy(routeImporters["/routines"]);
@@ -26,8 +26,9 @@ const Reports = lazy(routeImporters["/reports"]);
 const Settings = lazy(routeImporters["/settings"]);
 const UserRoutine = lazy(routeImporters["/my-routine"]);
 const Login = lazy(() => import("./pages/Login"));
-const RegisterClient = lazy(() => import("./pages/RegisterClient"));
+const InvitationAccept = lazy(() => import("./pages/InvitationAccept"));
 const NewCoachPage = lazy(() => import("./pages/NewCoach"));
+const UserDetail = lazy(() => import("./pages/UserDetail"));
 
 function PageLoader() {
   return (
@@ -42,7 +43,7 @@ function PageLoader() {
 export default function App() {
   const location = useLocation();
   const isAuthRoute =
-    location.pathname.startsWith("/login") || location.pathname.startsWith("/register-client");
+    location.pathname.startsWith("/login") || location.pathname.startsWith("/invitacion");
   const role = useSessionStore((s) => s.role);
   const themeMode = useThemeStore((s) => s.mode);
 
@@ -76,11 +77,11 @@ export default function App() {
             <div className="mx-auto w-full max-w-[var(--container-app)] px-4 py-6 sm:px-6 lg:px-8">
               <Suspense fallback={<PageLoader />}>
                 <Routes>
-                  <Route path="/" element={<Navigate to={role === "user" ? "/my-routine" : "/dashboard"} replace />} />
+                  <Route path="/" element={<Navigate to={role === "member" ? "/my-routine" : "/dashboard"} replace />} />
                   <Route
                     path="/my-routine"
                     element={
-                      <ProtectedRoute roles={["user"]}>
+                      <ProtectedRoute roles={["member"]}>
                         <UserRoutine />
                       </ProtectedRoute>
                     }
@@ -94,10 +95,19 @@ export default function App() {
                     }
                   />
                   <Route
-                    path="/clients"
+                    path="/users"
                     element={
                       <ProtectedRoute roles={["owner", "coach"]}>
-                        <Clients />
+                        <Users />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/clients" element={<Navigate to="/users" replace />} />
+                  <Route
+                    path="/users/:id"
+                    element={
+                      <ProtectedRoute roles={["owner", "coach"]}>
+                        <UserDetail />
                       </ProtectedRoute>
                     }
                   />
@@ -149,7 +159,7 @@ export default function App() {
                       </ProtectedRoute>
                     }
                   />
-                  <Route path="*" element={<Navigate to={role === "user" ? "/my-routine" : "/dashboard"} replace />} />
+                  <Route path="*" element={<Navigate to={role === "member" ? "/my-routine" : "/dashboard"} replace />} />
                 </Routes>
               </Suspense>
             </div>
@@ -162,7 +172,7 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/register-client" element={<RegisterClient />} />
+              <Route path="/invitacion/:channel/:token" element={<InvitationAccept />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </Suspense>

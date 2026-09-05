@@ -64,13 +64,16 @@ export default function NewCoachPage() {
     setLoading(true);
 
     try {
+      const [firstName, ...rest] = fullName.trim().split(/\s+/);
       const payload = {
-        full_name: fullName.trim(),
+        first_name: firstName,
+        last_name: rest.length ? rest.join(" ") : null,
+        role: "coach",
         email: email.trim(),
         password,
       };
 
-      await api.post("/coaches", payload);
+      await api.post("/users", payload);
 
       toastSuccess(
         "Coach creado",

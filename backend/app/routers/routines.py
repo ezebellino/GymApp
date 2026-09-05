@@ -23,12 +23,12 @@ router = APIRouter(
 log = logging.getLogger("request")
 
 
-def _get_user_client_or_403(db: Session, user: models.User) -> models.Client:
-    if user.role != UserRole.user:
-        raise HTTPException(status_code=403, detail="Solo disponible para clientes")
-    if not user.client_id:
-        raise HTTPException(status_code=400, detail="Tu cuenta no esta vinculada a un cliente")
-    return _get_client_or_404(db, user.client_id)
+def _require_member(user: models.User) -> models.User:
+    """El propio miembro autenticado. Ya no hay un `Client` separado que resolver
+    (design.md, decision 5: el miembro *es* el usuario, no hace falta buscar nada)."""
+    if user.role != UserRole.member:
+        raise HTTPException(status_code=403, detail="Solo disponible para miembros")
+    return user
 
 
 def _day_ids_for_muscle_group(muscle_group: str) -> list[str]:
@@ -186,11 +186,11 @@ def _get_day_or_404(db: Session, day_id: str) -> models.TrainingDay:
     return day
 
 
-def _get_client_or_404(db: Session, client_id: str) -> models.Client:
-    client = db.get(models.Client, client_id)
-    if not client:
-        raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    return client
+def _get_user_or_404(db: Session, user_id: str) -> models.User:
+    obj = db.get(models.User, user_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return obj
 
 
 def _pdf_escape(text: str) -> str:
@@ -495,9 +495,9 @@ def _motivation_for_metrics(log_count: int, attendance_count: int, improvements:
 
 
 def _collect_progress_snapshot(
-    db: Session, client_id: str
+    db: Session, user_id: str
 ) -> tuple[
-    models.Client,
+    models.User,
     list[models.WorkoutLog],
     int,
     models.Payment | None,
@@ -511,22 +511,22 @@ def _collect_progress_snapshot(
     datetime | None,
     str,
 ]:
-    client = _get_client_or_404(db, client_id)
+    client = _get_user_or_404(db, user_id)
     logs = (
         db.query(models.WorkoutLog)
         .options(joinedload(models.WorkoutLog.day), joinedload(models.WorkoutLog.exercise))
-        .filter(models.WorkoutLog.client_id == client_id)
+        .filter(models.WorkoutLog.user_id == user_id)
         .order_by(models.WorkoutLog.performed_at.asc())
         .all()
     )
     attendance_count = (
         db.query(models.Attendance)
-        .filter(models.Attendance.client_id == client_id)
+        .filter(models.Attendance.user_id == user_id)
         .count()
     )
     latest_payment = (
         db.query(models.Payment)
-        .filter(models.Payment.client_id == client_id)
+        .filter(models.Payment.user_id == user_id)
         .order_by(models.Payment.created_at.desc())
         .first()
     )
@@ -771,13 +771,13 @@ def update_day_selection(
 
 
 @router.get(
-    "/clients/{client_id}/overview",
+    "/users/{user_id}/overview",
     response_model=list[schemas.RoutineDayProgress],
     dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
-def client_routine_overview(client_id: str, db: Session = Depends(get_db)):
+def user_routine_overview(user_id: str, db: Session = Depends(get_db)):
     _ensure_seed_data(db)
-    _get_client_or_404(db, client_id)
+    _get_user_or_404(db, user_id)
 
     days = (
         db.query(models.TrainingDay)
@@ -785,7 +785,7 @@ def client_routine_overview(client_id: str, db: Session = Depends(get_db)):
         .order_by(models.TrainingDay.day_order.asc())
         .all()
     )
-    logs = db.query(models.WorkoutLog).filter(models.WorkoutLog.client_id == client_id).all()
+    logs = db.query(models.WorkoutLog).filter(models.WorkoutLog.user_id == user_id).all()
 
     by_day: dict[str, list[models.WorkoutLog]] = defaultdict(list)
     for log in logs:
@@ -809,23 +809,23 @@ def client_routine_overview(client_id: str, db: Session = Depends(get_db)):
 
 
 @router.get(
-    "/clients/{client_id}/logs",
+    "/users/{user_id}/logs",
     response_model=list[schemas.WorkoutLogOut],
     dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
-def client_workout_logs(
-    client_id: str,
+def user_workout_logs(
+    user_id: str,
     day_id: str | None = Query(default=None),
     limit: int = Query(default=40, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
     _ensure_seed_data(db)
-    _get_client_or_404(db, client_id)
+    _get_user_or_404(db, user_id)
 
     query = (
         db.query(models.WorkoutLog)
         .options(joinedload(models.WorkoutLog.day), joinedload(models.WorkoutLog.exercise))
-        .filter(models.WorkoutLog.client_id == client_id)
+        .filter(models.WorkoutLog.user_id == user_id)
     )
     if day_id:
         query = query.filter(models.WorkoutLog.day_id == day_id)
@@ -834,7 +834,7 @@ def client_workout_logs(
     return [
         schemas.WorkoutLogOut(
             id=log.id,
-            client_id=log.client_id,
+            user_id=log.user_id,
             day_id=log.day_id,
             day_name=log.day.name,
             exercise_id=log.exercise_id,
@@ -851,11 +851,11 @@ def client_workout_logs(
 
 
 @router.get(
-    "/clients/{client_id}/progress-report",
+    "/users/{user_id}/progress-report",
     dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
-def client_progress_report(
-    client_id: str,
+def user_progress_report(
+    user_id: str,
     db: Session = Depends(get_db),
 ):
     _ensure_seed_data(db)
@@ -873,7 +873,7 @@ def client_progress_report(
         unique_exercises,
         last_training,
         motivation,
-    ) = _collect_progress_snapshot(db, client_id)
+    ) = _collect_progress_snapshot(db, user_id)
     top_improvements = improvements[:3]
     score = _progress_score(len(logs), attendance_count, len(top_improvements))
 
@@ -903,9 +903,10 @@ def client_progress_report(
         lines.extend(wrapped)
 
     add_line(f"{gym_name} - Reporte de progreso")
+    member_since = client.membership_start_date or client.created_at
     add_line(f"Cliente: {client.full_name}")
     add_line(
-        f"Emitido: {now_ar().strftime('%d/%m/%Y %H:%M')}  |  Alta: {client.join_date.strftime('%d/%m/%Y')}"
+        f"Emitido: {now_ar().strftime('%d/%m/%Y %H:%M')}  |  Alta: {member_since.strftime('%d/%m/%Y')}"
     )
     add_line()
     add_line("Resumen general")
@@ -961,7 +962,7 @@ def client_progress_report(
         pdf_bytes = _build_styled_progress_pdf(
             gym_name=gym_name,
             client_name=client.full_name,
-            join_date=client.join_date,
+            join_date=client.membership_start_date or client.created_at,
             attendance_count=attendance_count,
             log_count=len(logs),
             unique_days=unique_days,
@@ -978,7 +979,7 @@ def client_progress_report(
         if not pdf_bytes:
             pdf_bytes = _build_simple_pdf(lines)
     except Exception as exc:
-        log.exception("Error generando PDF enriquecido de progreso para client_id=%s", client_id)
+        log.exception("Error generando PDF enriquecido de progreso para user_id=%s", user_id)
         pdf_bytes = _build_simple_pdf(lines)
     filename = f"progreso-{client.full_name.lower().replace(' ', '-')}.pdf"
     return Response(
@@ -989,12 +990,12 @@ def client_progress_report(
 
 
 @router.get(
-    "/clients/{client_id}/progress-summary",
-    response_model=schemas.ClientProgressSummary,
+    "/users/{user_id}/progress-summary",
+    response_model=schemas.UserProgressSummary,
     dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
-def client_progress_summary(
-    client_id: str,
+def user_progress_summary(
+    user_id: str,
     db: Session = Depends(get_db),
 ):
     _ensure_seed_data(db)
@@ -1012,13 +1013,13 @@ def client_progress_summary(
         unique_exercises,
         last_training,
         motivation,
-    ) = _collect_progress_snapshot(db, client_id)
+    ) = _collect_progress_snapshot(db, user_id)
 
     top_improvement = improvements[0] if improvements else None
 
-    return schemas.ClientProgressSummary(
-        client_id=client.id,
-        client_name=client.full_name,
+    return schemas.UserProgressSummary(
+        user_id=client.id,
+        user_name=client.full_name,
         gym_name=gym_name,
         log_count=len(logs),
         attendance_count=attendance_count,
@@ -1041,19 +1042,23 @@ def client_progress_summary(
 
 
 @router.post(
-    "/clients/{client_id}/logs",
+    "/users/{user_id}/logs",
     response_model=schemas.WorkoutLogOut,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
 def create_workout_log(
-    client_id: str,
+    user_id: str,
     payload: schemas.WorkoutLogCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     _ensure_seed_data(db)
-    _get_client_or_404(db, client_id)
+    target = _get_user_or_404(db, user_id)
+    if target.membership_status != models.MembershipStatus.active:
+        raise HTTPException(
+            status_code=400, detail="El usuario no tiene una membresía activa"
+        )
     day = _get_day_or_404(db, payload.day_id)
 
     link = (
@@ -1069,7 +1074,7 @@ def create_workout_log(
         raise HTTPException(status_code=400, detail="Ese ejercicio no esta activo para el dia seleccionado")
 
     log = models.WorkoutLog(
-        client_id=client_id,
+        user_id=user_id,
         day_id=payload.day_id,
         exercise_id=payload.exercise_id,
         sets_count=payload.sets_count,
@@ -1086,7 +1091,7 @@ def create_workout_log(
     existing_attendance = (
         db.query(models.Attendance)
         .filter(
-            models.Attendance.client_id == client_id,
+            models.Attendance.user_id == user_id,
             models.Attendance.checkin_at >= today_start,
             models.Attendance.checkin_at < tomorrow_start,
         )
@@ -1095,7 +1100,7 @@ def create_workout_log(
     if not existing_attendance:
         db.add(
             models.Attendance(
-                client_id=client_id,
+                user_id=user_id,
                 coach_id=current_user.id if current_user.role == models.UserRole.coach else None,
                 checkin_at=now_ar().replace(tzinfo=None),
             )
@@ -1107,7 +1112,7 @@ def create_workout_log(
     exercise = db.get(models.Exercise, payload.exercise_id)
     return schemas.WorkoutLogOut(
         id=log.id,
-        client_id=log.client_id,
+        user_id=log.user_id,
         day_id=log.day_id,
         day_name=day.name,
         exercise_id=log.exercise_id,
@@ -1122,26 +1127,26 @@ def create_workout_log(
 
 
 @router.patch(
-    "/clients/{client_id}/logs/{log_id}",
+    "/users/{user_id}/logs/{log_id}",
     response_model=schemas.WorkoutLogOut,
     dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
 def update_workout_log(
-    client_id: str,
+    user_id: str,
     log_id: str,
     payload: schemas.WorkoutLogUpdate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     _ensure_seed_data(db)
-    _get_client_or_404(db, client_id)
+    _get_user_or_404(db, user_id)
 
     log = (
         db.query(models.WorkoutLog)
         .options(joinedload(models.WorkoutLog.day), joinedload(models.WorkoutLog.exercise))
         .filter(
             models.WorkoutLog.id == log_id,
-            models.WorkoutLog.client_id == client_id,
+            models.WorkoutLog.user_id == user_id,
         )
         .first()
     )
@@ -1158,7 +1163,7 @@ def update_workout_log(
 
     return schemas.WorkoutLogOut(
         id=log.id,
-        client_id=log.client_id,
+        user_id=log.user_id,
         day_id=log.day_id,
         day_name=log.day.name,
         exercise_id=log.exercise_id,
@@ -1173,23 +1178,23 @@ def update_workout_log(
 
 
 @router.delete(
-    "/clients/{client_id}/logs/{log_id}",
+    "/users/{user_id}/logs/{log_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
 def delete_workout_log(
-    client_id: str,
+    user_id: str,
     log_id: str,
     db: Session = Depends(get_db),
 ):
     _ensure_seed_data(db)
-    _get_client_or_404(db, client_id)
+    _get_user_or_404(db, user_id)
 
     log = (
         db.query(models.WorkoutLog)
         .filter(
             models.WorkoutLog.id == log_id,
-            models.WorkoutLog.client_id == client_id,
+            models.WorkoutLog.user_id == user_id,
         )
         .first()
     )
@@ -1202,27 +1207,30 @@ def delete_workout_log(
 
 
 @router.get(
-    "/my/client",
-    response_model=schemas.ClientOut,
-    dependencies=[Depends(require_role(UserRole.user))],
+    "/my/profile",
+    response_model=schemas.UserOut,
+    dependencies=[Depends(require_role(UserRole.member))],
 )
-def my_client(
+def my_profile(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    return _get_user_client_or_403(db, current_user)
+    member = _require_member(current_user)
+    from .users import _serialize_user_single  # import diferido: evita ciclo de módulos
+
+    return _serialize_user_single(db, member)
 
 
 @router.get(
     "/my/days",
     response_model=list[schemas.RoutineDayOut],
-    dependencies=[Depends(require_role(UserRole.user))],
+    dependencies=[Depends(require_role(UserRole.member))],
 )
 def my_routine_days(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    _get_user_client_or_403(db, current_user)
+    _require_member(current_user)
     _ensure_seed_data(db)
 
     days = (
@@ -1237,20 +1245,20 @@ def my_routine_days(
 @router.get(
     "/my/overview",
     response_model=list[schemas.RoutineDayProgress],
-    dependencies=[Depends(require_role(UserRole.user))],
+    dependencies=[Depends(require_role(UserRole.member))],
 )
 def my_routine_overview(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    client = _get_user_client_or_403(db, current_user)
-    return client_routine_overview(client.id, db)
+    member = _require_member(current_user)
+    return user_routine_overview(member.id, db)
 
 
 @router.get(
     "/my/logs",
     response_model=list[schemas.WorkoutLogOut],
-    dependencies=[Depends(require_role(UserRole.user))],
+    dependencies=[Depends(require_role(UserRole.member))],
 )
 def my_workout_logs(
     day_id: str | None = Query(default=None),
@@ -1258,29 +1266,29 @@ def my_workout_logs(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    client = _get_user_client_or_403(db, current_user)
-    return client_workout_logs(client.id, day_id, limit, db)
+    member = _require_member(current_user)
+    return user_workout_logs(member.id, day_id, limit, db)
 
 
 @router.post(
     "/my/logs",
     response_model=schemas.WorkoutLogOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_role(UserRole.user))],
+    dependencies=[Depends(require_role(UserRole.member))],
 )
 def create_my_workout_log(
     payload: schemas.WorkoutLogCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    client = _get_user_client_or_403(db, current_user)
-    return create_workout_log(client.id, payload, db, current_user)
+    member = _require_member(current_user)
+    return create_workout_log(member.id, payload, db, current_user)
 
 
 @router.patch(
     "/my/logs/{log_id}",
     response_model=schemas.WorkoutLogOut,
-    dependencies=[Depends(require_role(UserRole.user))],
+    dependencies=[Depends(require_role(UserRole.member))],
 )
 def update_my_workout_log(
     log_id: str,
@@ -1288,19 +1296,19 @@ def update_my_workout_log(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    client = _get_user_client_or_403(db, current_user)
-    return update_workout_log(client.id, log_id, payload, db, current_user)
+    member = _require_member(current_user)
+    return update_workout_log(member.id, log_id, payload, db, current_user)
 
 
 @router.delete(
     "/my/logs/{log_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_role(UserRole.user))],
+    dependencies=[Depends(require_role(UserRole.member))],
 )
 def delete_my_workout_log(
     log_id: str,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    client = _get_user_client_or_403(db, current_user)
-    return delete_workout_log(client.id, log_id, db)
+    member = _require_member(current_user)
+    return delete_workout_log(member.id, log_id, db)

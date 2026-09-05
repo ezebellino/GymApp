@@ -16,7 +16,8 @@ from app.models import User, UserRole
 
 OWNER_USERNAME = "manga_aguirre"
 OWNER_PASSWORD = "Miniespacio1"
-OWNER_NAME = "Dueño Mini Espacio"
+OWNER_FIRST_NAME = "Dueño"
+OWNER_LAST_NAME = "Mini Espacio"
 
 
 def main():
@@ -42,7 +43,8 @@ def main():
     with Session() as db:
         existing_user = db.query(User).filter(User.email == OWNER_USERNAME).first()
         if existing_user:
-            existing_user.full_name = OWNER_NAME
+            existing_user.first_name = OWNER_FIRST_NAME
+            existing_user.last_name = OWNER_LAST_NAME
             existing_user.password_hash = hash_password(OWNER_PASSWORD)
             existing_user.role = UserRole.owner
             existing_user.is_active = True
@@ -52,7 +54,8 @@ def main():
             return
 
         owner = User(
-            full_name=OWNER_NAME,
+            first_name=OWNER_FIRST_NAME,
+            last_name=OWNER_LAST_NAME,
             email=OWNER_USERNAME,
             password_hash=hash_password(OWNER_PASSWORD),
             role=UserRole.owner,

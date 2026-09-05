@@ -79,7 +79,7 @@ export default function Topbar() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (role === "user") return;
+      if (role === "member") return;
       const mod = navigator.platform.includes("Mac") ? e.metaKey : e.ctrlKey;
       if (mod && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -107,14 +107,14 @@ export default function Topbar() {
           />
         </div>
 
-        {role !== "user" && (
+        {role !== "member" && (
           <div className="hidden flex-1 justify-center lg:flex">
             <Button
               variant="outline"
               className={`w-72 ${outlineButtonClass}`}
               onClick={openGlobalSearch}
             >
-              Buscar cliente (Ctrl/Cmd + K)
+              Buscar usuario (Ctrl/Cmd + K)
             </Button>
           </div>
         )}
@@ -176,7 +176,7 @@ export default function Topbar() {
           </Button>
 
           <div className="space-y-2">
-            {role === "user" ? (
+            {role === "member" ? (
               <Button
                 variant="outline"
                 className={mobileNavButtonClass}
@@ -198,10 +198,10 @@ export default function Topbar() {
                 <Button
                   variant="outline"
                   className={mobileNavButtonClass}
-                  onClick={() => go("/clients")}
+                  onClick={() => go("/users")}
                 >
                   <Users className="mr-2 h-4 w-4" />
-                  Clientes
+                  Usuarios
                 </Button>
                 <Button
                   variant="outline"

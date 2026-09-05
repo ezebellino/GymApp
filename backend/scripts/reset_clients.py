@@ -9,7 +9,7 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
 from app.config import settings
-from app.models import Attendance, Client, Payment, WorkoutLog
+from app.models import Attendance, Payment, User, UserRole, WorkoutLog
 
 CONFIRM_TOKEN = "MINI-ESPACIO"
 
@@ -17,7 +17,8 @@ CONFIRM_TOKEN = "MINI-ESPACIO"
 def main():
     if len(sys.argv) < 2 or sys.argv[1] != "--confirm":
         print(
-            "Este script borra clientes y sus datos asociados.\n"
+            "Este script borra usuarios con rol Miembro y sus datos asociados "
+            "(nunca Dueños ni Coaches).\n"
             f"Ejecuta: python scripts/reset_clients.py --confirm {CONFIRM_TOKEN}"
         )
         return
@@ -30,20 +31,33 @@ def main():
     Session = sessionmaker(bind=engine)
 
     with Session() as db:
-        clients_count = db.query(Client).count()
-        payments_count = db.query(Payment).count()
-        attendance_count = db.query(Attendance).count()
-        logs_count = db.query(WorkoutLog).count()
+        member_ids = [row.id for row in db.query(User.id).filter(User.role == UserRole.member).all()]
 
-        db.query(Payment).delete()
-        db.query(Attendance).delete()
-        db.query(WorkoutLog).delete()
-        db.query(Client).delete()
+        clients_count = len(member_ids)
+        payments_count = 0
+        attendance_count = 0
+        logs_count = 0
+
+        if member_ids:
+            # Los FK de historial son RESTRICT (ver unify-clients-into-users): hay
+            # que borrar pagos/asistencias/rutinas antes de poder borrar los
+            # usuarios Miembro.
+            payments_count = (
+                db.query(Payment).filter(Payment.user_id.in_(member_ids)).delete(synchronize_session=False)
+            )
+            attendance_count = (
+                db.query(Attendance).filter(Attendance.user_id.in_(member_ids)).delete(synchronize_session=False)
+            )
+            logs_count = (
+                db.query(WorkoutLog).filter(WorkoutLog.user_id.in_(member_ids)).delete(synchronize_session=False)
+            )
+            db.query(User).filter(User.id.in_(member_ids)).delete(synchronize_session=False)
+
         db.commit()
 
     print(
-        "Base de clientes limpiada.\n"
-        f"Clientes borrados: {clients_count}\n"
+        "Usuarios Miembro limpiados (Dueños/Coaches no se tocan).\n"
+        f"Usuarios Miembro borrados: {clients_count}\n"
         f"Pagos borrados: {payments_count}\n"
         f"Asistencias borradas: {attendance_count}\n"
         f"Avances de rutina borrados: {logs_count}"

@@ -80,7 +80,7 @@ export default function NewPaymentDialog({
     setLoading(true);
     try {
       await api.post("/payments", {
-        client_id: clientId,
+        user_id: clientId,
         amount,
         method,
         method_channel: method === "transfer" ? methodChannel.trim() || null : null,

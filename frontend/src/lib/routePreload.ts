@@ -7,7 +7,7 @@
 // viceversa.
 export const routeImporters: Record<string, () => Promise<unknown>> = {
   "/dashboard": () => import("@/pages/Dashboard"),
-  "/clients": () => import("@/pages/Clients"),
+  "/users": () => import("@/pages/Users"),
   "/payments": () => import("@/pages/Payments"),
   "/attendance": () => import("@/pages/Attendance"),
   "/routines": () => import("@/pages/Routines"),

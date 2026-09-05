@@ -20,17 +20,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toastError, toastSuccess } from "@/lib/toast";
-import type { Client } from "@/types";
+import type { User } from "@/types";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useDebounce } from "@/hooks/useDebounce";
-import { useClientsSearchQuery } from "@/services/search.queries";
+import { useUsersSearchQuery } from "@/services/search.queries";
 import { useCheckinMutation } from "@/services/attendance.queries";
 import { useCreatePaymentMutation } from "@/services/payments.queries";
-import { useCreateClientMutation } from "@/services/clients.queries";
+import { useCreateUserMutation } from "@/services/users.queries";
 import DataError from "@/components/DataError";
 
 type NewClientPayload = {
-  full_name: string;
+  first_name: string;
+  last_name: string | null;
   email: string | null;
   phone: string | null;
 };
@@ -85,7 +86,7 @@ export default function Dashboard() {
   const [clientId, setClientId] = useState("");
   const checkinMutation = useCheckinMutation();
   const debouncedQ = useDebounce(q, 300);
-  const clientsSearch = useClientsSearchQuery(debouncedQ, {
+  const clientsSearch = useUsersSearchQuery(debouncedQ, {
     enabled: debouncedQ.trim().length > 0,
   });
   const clientResults = clientsSearch.data ?? [];
@@ -93,7 +94,7 @@ export default function Dashboard() {
   const [paymentQuery, setPaymentQuery] = useState("");
   const [paymentClientId, setPaymentClientId] = useState("");
   const debouncedPaymentQuery = useDebounce(paymentQuery, 300);
-  const paymentsSearch = useClientsSearchQuery(debouncedPaymentQuery, {
+  const paymentsSearch = useUsersSearchQuery(debouncedPaymentQuery, {
     enabled: debouncedPaymentQuery.trim().length > 0,
   });
   const paymentResults = paymentsSearch.data ?? [];
@@ -106,9 +107,9 @@ export default function Dashboard() {
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
-  const createClientMutation = useCreateClientMutation();
+  const createClientMutation = useCreateUserMutation();
 
-  function openPaymentReminder(client: Client) {
+  function openPaymentReminder(client: User) {
     if (!client.phone) return;
     const digits = client.phone.replace(/\D/g, "");
     const normalizedPhone = digits.startsWith("54") ? digits : `54${digits}`;
@@ -134,8 +135,8 @@ export default function Dashboard() {
     if (!q && !clientId) return;
 
     try {
-      const body: { q?: string; client_id?: string } = {};
-      if (clientId) body.client_id = clientId;
+      const body: { q?: string; user_id?: string } = {};
+      if (clientId) body.user_id = clientId;
       else if (q) body.q = q;
 
       await checkinMutation.mutateAsync(body);
@@ -167,7 +168,7 @@ export default function Dashboard() {
     try {
       const now = new Date();
       await createPaymentMutation.mutateAsync({
-        client_id: paymentClientId,
+        user_id: paymentClientId,
         amount: defaultFee,
         method: quickPaymentMethod,
         method_channel: null,
@@ -197,8 +198,14 @@ export default function Dashboard() {
     if (!newName.trim()) return;
 
     try {
-      const payload: NewClientPayload = {
-        full_name: newName.trim(),
+      // Alta rapida: solo pide "Nombre completo", asi que se parte con la
+      // misma heuristica que usa el backend en el split de perfil (primer
+      // token -> first_name, resto -> last_name).
+      const [firstName, ...rest] = newName.trim().split(/\s+/);
+      const payload: NewClientPayload & { role: "member" } = {
+        first_name: firstName,
+        last_name: rest.length ? rest.join(" ") : null,
+        role: "member",
         email: newEmail.trim() ? newEmail.trim() : null,
         phone: newPhone.trim() ? newPhone.trim() : null,
       };
@@ -656,7 +663,7 @@ export default function Dashboard() {
                           {shortId(payment.id)}
                         </td>
                         <td className="px-5 py-3 text-foreground">
-                          {payment.client?.full_name ?? payment.client_id}
+                          {payment.user?.full_name ?? payment.user_id}
                         </td>
                         <td className="px-5 py-3 text-muted-foreground">
                           {methodLabel(payment.method)}
@@ -729,7 +736,7 @@ export default function Dashboard() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => navigate("/clients")}
+                    onClick={() => navigate("/users")}
                     className={outlineButtonClass}
                   >
                     Ver ficha

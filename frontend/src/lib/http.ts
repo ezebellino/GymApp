@@ -12,7 +12,7 @@ const api = axios.create({
   baseURL: apiBaseURL,
 });
 
-const slashEndpoints = new Set(["/clients", "/attendance", "/payments"]);
+const slashEndpoints = new Set(["/users", "/attendance", "/payments"]);
 
 api.interceptors.request.use((config) => {
   if (config.url && slashEndpoints.has(config.url)) {

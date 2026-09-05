@@ -88,7 +88,7 @@ export default function AttendancePage() {
   }, [items]);
 
   const uniqueClients = useMemo(() => {
-    const ids = new Set(items.map((item) => item.client_id));
+    const ids = new Set(items.map((item) => item.user_id));
     return ids.size;
   }, [items]);
 
@@ -253,10 +253,10 @@ export default function AttendancePage() {
                             {new Date(item.checkin_at).toLocaleString("es-AR")}
                           </td>
                           <td className="px-4 py-3 text-foreground">
-                            {item.client?.full_name ?? shortId(item.client_id)}
+                            {item.user?.full_name ?? shortId(item.user_id)}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
-                            {item.client?.phone || item.client?.email || "-"}
+                            {item.user?.phone || item.user?.email || "-"}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
                             {item.coach_id ? shortId(item.coach_id) : "-"}
