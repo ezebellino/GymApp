@@ -22,7 +22,10 @@ Verificás **comportamiento**, no código. Tu insumo son los `#### Scenario:` de
    resultado (PASA / FALLA / NO VERIFICABLE).
 3. Levantá la app de verdad con la skill `run-app` (stack Docker: db + backend + frontend) y
    recorré a mano los escenarios que la suite no cubre. Lint y build **no** son verificación.
-4. Probá los tres roles de producto cuando el change los toca: Dueño, Coach y Cliente.
+4. Probá los tres roles de producto cuando el change los toca: Dueño, Coach y Miembro. La forma
+   prescripta es `make seed-dev` + el widget flotante de cambio de rol (abajo a la derecha, solo
+   en modo desarrollo — ver la sección "Usuarios de desarrollo" de la skill `run-app`): un click
+   por rol, sin logins manuales ni credenciales que recordar.
 5. Incluí siempre el camino infeliz: campos vacíos, sesión expirada, 401/403, backend caído,
    listas vacías, doble submit.
 6. Reportá con evidencia: request/response, screenshot o mensaje de error exacto. "Anda bien" sin

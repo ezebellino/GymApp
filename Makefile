@@ -1,6 +1,6 @@
 .PHONY: help setup setup-backend setup-frontend dev backend frontend migrate stop clean \
 	test test-backend test-frontend \
-	lint lint-backend lint-frontend check-plan \
+	lint lint-backend lint-frontend check-plan seed-dev \
 	docker-up docker-down docker-build docker-logs docker-ps docker-clean \
 	agents-sync agents-check
 
@@ -27,6 +27,15 @@ setup-frontend: ## Instala dependencias del frontend
 
 migrate: ## Corre las migraciones de alembic
 	cd backend && ../$(PYTHON) -m alembic upgrade head
+
+seed-dev: ## Crea/actualiza los 3 usuarios de desarrollo (Dueño, Coach, Miembro)
+	@if docker compose ps --status running --services 2>/dev/null | grep -qx backend; then \
+		echo "==> stack Docker detectado: seedeando dentro del contenedor backend"; \
+		docker compose exec -T backend python -m scripts.seed_dev_users; \
+	else \
+		echo "==> modo nativo: seedeando con el venv de backend/"; \
+		cd backend && ../$(PYTHON) -m scripts.seed_dev_users; \
+	fi
 
 backend: ## Levanta solo el backend (uvicorn --reload)
 	cd backend && ../$(PYTHON) -m uvicorn app.main:app --reload --host $(BACKEND_HOST) --port $(BACKEND_PORT)

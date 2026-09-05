@@ -34,3 +34,6 @@ Implementás las tasks de un change de OpenSpec. Ver [AGENTS.md](../../../AGENTS
   `make check-plan CHANGE=<name>` en verde. Si un caso del plan no se puede escribir tal como está
   (el escenario no es reproducible, falta infraestructura, etc.), no lo borres del plan por tu
   cuenta: volvé a `role-architect` para que ajuste el `## Plan de verificación`.
+- Si el change toca UI, la verificación con `run-app` se hace **en los tres roles** (Dueño, Coach
+  y Miembro) usando el widget de cambio de rol tras `make seed-dev` — no solo en el rol con el que
+  ya estabas logueado. Ver la sección "Usuarios de desarrollo" de la skill `run-app`.

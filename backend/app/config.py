@@ -13,7 +13,13 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 600
     DEBUG: bool = False
-    
+
+    # Entorno de ejecución. Default deliberadamente "production": si nadie declara la
+    # variable, los scripts que solo tienen sentido en desarrollo (p. ej.
+    # `scripts/seed_dev_users.py`) se niegan a correr. Los `.env*.example` ya la
+    # traen como `development`.
+    ENVIRONMENT: str = "production"
+
     CORS_ORIGINS: list[str] = [
         "http://localhost:5173",
         "https://libre-funcional.vercel.app",

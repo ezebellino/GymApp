@@ -130,3 +130,32 @@ Si en algún entorno Docker no está disponible, existe el modo nativo documenta
 `Makefile`/`AGENTS.md` raíz: `make setup` + `make dev` (uvicorn en :8001 + vite en su puerto
 default). Requiere un `backend/.env` real (no el `.env.docker`) apuntando a una base accesible.
 Preferir siempre el modo Docker de este skill salvo que el usuario pida explícitamente el nativo.
+
+## Usuarios de desarrollo y cambio de rol con un click
+
+Con el stack arriba, corré una vez (idempotente: se puede repetir sin duplicar nada):
+
+```bash
+make seed-dev
+```
+
+Detecta solo si el backend corre en Docker (seedea dentro del contenedor) o en modo nativo, y
+deja estos tres usuarios, uno por rol, todos con password `devdev123`:
+
+| Rol | Email (= usuario del login) | Password |
+|---|---|---|
+| Dueño | `dev.owner@miniespacio.local` | `devdev123` |
+| Coach | `dev.coach@miniespacio.local` | `devdev123` |
+| Miembro (membresía activa) | `dev.member@miniespacio.local` | `devdev123` |
+
+En modo desarrollo (`make docker-up`, `make dev`, `make frontend`) el frontend muestra un **widget
+flotante abajo a la derecha** (`data-testid="dev-role-switcher"`, también en `/login`) con el rol
+de la sesión actual y tres botones: Dueño / Coach / Miembro. Un click hace login real con esas
+credenciales, cierra la sesión anterior y aterriza en la home del rol (`/dashboard` para Dueño y
+Coach, `/my-routine` para Miembro). Es la forma prescripta de recorrer los tres roles al verificar
+un change: no hace falta cerrar sesión ni tipear credenciales. El widget se puede colapsar (botón
+redondo, recuerda el estado entre recargas) y **no existe en el build de producción**.
+
+Si al elegir un usuario el widget muestra "Usuario de desarrollo no encontrado. Corré
+`make seed-dev`…", es que el seed no corrió sobre esa base: corrélo y volvé a intentar. El seed se
+niega a correr si `ENVIRONMENT` no es de desarrollo o si `DATABASE_URL` no apunta a una base local.

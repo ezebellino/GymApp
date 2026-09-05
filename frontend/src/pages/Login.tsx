@@ -1,34 +1,9 @@
 import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LogIn } from "lucide-react";
-import api from "@/lib/http";
-import { useSessionStore } from "@/stores/session";
-import { useThemeStore } from "@/stores/theme";
-import { normalizeThemeMode } from "@/lib/theme";
+import { useSignIn } from "@/hooks/useSignIn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toastError } from "@/lib/toast";
-
-type TokenResp = { access_token: string; token_type: string };
-
-async function requestTokenWithRetry(body: URLSearchParams) {
-  try {
-    return await api.post<TokenResp>("/auth/token", body, {
-      timeout: 8000,
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-  } catch (err: any) {
-    const message = err?.message ?? "";
-    if (err.code === "ECONNABORTED" || message.includes("timeout")) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      return api.post<TokenResp>("/auth/token", body, {
-        timeout: 8000,
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-    }
-    throw err;
-  }
-}
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -36,48 +11,16 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
 
-  const navigate = useNavigate();
-  const setSession = useSessionStore((s) => s.setSession);
-  const setThemeMode = useThemeStore((s) => s.setMode);
+  // Único camino de login (red + setSession + tema + navigate), compartido con
+  // el widget de desarrollo: ver `hooks/useSignIn.ts`.
+  const signIn = useSignIn();
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const body = new URLSearchParams();
-      body.append("username", username);
-      body.append("password", password);
-
-      const { data } = await requestTokenWithRetry(body);
-
-      try {
-        // El store todavía no tiene el token en este punto (setSession se
-        // llama una única vez, al final): se pasa explícito acá para que esta
-        // llamada puntual quede autenticada sin depender del interceptor.
-        const { data: me } = await api.get<{
-          id: string;
-          full_name: string;
-          email: string;
-          role: string;
-          email_verified: boolean;
-          theme_preference?: string | null;
-        }>("/auth/me", {
-          headers: { Authorization: `Bearer ${data.access_token}` },
-        });
-
-        setSession(data.access_token, {
-          name: me.full_name ?? me.email ?? "Usuario",
-          role: (me.role ?? "coach") as "owner" | "coach" | "member",
-          email: me.email,
-        });
-        setThemeMode(normalizeThemeMode(me.theme_preference));
-      } catch {
-        // Sin /auth/me, setSession decodifica el JWT y deriva nombre/rol/exp.
-        setSession(data.access_token);
-      }
-
-      navigate("/", { replace: true });
+      await signIn({ username, password });
     } catch (err: any) {
       console.error("Error al hacer login", err);
       const status = err?.response?.status;

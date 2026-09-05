@@ -40,7 +40,22 @@ make frontend   # solo frontend
 make migrate    # alembic upgrade head
 make lint       # ruff (backend) + eslint/tsc (frontend), ver bullet Tests
 make docker-up  # stack completo en Docker (db + backend + frontend)
+make seed-dev   # crea/actualiza los 3 usuarios de desarrollo (Dueño, Coach, Miembro)
 ```
+
+`make seed-dev` detecta si el stack Docker está corriendo (seedea dentro del contenedor
+`backend`) o cae al venv nativo, y anuncia qué rama tomó. Corre
+`backend/scripts/seed_dev_users.py`, que **se niega a correr fuera de desarrollo** (doble candado:
+`ENVIRONMENT` ∈ {development, local, test} **y** host de `DATABASE_URL` local — ver
+`backend/AGENTS.md`). Los tres usuarios que deja (password `devdev123` en los tres) son los que
+ofrece el widget flotante de cambio de rol del frontend en modo desarrollo (capability
+`dev-role-switcher`, ver `frontend/AGENTS.md`):
+
+| Rol | Email (= usuario del login) | Password |
+|---|---|---|
+| Dueño | `dev.owner@miniespacio.local` | `devdev123` |
+| Coach | `dev.coach@miniespacio.local` | `devdev123` |
+| Miembro (membresía activa) | `dev.member@miniespacio.local` | `devdev123` |
 
 ## Gestión de contexto y tokens: usá CodeGraph antes de explorar a ciegas
 

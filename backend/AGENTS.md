@@ -47,6 +47,7 @@ Directo dentro de `backend/` (con el venv activado):
 python -m alembic revision --autogenerate -m "<descripción>"   # nueva migración tras editar models.py
 python -m alembic upgrade head
 python scripts/create_owner.py     # crea usuario owner inicial
+python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo (o `make seed-dev` desde la raíz)
 ```
 
 ## Convenciones
@@ -80,6 +81,22 @@ python scripts/create_owner.py     # crea usuario owner inicial
 - **Scripts**: son ejecutables sueltos pensados para correrse una vez (seed, import, fix de
   datos) — no son parte del arranque normal de la app. Si escribís uno nuevo, ponelo en
   `scripts/` con un nombre descriptivo, no lo mezcles con `app/`.
+  - `scripts/seed_dev_users.py` (capability `dev-role-switcher`; `make seed-dev` desde la raíz)
+    hace upsert por email de los tres usuarios de desarrollo — `dev.owner@miniespacio.local`
+    (Dueño), `dev.coach@miniespacio.local` (Coach) y `dev.member@miniespacio.local` (Miembro con
+    `membership_status=active`), password `devdev123` en los tres — con los flags que exigen los
+    gates de `auth.py` (`password_hash`, `email_verified=True`, `is_active=True`). Es idempotente:
+    correrlo N veces deja exactamente esas 3 filas. La constante `DEV_USERS` es la única
+    definición del lado backend; la copia del frontend vive en
+    `frontend/src/components/dev/devUsers.ts` (duplicada a propósito, si divergen el widget
+    devuelve un 400 con mensaje accionable). **Se niega a correr fuera de desarrollo** con doble
+    candado, evaluado **antes** de abrir cualquier conexión: `settings.ENVIRONMENT` (campo nuevo
+    en `config.py`, default `"production"` — si nadie lo declara, el seed no corre; los
+    `.env*.example` ya traen `development`) tiene que estar en `{development, local, test}` **y**
+    el host de `DATABASE_URL` en `{localhost, 127.0.0.1, db, ""}`. Si un candado cierra, imprime
+    cuál y sale con código 1 (no 0: desde `make`/CI una negativa no puede parecer éxito).
+    `seed_dev_users(db)` está separada de `main()` (sin guardas ni engine) para poder testearla
+    sobre la SQLite de la suite.
 - **Lint**: `ruff` (config en `backend/ruff.toml`, `target-version = "py313"`), select por
   defecto (`E4` imports, `E7` statements, `E9` errores de sintaxis, `F` pyflakes — sin `E501` de
   línea larga ni familias extra como `I`/`B`/`UP`). `per-file-ignores`: `F401` en
@@ -90,7 +107,12 @@ python scripts/create_owner.py     # crea usuario owner inicial
   `backend/requirements-dev.txt` junto a pytest.
 - **Tests**: hay suite con pytest en `backend/tests/` (`test_auth.py`, `test_roles.py`,
   `test_health.py`, `test_theme.py`, `test_membership.py`, `test_invitations.py`,
-  `test_payments.py`).
+  `test_payments.py`, `test_dev_seed.py`).
+  `test_dev_seed.py` cubre `scripts/seed_dev_users.py`: primera corrida crea los 3 usuarios (uno
+  por rol, Miembro con membresía activa), segunda corrida no duplica ni falla, los tres pasan
+  `POST /auth/token` + `GET /auth/me` de verdad, y las dos guardas de entorno (`ENVIRONMENT`
+  no-dev y `DATABASE_URL` remota) hacen que `main()` salga con `SystemExit != 0` sin llamar a
+  `create_engine` (se reemplaza por un centinela que falla si se invoca).
   `test_membership.py` cubre el indicador de 3 estados (`utils.membership_indicator`), el bloqueo
   de login por baja **scopeado por rol** (`auth.is_membership_blocking_login` — un Miembro dado de
   baja no entra, un Coach-miembro dado de baja sí entra y además se ve "suspended" en el listado:

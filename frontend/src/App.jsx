@@ -30,6 +30,16 @@ const InvitationAccept = lazy(() => import("./pages/InvitationAccept"));
 const NewCoachPage = lazy(() => import("./pages/NewCoach"));
 const UserDetail = lazy(() => import("./pages/UserDetail"));
 
+// Widget de cambio de rol, solo en desarrollo (`add-dev-role-switcher`, dec. 1).
+// El ternario va a nivel de módulo a propósito: en `npm run build` Vite
+// reemplaza `import.meta.env.DEV` por `false` antes de que Rollup optimice, el
+// `import()` queda inalcanzable y nada de la carpeta `dev/` (ni las
+// credenciales que contiene) entra al bundle. NO cambiar por un `lazy()`
+// incondicional con guarda en el render: ese chunk sobrevive al build.
+const DevRoleSwitcher = import.meta.env.DEV
+  ? lazy(() => import("./components/dev/DevRoleSwitcher"))
+  : null;
+
 function PageLoader() {
   return (
     <div className="grid min-h-[50vh] place-items-center">
@@ -61,6 +71,13 @@ export default function App() {
   return (
     <div className="app-shell-bg min-h-screen text-foreground">
       <Toaster position="top-right" theme={themeMode} />
+
+      {/* Fuera del split `isAuthRoute`: el widget también se ve en /login. */}
+      {DevRoleSwitcher && (
+        <Suspense fallback={null}>
+          <DevRoleSwitcher />
+        </Suspense>
+      )}
 
       {!isAuthRoute && (
         <>

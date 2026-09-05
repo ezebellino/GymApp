@@ -29,7 +29,7 @@ src/
   App.jsx           # rutas de la app
   main.jsx          # entrypoint, monta <QueryClientProvider client={queryClient}>
   components/       # componentes compartidos, incluyendo ui/ (shadcn)
-  hooks/            # custom hooks (useDebounce, useDashboardData, useLegacyRefetchBridge)
+  hooks/            # custom hooks (useDebounce, useDashboardData, useLegacyRefetchBridge, useSignIn)
   lib/              # utilidades (cn, formateo, queryClient.ts, theme.ts, etc.)
   pages/            # una carpeta/archivo por vista, mapea a rutas de App.jsx
   services/         # capa de acceso a datos del servidor, dos archivos por dominio (ver abajo)
@@ -59,6 +59,7 @@ src/services/
   search.queries.ts
   me.ts                      # fetchers puros: fetchMe, updateMyTheme (PATCH /auth/me/theme)
   me.queries.ts              # hooks: useMeQuery, useUpdateMyThemeMutation, useSyncUserTheme
+  auth.ts                    # fetchers puros del login: requestToken (con reintento), fetchMeWithToken, signIn
 ```
 
 - **`<dominio>.ts`** (fetchers): funciones async puras, reciben un objeto de params tipado, usan
@@ -156,6 +157,41 @@ completo con acciones).
     todo el repo y lo traduce a `invalidateQueries({ queryKey: queryKeys.payments.all })` — dec. 13
     de ese `design.md`. Se borra entero cuando esos diálogos migren a `useMutation`; no agregues
     un segundo oyente ni un nuevo emisor de este evento.
+- **Login: un único camino.** `services/auth.ts` (red: `requestToken` con el reintento único ante
+  timeout, `fetchMeWithToken` con `Authorization` explícito porque el store todavía no tiene el
+  token, y `signIn` que compone las dos y devuelve `{ accessToken, me }`) + `hooks/useSignIn.ts`
+  (efectos, en este orden fijo: red → `logout()` opcional → `setSession` → `setThemeMode` →
+  `navigate("/")`, que cae en el `<Navigate>` por rol de `App.jsx`). `pages/Login.tsx` y el widget
+  de desarrollo lo usan; **no dupliques la secuencia** en otra vista — si el login suma un paso, va
+  ahí. Primero la red y después el switch de sesión: un login fallido deja la sesión anterior
+  intacta (dec. 4 de `add-dev-role-switcher`). Los errores se propagan; el llamador decide el
+  mensaje.
+- **Widget de cambio de rol (solo desarrollo)**: `components/dev/DevRoleSwitcher.tsx` +
+  `components/dev/devUsers.ts` (capability `dev-role-switcher`). Card flotante abajo a la derecha
+  (`fixed bottom-4 right-4 z-50`, visible también en `/login`) que loguea con un click como uno de
+  los tres usuarios fijos de `make seed-dev` (Dueño / Coach / Miembro, ver tabla en el
+  `AGENTS.md` raíz) vía `useSignIn` con `resetPreviousSession: true`. Reglas que no se negocian:
+  - **Ausente del bundle de producción, no oculto.** `App.jsx` lo monta con un ternario
+    `import.meta.env.DEV ? lazy(() => import(...)) : null` **a nivel de módulo**: Vite reemplaza
+    `DEV` por `false` antes de que Rollup optimice, el `import()` queda inalcanzable y el chunk no
+    se emite. Un `lazy()` incondicional con guarda en el render **no** sirve (el chunk sobrevive
+    al build). La prueba es mecánica: tras `npm run build`, `grep -r -e "dev-role-switcher" -e
+    "dev.owner@miniespacio.local" -e "devdev123" dist/` tiene que dar cero coincidencias.
+  - **Una sola importación entrante a `components/dev/**`**: el `import()` de `App.jsx`. Un test
+    fuera de esa carpeta que importe el widget, un barril que lo reexporte o una constante
+    "compartida" lo devuelven al grafo de producción con las credenciales adentro. Chequeo:
+    `grep -rn "components/dev" src --include="*.ts" --include="*.tsx" --include="*.jsx"` debe
+    listar solo `App.jsx` (y comentarios dentro de la propia carpeta). Por eso `devUsers.ts` es la
+    única definición de credenciales del lado frontend, y la del backend
+    (`backend/scripts/seed_dev_users.py`) está duplicada a propósito.
+  - **El colapsado va en `localStorage["dev_role_switcher_collapsed"]` (`"1"`/`"0"`), no en un
+    store**: los stores del repo siguen siendo tres, y un store viviría en `src/stores/` — fuera
+    de `components/dev/`, rompiendo el invariante anterior. Lectura con inicializador lazy de
+    `useState` y escritura en el toggle, ambas en `try/catch` (storage bloqueado ⇒ siempre
+    expandido, nunca romper el render).
+  - Errores inline con `role="alert"`, no toast: 400/401 de `/auth/token` ⇒ "Usuario de desarrollo
+    no encontrado. Corré `make seed-dev`…"; el resto ⇒ mensaje genérico de backend caído. Un
+    fallo no toca la sesión previa.
 - **Roles**: `"owner" | "coach" | "member"` (`types.ts::Role`; `member` reemplaza al `"user"` de
   antes de `unify-clients-into-users` — el modelo `Client` se fusionó en `User`). La UI difiere por
   rol (Dueño, Coach, portal miembro) — el rol vive en `useSessionStore` (`role`, derivado del JWT
@@ -273,7 +309,17 @@ completo con acciones).
     `routeImporters`), `services/__tests__/pagination.test.ts` (`getPageRange` con `total=0`,
     última página parcial y `offset` fuera de rango) y `lib/__tests__/utils.test.ts` (`cn` conserva
     los nueve tamaños custom de `index.css` frente a un color en conflicto — drift test contra los
-    `--text-*` que declara ese archivo). `components/ui/popover.tsx` (`Popover`,
+    `--text-*` que declara ese archivo). Suma de `add-dev-role-switcher`:
+    `components/dev/__tests__/DevRoleSwitcher.test.tsx` (las tres opciones Dueño/Coach/Miembro;
+    colapsar escribe `dev_role_switcher_collapsed` y con la key sembrada en el `beforeEach` monta
+    colapsado; con `/auth/token` en 400 muestra el mensaje con `make seed-dev` y
+    `useSessionStore.getState().token` sigue siendo el sembrado; con `/auth/token` pendiente las
+    tres opciones quedan `disabled`, la elegida con `aria-busy`, y un segundo click no dispara
+    otro `POST`) y `components/__tests__/App.devSwitcher.test.tsx` (`vi.stubEnv("DEV", true|false)`
+    + `vi.resetModules()` + `await import("@/App")`: con `true` aparece el widget, con `false` no
+    aparece ni ninguno de los tres labels — simula el modo, **no** ejecuta el build).
+    `Login.test.tsx` no se tocó en ese change: que siga verde tras el refactor a `useSignIn` es la
+    prueba de no-regresión del login. `components/ui/popover.tsx` (`Popover`,
     `PopoverTrigger`, `PopoverContent`) es un componente nuevo de `ui/`, sin Radix ni portal, mismo
     patrón controlado que `Dialog` — ver el comentario de cabecera del archivo para la limitación
     de clipping dentro de contenedores con `overflow`. Hay tests de interacción puntuales (el

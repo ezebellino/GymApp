@@ -214,6 +214,20 @@ su spec declara obligatorio, y SHALL ejecutarse sin necesidad de tener el backen
 - **THEN** los tests de render se ejecutan y devuelven un resultado igual que con el backend
   levantado
 
+### Requirement: Test de render del widget de cambio de rol según modo de build
+La suite de frontend SHALL incluir al menos un test que verifique que el widget de cambio de rol
+(capability `dev-role-switcher`) se renderiza cuando el entorno es de desarrollo y que no se
+renderiza (o el módulo no se importa) cuando el entorno simulado es de producción.
+
+#### Scenario: Se renderiza en modo desarrollo
+- **WHEN** el test renderiza el shell de la app simulando modo de desarrollo
+- **THEN** encuentra el widget de cambio de rol en el árbol renderizado
+
+#### Scenario: No se renderiza en modo producción
+- **WHEN** el test renderiza el shell de la app simulando modo de producción
+- **THEN** no encuentra el widget de cambio de rol ni ningún rastro de sus tres opciones de
+  usuario en el árbol renderizado
+
 ### Requirement: La documentación de agentes describe la suite existente
 La documentación de agentes SHALL reflejar que existe una suite ejecutable y un comando de lint:
 `AGENTS.md` de raíz, `backend/AGENTS.md` y `frontend/AGENTS.md` MUST indicar cómo correr los tests
