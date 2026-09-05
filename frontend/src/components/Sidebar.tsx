@@ -1,35 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import {
-  BarChart3,
-  CalendarCheck2,
-  CreditCard,
-  Dumbbell,
-  LayoutDashboard,
-  LogOut,
-  Settings,
-  UserRound,
-  Users,
-} from "lucide-react";
-import type { FC } from "react";
+import { LogOut, UserRound } from "lucide-react";
 import { useSessionStore } from "@/stores/session";
 import { preloadRoute } from "@/lib/routePreload";
-
-type NavItem = {
-  to: string;
-  label: string;
-  icon: FC<{ size?: number }>;
-};
-
-const items: NavItem[] = [
-  { to: "/my-routine", label: "Mi rutina", icon: Dumbbell },
-  { to: "/routines", label: "Rutinas", icon: Dumbbell },
-  { to: "/users", label: "Usuarios", icon: Users },
-  { to: "/attendance", label: "Asistencias", icon: CalendarCheck2 },
-  { to: "/dashboard", label: "Seguimiento", icon: LayoutDashboard },
-  { to: "/payments", label: "Pagos", icon: CreditCard },
-  { to: "/reports", label: "Reportes", icon: BarChart3 },
-  { to: "/settings", label: "Ajustes", icon: Settings },
-];
+import { navItemsForRole } from "@/lib/navigation";
 
 function roleLabel(role: string) {
   if (role === "owner") return "Dueño";
@@ -43,12 +16,7 @@ export default function Sidebar() {
   const email = useSessionStore((s) => s.email);
   const logout = useSessionStore((s) => s.logout);
   const navigate = useNavigate();
-  const allowed = items.filter((item) => {
-    if (role === "member") return item.to === "/my-routine";
-    if (item.to === "/my-routine") return false;
-    if (item.to === "/reports" && role !== "owner") return false;
-    return true;
-  });
+  const allowed = navItemsForRole(role);
 
   // Único punto de logout del shell (dec.: se sacó del Topbar, que solo lo
   // tenía duplicado). Limpia sesión y redirige directo, sin alerta
@@ -60,13 +28,21 @@ export default function Sidebar() {
 
   return (
     <aside className="subtle-scrollbar fixed left-0 top-0 z-40 hidden h-screen w-sidebar flex-col justify-between overflow-y-auto border-r border-border bg-surface-1/70 backdrop-blur-xl lg:flex">
-      <div className="space-y-6 p-4">
-        <section className="warm-accent-bg warm-glow rounded-xl border border-border p-3.5">
-          <div className="flex items-center gap-3">
+      <div>
+        {/* Padding propio, sin alto fijo ni borde inferior (dec. 16 y 17 de
+            redesign-list-page-layout): el dueño pidió sacar la línea
+            divisoria horizontal que antes calzaba con el borde inferior del
+            Topbar (dec. 2, ya revertida) y que la placa recupere margen
+            superior en vez de quedar pegada al borde del viewport.
+            `--spacing-topbar` sigue existiendo, pero ya no gobierna esta
+            banda — solo el alto del Topbar (`Topbar.tsx`) y, a través de
+            `--list-page-height`, el alto de una `ListPageLayout`. */}
+        <div className="px-4 pt-4 pb-2">
+          <section className="warm-accent-bg warm-glow flex w-full items-center gap-3 rounded-xl border border-border p-3.5">
             <img
               src="/mini-espacio-logo.svg"
               alt="Gym App"
-              className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-border"
+              className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-border"
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-bold leading-tight text-foreground">
@@ -76,10 +52,10 @@ export default function Sidebar() {
                 Entrenamiento personalizado
               </p>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
-        <nav className="space-y-1.5" aria-label="Navegación principal">
+        <nav className="space-y-1.5 p-4" aria-label="Navegación principal">
           {allowed.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}

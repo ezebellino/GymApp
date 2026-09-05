@@ -156,32 +156,41 @@ npm run lint            # eslint (dentro de frontend/)
   `src/components/ProtectedRoute.tsx`; revisar ese guard y las rutas de `App.jsx` antes de agregar
   una vista nueva.
 - **Usuarios** (antes "Clientes"): `pages/Users.tsx` (ruta `/users`, con redirect desde `/clients`
-  para bookmarks) es el listado único de Dueños/Coaches/Miembros, con un hero de página (mismo
-  patrón `hero-aura` de `Reports.tsx`/`NewCoach.tsx`) más una card de leyenda que explica los
-  colores de rol y del indicador de membresía, y el círculo de 3 colores + ausente que mapea
-  directo `User.membership_indicator` del servidor (`up_to_date`/`overdue`/`suspended`/`none`) —
-  **sin lógica propia**: la precedencia (baja > mora) ya la resuelve el backend. El badge de rol
-  usa un color fijo por rol (`ROLE_BADGE_CLASS` en `Users.tsx`/`UserDetail.tsx`: violeta=Dueño,
+  para bookmarks) es el listado único de Dueños/Coaches/Miembros, migrado al patrón "list page"
+  (`components/ListPageLayout.tsx`, ver `docs/design/design.md` sección "6. List Page"): encabezado
+  compacto de una sola fila (título "Usuarios" + total + ícono de leyenda + acción primaria, sin
+  hero ni descripción), barra de filtros y tabla con scroll interno propio, todo dentro de una
+  única `Card` Level 1. La leyenda de roles y estados de membresía ya no es una card visible por
+  defecto: vive en un popover (`components/ui/popover.tsx`) que abre el ícono `Info` junto al
+  título. El círculo de 3 colores + ausente (`components/MembershipDot.tsx`) mapea directo
+  `User.membership_indicator` del servidor (`up_to_date`/`overdue`/`suspended`/`none`) — **sin
+  lógica propia**: la precedencia (baja > mora) ya la resuelve el backend. El badge de rol usa un
+  color fijo por rol (`ROLE_BADGE_CLASS` en `Users.tsx`/`UserDetail.tsx`: violeta=Dueño,
   celeste=Coach, índigo=Miembro), deliberadamente distinto de verde/naranja/rojo del indicador de
   membresía para que "quién es" y "cómo está" no compitan por el mismo lenguaje visual. El botón
-  "Crear usuario" del hero abre `components/CreateUserDialog.tsx` (alta con perfil mínimo,
-  rol restringido a Miembro para un Coach); la acción "Ver" de cada fila navega a
-  `pages/UserDetail.tsx` (`/users/:id`, fuera de `routePreload.ts` como `NewCoach`: no tiene
-  entrada en el Sidebar), la ficha de solo lectura del perfil/membresía/invitación, con su propio
-  botón "Editar". `components/EditUserDialog.tsx` es el ABM (perfil, rol si sos owner, membresía
-  con dar de baja/reactivar, e invitación si el rol es Miembro) — no hay acción de eliminar, la
-  única baja posible es la de membresía; se monta solo mientras está abierto (nunca queda
-  persistente en el árbol con `open=false`, ver nota de `Dialog` más abajo).
+  "Crear usuario" del encabezado abre `components/CreateUserDialog.tsx` (alta con perfil mínimo,
+  rol restringido a Miembro para un Coach; icon-only debajo de 768px); las acciones por fila (Ver,
+  Editar, WhatsApp) son botones de ícono accesibles — "Ver" navega a `pages/UserDetail.tsx`
+  (`/users/:id`, fuera de `routePreload.ts` como `NewCoach`: no tiene entrada en el Sidebar), la
+  ficha de solo lectura del perfil/membresía/invitación, con su propio botón "Editar".
+  `components/EditUserDialog.tsx` es el ABM (perfil, rol si sos owner, membresía con dar de
+  baja/reactivar, e invitación si el rol es Miembro) — no hay acción de eliminar, la única baja
+  posible es la de membresía; se monta solo mientras está abierto (nunca queda persistente en el
+  árbol con `open=false`, ver nota de `Dialog` más abajo).
   `pages/InvitationAccept.tsx` (`/invitacion/:channel/:token`, ruta pública) es donde un Miembro
   invitado verifica sus dos canales y define su contraseña; reemplaza al viejo `/register-client`
   (retirado, ya no hay auto-registro).
 - **Estilos**: Tailwind v4 (config vía `@tailwindcss/vite`, sin `tailwind.config.js` clásico si
   no existe — confirmar antes de asumir). Evitar CSS inline salvo casos puntuales.
-- **Layout del shell autenticado**: el contenedor de contenido (gutter horizontal, gutter
-  vertical y ancho máximo) vive en un único lugar, `App.jsx` (el `<div className="mx-auto w-full
-  max-w-7xl px-4 py-6 sm:px-6 lg:px-8">` que envuelve el `<Suspense>` de las rutas con sidebar).
-  Una vista nueva bajo ese shell **no necesita padding propio**: su wrapper raíz va con
-  `space-y-*` y nada más. No dupliques `mx-auto max-w-* px-* py-*` en el wrapper de una página.
+- **Layout del shell autenticado**: el contenedor de contenido (gutter horizontal y ancho máximo)
+  vive en un único lugar, la utilidad `.app-container` (`index.css`, `@layer utilities`), que
+  comparten el `<div>` de `App.jsx` que envuelve el `<Suspense>` de las rutas con sidebar y el
+  contenedor interno de `Topbar.tsx` — mismos bordes izquierdo/derecho para los dos. El gutter
+  vertical (`py-page-y`) va aparte, solo en `App.jsx`: el Topbar centra contra su alto fijo
+  (`h-topbar`), no contra ese padding. Una vista nueva bajo ese shell **no necesita padding
+  propio**: su wrapper raíz va con `space-y-*` y nada más (o, si es una list page, ver
+  `ListPageLayout` arriba). No dupliques `.app-container`/`mx-auto max-w-* px-*` en el wrapper de
+  una página.
 - **Tokens de shadcn vía `@theme inline`**: `index.css` define las vars semánticas por modo
   (`--canvas`, `--surface-1|2|3`, `--foreground`, `--primary`, …) en `@layer base` y un bloque
   `@theme inline` que las mapea a los nombres que Tailwind v4 y shadcn esperan (`background`,
@@ -247,8 +256,20 @@ npm run lint            # eslint (dentro de frontend/)
     kinetic-obsidian-theme`): `lib/__tests__/theme.test.ts` (`normalizeThemeMode` — los 3 ids
     legacy, `null`, string vacío y basura resuelven a `"dark"`) y
     `components/__tests__/Topbar.test.tsx` (el click del toggle cambia `data-theme`, persiste en
-    `app_theme` y dispara `PATCH /auth/me/theme`, resuelto por ruta con el helper `apiMock`). Hay
-    tests de interacción puntuales (el toggle de tema) pero no una suite de interacción general ni
+    `app_theme` y dispara `PATCH /auth/me/theme`, resuelto por ruta con el helper `apiMock`). Suma
+    de `redesign-list-page-layout`: `components/__tests__/ListPageLayout.test.tsx` (los slots se
+    renderizan en el orden esperado, la raíz es una Card, `title` sale como `h1`), `components/ui/
+    __tests__/popover.test.tsx` (cerrado no renderiza contenido, click abre y pone
+    `aria-expanded="true"`, el trigger es un `<button>` nativo, Escape cierra y devuelve el foco,
+    click afuera cierra), `lib/__tests__/navigation.test.ts` (drift entre `NAV_ITEMS` y
+    `routeImporters`), `services/__tests__/pagination.test.ts` (`getPageRange` con `total=0`,
+    última página parcial y `offset` fuera de rango) y `lib/__tests__/utils.test.ts` (`cn` conserva
+    los nueve tamaños custom de `index.css` frente a un color en conflicto — drift test contra los
+    `--text-*` que declara ese archivo). `components/ui/popover.tsx` (`Popover`,
+    `PopoverTrigger`, `PopoverContent`) es un componente nuevo de `ui/`, sin Radix ni portal, mismo
+    patrón controlado que `Dialog` — ver el comentario de cabecera del archivo para la limitación
+    de clipping dentro de contenedores con `overflow`. Hay tests de interacción puntuales (el
+    toggle de tema) pero no una suite de interacción general ni
     E2E. `radix-ui` ya no es una dependencia del proyecto: `Switch`, `Slot` y `Dialog`
     (`components/ui/switch.tsx`, `lib/slot.tsx`, `components/ui/dialog.tsx`) están reimplementados
     a mano sin ningún primitivo de Radix debajo — `Dialog` sobre el `<dialog>` nativo (ver

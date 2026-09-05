@@ -1,3 +1,5 @@
+import { getPageRange } from "@/services/pagination";
+
 type Props = {
   total: number;
   limit: number;
@@ -5,9 +7,13 @@ type Props = {
   onChange: (next: { limit: number; offset: number }) => void;
 };
 
-export default function Pagination({ total, limit, offset, onChange }: Props) {
-  const page = Math.floor(offset / limit) + 1;
-  const pages = Math.max(1, Math.ceil(total / limit));
+export default function Pagination({
+  total,
+  limit,
+  offset,
+  onChange,
+}: Props) {
+  const { page, pages, from, to } = getPageRange({ total, limit, offset });
 
   const prev = () => onChange({ limit, offset: Math.max(0, offset - limit) });
   const next = () =>
@@ -16,11 +22,13 @@ export default function Pagination({ total, limit, offset, onChange }: Props) {
       offset: Math.min((pages - 1) * limit, offset + limit),
     });
 
-  const from = total === 0 ? 0 : offset + 1;
-  const to = Math.min(total, offset + limit);
-
   return (
     <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      {/* Rango a la izquierda, controles a la derecha, en una sola fila a
+          partir de `sm` (dec. 19.1 de redesign-list-page-layout): la
+          redundancia con el total del header queda aceptada por el PO —
+          revierte la dec. 8, que ocultaba este bloque en Usuarios para no
+          repetirlo. */}
       <div className="text-muted-foreground">
         Mostrando{" "}
         <span className="font-medium text-foreground">

@@ -21,3 +21,36 @@ export function readTotalCount(headers: Record<string, unknown>, fallback: numbe
   const parsed = Number(raw);
   return Number.isNaN(parsed) ? fallback : parsed;
 }
+
+export type PageRange = {
+  page: number;
+  pages: number;
+  from: number;
+  to: number;
+};
+
+/**
+ * Aritmética de paginación pura, extraída de `Pagination.tsx` (dec. 8 de
+ * redesign-list-page-layout) para que sea testeable sin montar el
+ * componente: `total=0`, la última página parcial y un `offset` fuera de
+ * rango son los tres casos donde un off-by-one se cuela fácil.
+ *
+ * `page`/`pages` son 1-indexados (para mostrar "pág X / Y"); `from`/`to` son
+ * el rango 1-indexado de items mostrados ("Mostrando X-Y de Z").
+ */
+export function getPageRange({
+  total,
+  limit,
+  offset,
+}: {
+  total: number;
+  limit: number;
+  offset: number;
+}): PageRange {
+  const page = Math.floor(offset / limit) + 1;
+  const pages = Math.max(1, Math.ceil(total / limit));
+  const from = total === 0 ? 0 : offset + 1;
+  const to = Math.min(total, offset + limit);
+
+  return { page, pages, from, to };
+}

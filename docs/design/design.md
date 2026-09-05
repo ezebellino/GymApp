@@ -48,6 +48,9 @@ colors:
   background: '#131316'
   on-background: '#e4e1e6'
   surface-variant: '#353438'
+  status-ok: '#10b981'
+  status-warn: '#f59e0b'
+  status-danger: '#ef4444'
 typography:
   headline-hero:
     fontFamily: Plus Jakarta Sans
@@ -125,6 +128,8 @@ spacing:
   sidebar-width: 240px
   gutter: 1.25rem
   container-max-width: 1600px
+  topbar-height: 4rem
+  page-gutter-y: 1.5rem
 ---
 
 ## Brand & Style
@@ -159,6 +164,17 @@ The palette leverages high-contrast luminescence against matte architectural dar
 - **Text Hierarchies:** Deep Slate (`#0F172A`) for bold readability paired with muted Slate
   (`#475569`) for contextual descriptors — darkened one step from the initial `#64748B` pick,
   which fell short of AA (3.86:1) against `--surface-2` cards.
+
+### Status Indicators
+Membership status dots (`MembershipDot`, `up_to_date`/`overdue`/`suspended`) use three semantic
+tokens — `--status-ok`, `--status-warn`, `--status-danger` — never a raw palette class. In dark
+mode they hold the same emerald-500/amber-500 values the UI already used (`--status-danger` is an
+alias of `--destructive`). In **light mode they step down to emerald-700/amber-700** instead of
+500/600: a 10px dot counts as a graphical object under WCAG 1.4.11 (minimum 3:1), and 500 lands at
+≈2.36/≈2.05 against the shell's light surfaces — 600 only reaches ≈3.65/≈3.2, with no margin for
+the antialiasing a small circular dot loses at its edge. Step 700 puts all three states in the same
+≈5:1 band. Same reasoning that already justifies `--primary-strong` existing as a separate token
+from `--primary` in light mode.
 
 ## Typography
 
@@ -203,15 +219,18 @@ The design maintains an aerodynamic yet grounded shape language, balancing soft-
 ## Components
 
 ### 1. Navigation Elements
-- **Brand Plaque:** Dark slate pill card framing the circular logo, uppercase company title, and tracked subtext.
+- **Brand Plaque:** Dark slate pill card framing the circular logo, uppercase company title, and tracked subtext. Sits in its own padded block at the top of the Sidebar (`px-4 pt-4 pb-2` — top margin equal to the rest of the Sidebar's gutter, no bottom border, no fixed height). It's deliberately **not** tied to `topbar-height`: the owner asked for no continuous horizontal line between the Sidebar and the Topbar, so the plaque's own height is independent of the Top Utility Bar's.
 - **Sidebar Links:** Full-width rounded items (`0.5rem`). Default state has transparent fill with low-contrast borders; active state gains an amber-tinted border (`#D97706`), amber text, and subtle glow.
-- **Global Search Bar:** Fixed-height (38px) pill input centered in the header. Features an inset keyboard icon badge (`Ctrl/Cmd + K`) and muted placeholder text.
+- **Top Utility Bar:** Fixed-height (`topbar-height`, `4rem` / 64px), sticky. Its inner row shares the **same max-width container** as the page content below it (same horizontal gutters and `container-max-width`), so its left/right edges line up with the content's edges at any viewport ≥ 1280px. The left slot carries no content (no section name); center holds the global search; right holds theme toggle / session actions.
 
 ### 2. Operational Hero Greeting Card
 - A commanding banner housing greeting text and quick launchers.
 - Surface background: Dark slate with an inner amber glow gradient.
 - Features the pill badge: `CENTRO OPERATIVO` in uppercase tracking.
 - House quick-trigger action buttons with high-visibility icon prefixes.
+- **Scope: exclusive to the Dashboard.** No list view (Users, Payments, Attendance, Routines)
+  uses this pattern — a list view's header is the compact single-row header described in
+  "6. List Page" below.
 
 ### 3. Action Buttons
 - **Primary Amber (`Ir a rutinas`):** Solid `#F59E0B` fill, `#09090B` bold typography. Hover triggers an energetic brightness lift and a soft outer glow (`box-shadow: 0 0 20px rgba(245, 158, 11, 0.4)`).
@@ -223,8 +242,50 @@ The design maintains an aerodynamic yet grounded shape language, balancing soft-
 - Hover state introduces a micro-elevation scale (`transform: translateY(-2px)`) with border highlight transitioning from neutral to subtle amber.
 
 ### 5. Data Tables & Quick Forms
-- **Data Table:** Borderless interior with alternating subtle zebra or hairline horizontal dividers (`rgba(255, 255, 255, 0.05)`). Column headers use `label-caps` in muted slate. Empty state provides clear status messaging with dashed containment.
+- **Data Table:** Borderless interior with alternating subtle zebra or hairline horizontal dividers (`rgba(255, 255, 255, 0.05)`). Column headers use `label-caps` in muted slate, weight **700** (bold) — the weight a bare `<th>` inherits from the user-agent stylesheet, which `label-caps` itself doesn't carry as a `font-weight` submodifier (a documented gap; see note below). Empty state provides clear status messaging with dashed containment.
+- **Column header band:** the row of column headers sits on `--table-head`, a token defined per mode as `color-mix(in srgb, var(--surface-2) 40%, var(--surface-1))` — the same tone a translucent `surface-2/40` band would give, but resolved to an **opaque** color. Opacity matters wherever this header is `sticky` over content that scrolls underneath it (a List Page's table body, "6." below): a translucent band would let scrolled rows show through.
 - **Check-in Quick Form:** Compact vertical layout with high-contrast input boxes, explicit focus rings (`2px solid #F59E0B`), and UUID quick-paste capability.
+- **List page footer:** the pagination row shows the range ("Showing X-Y of Z") on the left and the page-size selector + prev/next + "page N / M" on the right, both in the same row from `sm` up. The total repeating the header's count pill is an accepted redundancy, not an oversight.
+- *Future criterion, not part of this change:* five other hand-written `<thead>` blocks in the repo (Attendance, Reports ×2, Dashboard, UserRoutine) should adopt `ui/table.tsx` and this same header style (`--table-head` band, bold `label-caps`) when those views are reimplemented — one table styling convention for the app instead of two.
+- *Open debt, not part of this pass:* `--text-label-caps` (front-matter `typography`) carries line-height and letter-spacing but no `font-weight` submodifier, so the `text-label-caps` utility itself renders at the browser's inherited weight rather than the 700 the typography spec calls for. Fixing it at the token level is correct long-term, but today ~30 call sites use `text-label-caps` with no weight override of their own (Dashboard, Reports, Settings, Sidebar, UserCard, SpotlightSearch, dialogs) — adding the submodifier would restyle all of them at once, well beyond the scope of whichever change touches a single table. Column headers that need the bold weight today set `font-bold` explicitly alongside `text-label-caps` until this is fixed at the source.
+
+### 6. List Page
+The layout pattern for any listing view with a table (Users; Payments and Attendance adopt it
+when they are reimplemented). Distinct from the Operational Hero Greeting Card, which stays
+exclusive to the Dashboard: a list page never uses a hero banner or a separate legend card.
+
+**The whole view is a single Card (Level 1: hairline border + surface background), not just the
+table.** Header, filter toolbar, table body and pagination footer all live inside one panel, read
+as one contained surface rather than four loose blocks with a frame around the middle one. The
+Card occupies the remaining viewport height (`calc(100dvh - topbar-height - 2 × page-gutter-y)`)
+and its own padding — this fixed-height behavior applies only at `lg` (≥ 1024px, the same
+breakpoint where the Sidebar stops being a drawer); below that, the Card reverts to natural
+height and page-level scroll. Four zones, top to bottom, all inside that Card:
+- **Compact single-row header:** page title (own `<h1>` — the Top Utility Bar shows no section
+  name, so there's no duplication to avoid), an optional adornment next to the title (e.g. a
+  legend info icon), a total-count pill, and the primary action — all in one row, no hero, no
+  aura, no description text underneath.
+- **Filter toolbar:** search and future filters. No uppercase label above the input; an
+  `aria-label` carries the accessible name instead.
+- **Table body, inside an inner frame:** the table and its column header sit in an inner frame
+  (hairline border, smaller radius than the Card, no background of its own — the surface behind
+  it is the Card's) with its own internal scroll and a **fixed column header** that stays visible
+  while the body scrolls, sitting on the opaque `--table-head` band (see "5." above) so scrolled
+  rows never show through. Column headers use `label-caps` in muted slate, weight 700, same as
+  any other data table. Per-row actions are `rounded-full` icon-buttons, each with an accessible
+  name. Below `lg` the table keeps only its horizontal swipe-to-scroll (see Breakpoints, Mobile).
+- **Single pagination footer:** exactly one pagination control, below the table — range ("Showing
+  X-Y of Z") on the left and page-size selector + prev/next + "page X / Y" on the right, both in
+  the same row from `sm` up. Repeating the total from the header's count pill is an accepted
+  redundancy, not an oversight.
+- **Primary action, icon-only below 768px:** under `md` (768px) the primary action shows only
+  its icon, with a fixed `aria-label` that stays even where the text label is visually hidden.
+
+### Popover
+Interactive floating elements. Level 2 elevation (see Elevation & Depth), `rounded-xl`, opaque
+background (never translucent — floating content over a dense table has to stay legible), no
+portal. Not modal: no focus trap, no backdrop, closes on Escape, click/tap outside, or focus
+moving outside its wrapper.
 
 ## Notas de adopción (Mini Espacio)
 

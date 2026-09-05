@@ -33,6 +33,17 @@
   --color-ring: var(--ring);
   --color-destructive: var(--destructive);
 
+  /* Indicadores de estado de membresía (MembershipDot.tsx), semánticos por modo — genera
+     `bg-status-ok|warn|danger` (dec. 12 de redesign-list-page-layout). Ver `docs/design/design.md`
+     ("Colors") para el valor de cada modo y por qué light usa el paso 700. */
+  --color-status-ok: var(--status-ok);
+  --color-status-warn: var(--status-warn);
+  --color-status-danger: var(--status-danger);
+
+  /* Banda de fondo del encabezado de columnas — genera `bg-table-head`
+     (dec. 19.3 de redesign-list-page-layout). */
+  --color-table-head: var(--table-head);
+
   /* Contrato shadcn (src/components/ui/**): mismos nombres que components.json/registry
      asumen, apuntando a las mismas vars de arriba. Esto revive intencionalmente los tokens que
      hoy son no-ops (dec. 3). */
@@ -107,6 +118,22 @@
   --spacing-sidebar: 240px;
   --spacing-gutter: 1.25rem;
   --container-app: 1600px;
+  /* Alto del Topbar (docs/design/design.md, "1. Navigation Elements") y
+     gutter vertical del contenedor de contenido (docs/design/design.md,
+     front-matter `spacing.page-gutter-y`) — ver
+     openspec/changes/redesign-list-page-layout (dec. 2). La placa de marca
+     del Sidebar **ya no** comparte esta var (dec. 16 y 17): el dueño pidió
+     sacar la línea divisoria que igualaba su borde inferior con el del
+     Topbar, así que hoy `--spacing-topbar` gobierna solo el Topbar y, vía
+     `--list-page-height` más abajo, el alto de una list page. */
+  --spacing-topbar: 4rem;
+  --spacing-page-y: 1.5rem;
+  /* Alto disponible para una "list page" (ver ListPageLayout.tsx): el
+     viewport menos el Topbar y los dos gutters verticales del contenedor de
+     `App.jsx`. Derivada acá y no como `calc` inline en un className: Tailwind
+     exige escapar los espacios de un calc inline con `_`, lo que lo vuelve
+     ilegible (dec. 6.1 del design). */
+  --list-page-height: calc(100dvh - var(--spacing-topbar) - 2 * var(--spacing-page-y));
 }
 
 @layer base {
@@ -127,6 +154,21 @@
     --border-hairline: rgba(255, 255, 255, 0.08);
     --ring: var(--primary);
     --destructive: #ef4444;
+    /* Indicadores de estado de membresía (MembershipDot), semánticos por modo (dec. 12 de
+       redesign-list-page-layout — requirement "Contraste accesible de indicadores de estado y
+       roles"). Dark conserva los mismos oklch que la paleta v4 usa para emerald-500/amber-500 (el
+       color que ya había, sin regresión visual); `--status-danger` es un alias de `--destructive`,
+       no un tercer valor a mantener sincronizado a mano. */
+    --status-ok: oklch(0.696 0.17 162.48);
+    --status-warn: oklch(0.769 0.188 70.08);
+    --status-danger: var(--destructive);
+    /* Banda de fondo del encabezado de columnas de una list page (dec. 19.3 de
+       redesign-list-page-layout): mismo tono que `bg-surface-2/40` (lo que usa
+       Asistencias), pero resuelto a un color **opaco** en tiempo de cómputo —
+       necesario porque acá el `th` es `sticky` sobre filas que scrollean
+       debajo, y un fondo translúcido dejaría leerlas a través (dec. 7). Mismo
+       patrón `color-mix` que ya usan `--shell-gradient-*` más abajo. */
+    --table-head: color-mix(in srgb, var(--surface-2) 40%, var(--surface-1));
     --shadow-level-2:
       0 12px 32px -4px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(245, 158, 11, 0.15);
     --hero-aura: radial-gradient(ellipse at top right, rgba(245, 158, 11, 0.15) 0%, transparent 70%);
@@ -155,6 +197,15 @@
     --border-hairline: #e2e8f0;
     --ring: var(--primary);
     --destructive: #dc2626;
+    /* Paso 700 (no 500/600) para los dos que necesitan oscurecerse en light, mismo criterio que
+       ya justifica `--primary-strong`: un punto de 10px cuenta como objeto gráfico (WCAG 1.4.11,
+       mínimo 3:1), y emerald-500/amber-500 dan ≈2.36/≈2.05 sobre los fondos claros del shell —
+       el 600 mejora pero queda sin margen (≈3.65/≈3.2) para el antialiasing del borde curvo del
+       punto. Con 700 los tres estados quedan en la misma banda de ≈5:1 (dec. 12). */
+    --status-ok: oklch(0.508 0.118 165.612);
+    --status-warn: oklch(0.555 0.163 48.998);
+    --status-danger: var(--destructive);
+    --table-head: color-mix(in srgb, var(--surface-2) 40%, var(--surface-1));
     --shadow-level-2:
       0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 1px 2px 0 rgba(15, 23, 42, 0.04);
     --hero-aura: radial-gradient(ellipse at top right, rgba(217, 119, 6, 0.15) 0%, transparent 70%);
@@ -225,6 +276,17 @@ input:autofill:active {
 }
 
 @layer utilities {
+  /* Contenedor único de ancho máximo + gutter horizontal, compartido por el
+     `<main>` de App.jsx y el interior del Topbar (dec. 1 del design de
+     redesign-list-page-layout): antes cada uno repetía estas clases a mano y
+     al Topbar se le olvidó el `max-w`, que es la causa raíz de que quedara
+     desalineado con el contenido en viewports anchos. El gutter vertical
+     (`py-*`) queda deliberadamente afuera: es del área de contenido, no del
+     Topbar, que centra verticalmente contra su alto fijo (`h-topbar`). */
+  .app-container {
+    @apply mx-auto w-full max-w-[var(--container-app)] px-4 sm:px-6 lg:px-8;
+  }
+
   /* Hairline border + sombra Level 2 + hero-aura radial (docs/design/design.md, "Elevation &
      Depth") sobre los tokens nuevos, por modo, sin cambiar el nombre de ninguna de estas 9
      utilidades (dec. 10). */

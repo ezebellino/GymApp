@@ -67,14 +67,17 @@ export default function App() {
           <Sidebar />
           <Topbar />
 
-          {/* pt-14/lg:pl-sidebar son offsets estructurales, no gutter de lectura: lg:pl-sidebar
-              compensa que Sidebar es `fixed` (no ocupa lugar en el flujo); pt-14
-              compensa la altura de Topbar, que es `sticky` (sí ocupa lugar en el
-              flujo). El gutter y el ancho máximo viven en el único contenedor de
-              abajo (dec. D1), para que una vista nueva los herede sin tener que
-              acordarse de nada. */}
-          <main className="app-main-shell-bg min-h-screen pt-14 lg:pl-sidebar">
-            <div className="mx-auto w-full max-w-[var(--container-app)] px-4 py-6 sm:px-6 lg:px-8">
+          {/* lg:pl-sidebar compensa que Sidebar es `fixed` (no ocupa lugar en el
+              flujo). Topbar es `sticky`, no `fixed`: sí ocupa su alto (`h-topbar`)
+              en el flujo normal del documento, así que `main` no necesita (ni debe
+              llevar) un padding-top que lo compense — sumarlo dejaría una banda
+              muerta del alto del Topbar arriba del contenido. `min-h-[...]`
+              descuenta ese mismo alto para que el piso del documento sea
+              exactamente el viewport (100dvh) y no viewport + Topbar. El gutter y
+              el ancho máximo viven en el único contenedor de abajo (dec. D1), para
+              que una vista nueva los herede sin tener que acordarse de nada. */}
+          <main className="app-main-shell-bg min-h-[calc(100dvh-var(--spacing-topbar))] lg:pl-sidebar">
+            <div className="app-container py-page-y">
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/" element={<Navigate to={role === "member" ? "/my-routine" : "/dashboard"} replace />} />

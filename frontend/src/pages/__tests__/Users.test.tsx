@@ -37,48 +37,96 @@ function makeUser(overrides: Partial<User>): User {
   };
 }
 
+function mockUsersList(users: User[]) {
+  vi.mocked(api.get).mockImplementation((url: string) => {
+    if (url.startsWith("/users/")) {
+      return Promise.resolve({
+        data: users,
+        status: 200,
+        statusText: "OK",
+        headers: { "x-total-count": String(users.length) },
+        config: {},
+      } as any);
+    }
+    return Promise.resolve({ data: [], status: 200, statusText: "OK", headers: {}, config: {} } as any);
+  });
+}
+
 describe("vista de Usuarios", () => {
-  it("muestra las columnas de la spec: nombre completo, rol, fecha de alta y comienzo en el gimnasio", async () => {
-    vi.mocked(api.get).mockImplementation((url: string) => {
-      if (url.startsWith("/users/")) {
-        return Promise.resolve({
-          data: [makeUser({})],
-          status: 200,
-          statusText: "OK",
-          headers: { "x-total-count": "1" },
-          config: {},
-        } as any);
-      }
-      return Promise.resolve({ data: [], status: 200, statusText: "OK", headers: {}, config: {} } as any);
-    });
+  it("muestra las columnas de la spec: Nombre, Contacto, Rol, Alta, Inicio en el gimnasio y Acciones", async () => {
+    mockUsersList([makeUser({})]);
 
     renderWithProviders(<Users />, { route: "/users" });
 
-    expect(await screen.findByText("Nombre completo")).toBeInTheDocument();
-    expect(screen.getByText("Rol")).toBeInTheDocument();
-    expect(screen.getByText("Fecha de alta")).toBeInTheDocument();
-    expect(screen.getByText("Comienzo en el gimnasio")).toBeInTheDocument();
-    expect(screen.getByText("Acciones")).toBeInTheDocument();
+    // Escopeado a la tabla: "Nombre" también existe como label del form de
+    // `CreateUserDialog`, montado (oculto) desde que la vista abre.
+    const table = await screen.findByRole("table");
+    expect(within(table).getByText("Nombre")).toBeInTheDocument();
+    expect(within(table).getByText("Contacto")).toBeInTheDocument();
+    expect(within(table).getByText("Rol")).toBeInTheDocument();
+    expect(within(table).getByText("Alta")).toBeInTheDocument();
+    expect(within(table).getByText("Inicio en el gimnasio")).toBeInTheDocument();
+    expect(within(table).getByText("Acciones")).toBeInTheDocument();
     expect(await screen.findByText("Ana Gomez")).toBeInTheDocument();
-    // "Miembro" tambien aparece en la leyenda de roles del hero: se escopea a
-    // la tabla para afirmar sobre la fila real, no sobre la leyenda.
-    const table = screen.getByRole("table");
     expect(within(table).getByText("Miembro")).toBeInTheDocument();
   });
 
+  it("el titulo de la pagina es 'Usuarios'", async () => {
+    mockUsersList([makeUser({})]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    expect(
+      await screen.findByRole("heading", { name: "Usuarios" })
+    ).toBeInTheDocument();
+  });
+
+  it("el total en singular dice '1 usuario', no '1 usuarios' (hallazgo 9)", async () => {
+    mockUsersList([makeUser({})]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    expect(await screen.findByText("1 usuario")).toBeInTheDocument();
+    expect(screen.queryByText("1 usuarios")).toBeNull();
+  });
+
+  it("no muestra el UUID del usuario en la fila", async () => {
+    mockUsersList([makeUser({ id: "11111111-1111-1111-1111-111111111111" })]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    await screen.findByText("Ana Gomez");
+    expect(screen.queryByText("11111111-1111-1111-1111-111111111111")).toBeNull();
+  });
+
+  it("columna Contacto muestra el email cuando esta cargado", async () => {
+    mockUsersList([makeUser({ email: "ana@example.com", phone: "1155555555" })]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    expect(await screen.findByText("ana@example.com")).toBeInTheDocument();
+  });
+
+  it("columna Contacto muestra el telefono cuando no hay email", async () => {
+    mockUsersList([makeUser({ email: null, phone: "1155555555" })]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    await screen.findByText("Ana Gomez");
+    expect(screen.getByText("1155555555")).toBeInTheDocument();
+  });
+
+  it("columna Contacto muestra '-' cuando no hay email ni telefono", async () => {
+    mockUsersList([makeUser({ email: null, phone: null })]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    await screen.findByText("Ana Gomez");
+    expect(screen.getByText("-")).toBeInTheDocument();
+  });
+
   it("muestra el circulo verde para up_to_date, con texto accesible (no solo color)", async () => {
-    vi.mocked(api.get).mockImplementation((url: string) => {
-      if (url.startsWith("/users/")) {
-        return Promise.resolve({
-          data: [makeUser({ membership_indicator: "up_to_date" })],
-          status: 200,
-          statusText: "OK",
-          headers: { "x-total-count": "1" },
-          config: {},
-        } as any);
-      }
-      return Promise.resolve({ data: [], status: 200, statusText: "OK", headers: {}, config: {} } as any);
-    });
+    mockUsersList([makeUser({ membership_indicator: "up_to_date" })]);
 
     renderWithProviders(<Users />, { route: "/users" });
 
@@ -86,18 +134,7 @@ describe("vista de Usuarios", () => {
   });
 
   it("muestra el circulo naranja para overdue, con texto accesible", async () => {
-    vi.mocked(api.get).mockImplementation((url: string) => {
-      if (url.startsWith("/users/")) {
-        return Promise.resolve({
-          data: [makeUser({ membership_indicator: "overdue" })],
-          status: 200,
-          statusText: "OK",
-          headers: { "x-total-count": "1" },
-          config: {},
-        } as any);
-      }
-      return Promise.resolve({ data: [], status: 200, statusText: "OK", headers: {}, config: {} } as any);
-    });
+    mockUsersList([makeUser({ membership_indicator: "overdue" })]);
 
     renderWithProviders(<Users />, { route: "/users" });
 
@@ -105,18 +142,7 @@ describe("vista de Usuarios", () => {
   });
 
   it("muestra el circulo rojo para suspended, con texto accesible", async () => {
-    vi.mocked(api.get).mockImplementation((url: string) => {
-      if (url.startsWith("/users/")) {
-        return Promise.resolve({
-          data: [makeUser({ membership_indicator: "suspended", membership_status: "cancelled" })],
-          status: 200,
-          statusText: "OK",
-          headers: { "x-total-count": "1" },
-          config: {},
-        } as any);
-      }
-      return Promise.resolve({ data: [], status: 200, statusText: "OK", headers: {}, config: {} } as any);
-    });
+    mockUsersList([makeUser({ membership_indicator: "suspended", membership_status: "cancelled" })]);
 
     renderWithProviders(<Users />, { route: "/users" });
 
@@ -124,25 +150,14 @@ describe("vista de Usuarios", () => {
   });
 
   it("no muestra ningun circulo cuando el usuario nunca fue miembro (indicator none)", async () => {
-    vi.mocked(api.get).mockImplementation((url: string) => {
-      if (url.startsWith("/users/")) {
-        return Promise.resolve({
-          data: [
-            makeUser({
-              role: "coach",
-              membership_indicator: "none",
-              membership_status: "none",
-              membership_start_date: null,
-            }),
-          ],
-          status: 200,
-          statusText: "OK",
-          headers: { "x-total-count": "1" },
-          config: {},
-        } as any);
-      }
-      return Promise.resolve({ data: [], status: 200, statusText: "OK", headers: {}, config: {} } as any);
-    });
+    mockUsersList([
+      makeUser({
+        role: "coach",
+        membership_indicator: "none",
+        membership_status: "none",
+        membership_start_date: null,
+      }),
+    ]);
 
     renderWithProviders(<Users />, { route: "/users" });
 
@@ -150,19 +165,68 @@ describe("vista de Usuarios", () => {
     expect(screen.queryByRole("img")).toBeNull();
   });
 
-  it("el boton Crear usuario abre el modal de alta", async () => {
-    vi.mocked(api.get).mockImplementation((url: string) => {
-      if (url.startsWith("/users/")) {
-        return Promise.resolve({
-          data: [makeUser({})],
-          status: 200,
-          statusText: "OK",
-          headers: { "x-total-count": "1" },
-          config: {},
-        } as any);
-      }
-      return Promise.resolve({ data: [], status: 200, statusText: "OK", headers: {}, config: {} } as any);
+  it("la leyenda no es visible por defecto y aparece al hacer click en el icono de informacion", async () => {
+    mockUsersList([makeUser({})]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    await screen.findByText("Ana Gomez");
+    expect(screen.queryByText("Leyenda")).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /ver leyenda de roles y estados/i })
+    );
+
+    expect(await screen.findByText("Leyenda")).toBeInTheDocument();
+  });
+
+  it("boton de WhatsApp deshabilitado cuando el usuario no tiene telefono", async () => {
+    mockUsersList([makeUser({ phone: null })]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    const whatsapp = await screen.findByRole("button", {
+      name: /enviar recordatorio por whatsapp a ana gomez/i,
     });
+    expect(whatsapp).toBeDisabled();
+  });
+
+  it("boton de WhatsApp habilitado cuando el usuario tiene telefono", async () => {
+    mockUsersList([makeUser({ phone: "1155555555" })]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    const whatsapp = await screen.findByRole("button", {
+      name: /enviar recordatorio por whatsapp a ana gomez/i,
+    });
+    expect(whatsapp).not.toBeDisabled();
+  });
+
+  it("hay un unico control de paginacion en la vista", async () => {
+    mockUsersList([makeUser({})]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    await screen.findByText("Ana Gomez");
+    expect(screen.getAllByRole("button", { name: "Anterior" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Siguiente" })).toHaveLength(1);
+  });
+
+  it("el pie muestra el rango 'Mostrando X-Y de Z' (dec. 19.1: showRange ya no se oculta)", async () => {
+    mockUsersList([makeUser({})]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    await screen.findByText("Ana Gomez");
+    const rangeText = screen.getByText((_, element) => {
+      const normalized = element?.textContent?.replace(/\s+/g, " ").trim();
+      return normalized === "Mostrando 1-1 de 1";
+    });
+    expect(rangeText).toBeInTheDocument();
+  });
+
+  it("el boton Crear usuario abre el modal de alta", async () => {
+    mockUsersList([makeUser({})]);
 
     renderWithProviders(<Users />, { route: "/users" });
 
@@ -173,18 +237,7 @@ describe("vista de Usuarios", () => {
   });
 
   it("el boton Ver de una fila navega a la ficha del usuario", async () => {
-    vi.mocked(api.get).mockImplementation((url: string) => {
-      if (url.startsWith("/users/")) {
-        return Promise.resolve({
-          data: [makeUser({})],
-          status: 200,
-          statusText: "OK",
-          headers: { "x-total-count": "1" },
-          config: {},
-        } as any);
-      }
-      return Promise.resolve({ data: [], status: 200, statusText: "OK", headers: {}, config: {} } as any);
-    });
+    mockUsersList([makeUser({})]);
 
     renderWithProviders(
       <Routes>
@@ -195,7 +248,7 @@ describe("vista de Usuarios", () => {
     );
 
     await screen.findByText("Ana Gomez");
-    fireEvent.click(screen.getByRole("button", { name: /^ver$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^ver perfil de ana gomez$/i }));
 
     expect(await screen.findByText("Ficha de u-1")).toBeInTheDocument();
   });

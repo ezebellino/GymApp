@@ -1,18 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  BarChart3,
-  CalendarCheck2,
-  CreditCard,
-  Dumbbell,
-  LayoutDashboard,
-  Menu,
-  Moon,
-  Settings,
-  Sun,
-  Users,
-  X,
-} from "lucide-react";
+import { Menu, Moon, Sun, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Role } from "@/types";
 import { useSessionStore } from "@/stores/session";
@@ -20,6 +8,7 @@ import { useThemeStore } from "@/stores/theme";
 import { THEME_MODES } from "@/lib/theme";
 import { useUpdateMyThemeMutation } from "@/services/me.queries";
 import { toastError } from "@/lib/toast";
+import { navItemsForRole } from "@/lib/navigation";
 
 const outlineButtonClass =
   "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70";
@@ -96,9 +85,23 @@ export default function Topbar() {
     setMobileMenuOpen(false);
   };
 
+  const mobileNavItems = navItemsForRole(role);
+
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-surface-1/70 backdrop-blur-xl lg:pl-sidebar">
-      <div className="mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 border-b border-border bg-surface-1/70 backdrop-blur-xl lg:h-topbar lg:pl-sidebar">
+      {/* `h-topbar` (alto fijo) va en `lg:` sobre el `<header>`, no siempre:
+          debajo de `lg` el panel del menú mobile (más abajo) se renderiza
+          DENTRO de este header, y un alto fijo sin `overflow-hidden` lo haría
+          desbordar y tapar ~350px de `main` con un fondo 95% opaco en vez de
+          empujar el contenido — la dec. 4 justificó no hacer el Topbar
+          `fixed` precisamente para conservar ese empuje (hallazgo 3 de
+          verification.md, dec. 22). En `lg`, con el menú siempre cerrado
+          (`lg:hidden` en el panel), el header vuelve a medir exactamente
+          `h-topbar` y la alineación con el contenido no cambia. El div
+          interior necesita su propio `h-topbar` para el layout en mobile
+          (donde el header es de alto automático) y `lg:h-full` para heredar
+          el alto fijo del header en desktop. */}
+      <div className="app-container flex h-topbar items-center justify-between lg:h-full">
         <div className="flex items-center gap-3 lg:hidden">
           <img
             src="/mini-espacio-logo.svg"
@@ -176,77 +179,17 @@ export default function Topbar() {
           </Button>
 
           <div className="space-y-2">
-            {role === "member" ? (
+            {mobileNavItems.map(({ to, label, icon: Icon }) => (
               <Button
+                key={to}
                 variant="outline"
                 className={mobileNavButtonClass}
-                onClick={() => go("/my-routine")}
+                onClick={() => go(to)}
               >
-                <Dumbbell className="mr-2 h-4 w-4" />
-                Mi rutina
+                <Icon className="mr-2 h-4 w-4" />
+                {label}
               </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  className={mobileNavButtonClass}
-                  onClick={() => go("/dashboard")}
-                >
-                  <LayoutDashboard className="mr-2 h-4 w-4" />
-                  Dashboard
-                </Button>
-                <Button
-                  variant="outline"
-                  className={mobileNavButtonClass}
-                  onClick={() => go("/users")}
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Usuarios
-                </Button>
-                <Button
-                  variant="outline"
-                  className={mobileNavButtonClass}
-                  onClick={() => go("/payments")}
-                >
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Pagos
-                </Button>
-                <Button
-                  variant="outline"
-                  className={mobileNavButtonClass}
-                  onClick={() => go("/attendance")}
-                >
-                  <CalendarCheck2 className="mr-2 h-4 w-4" />
-                  Asistencias
-                </Button>
-                <Button
-                  variant="outline"
-                  className={mobileNavButtonClass}
-                  onClick={() => go("/routines")}
-                >
-                  <Dumbbell className="mr-2 h-4 w-4" />
-                  Rutinas
-                </Button>
-                <Button
-                  variant="outline"
-                  className={mobileNavButtonClass}
-                  onClick={() => go("/settings")}
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  Ajustes
-                </Button>
-                {role === "owner" && (
-                  <Button
-                    variant="outline"
-                    className={mobileNavButtonClass}
-                    onClick={() => go("/reports")}
-                  >
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    Reportes
-                  </Button>
-                )}
-              </>
-            )}
+            ))}
           </div>
         </div>
       )}
