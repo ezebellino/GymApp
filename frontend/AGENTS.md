@@ -175,7 +175,9 @@ npm run lint            # eslint (dentro de frontend/)
   - `globals: false`: los tests importan explícitamente de `vitest`
     (`import { describe, it, expect, vi } from "vitest"`).
   - `src/test/setup.ts` registra los matchers de jest-dom, polyfillea `matchMedia` y
-    `ResizeObserver` (jsdom no los trae y los necesitan vaul y cmdk/Radix). En `afterEach` hace
+    `ResizeObserver` (jsdom no los trae y los necesita vaul) y
+    `HTMLDialogElement.prototype.showModal/close/show` (ídem para `Dialog`/`AlertDialog`, ver más
+    abajo). En `afterEach` hace
     `cleanup()` + `localStorage.clear()` **y resetea los tres stores de Zustand** (`session`,
     `settings`, `theme`) a su estado inicial; en `beforeEach` llama a
     `useSessionStore.persist.rehydrate()` / `useSettingsStore.persist.rehydrate()` /
@@ -209,7 +211,14 @@ npm run lint            # eslint (dentro de frontend/)
     `components/__tests__/Topbar.test.tsx` (el click del toggle cambia `data-theme`, persiste en
     `app_theme` y dispara `PATCH /auth/me/theme`, resuelto por ruta con el helper `apiMock`). Hay
     tests de interacción puntuales (el toggle de tema) pero no una suite de interacción general ni
-    E2E. `components/ui/__tests__/switch.test.tsx` cubre el `Switch` reimplementado sin Radix
-    (`role="switch"`, `aria-checked`/`data-state` sincronizados, toggle controlado, no-op si
-    `disabled`) — es el único componente de `ui/` con test propio, porque a diferencia del resto
-    (que delegan foco/teclado/ARIA a Radix) su a11y ahora es código de este repo.
+    E2E. `radix-ui` ya no es una dependencia del proyecto: `Switch`, `Slot`, `Dialog` y
+    `AlertDialog` (`components/ui/switch.tsx`, `lib/slot.tsx`, `components/ui/dialog.tsx`,
+    `components/ui/alert-dialog.tsx`) están reimplementados a mano sin ningún primitivo de Radix
+    debajo — `Dialog`/`AlertDialog` sobre el `<dialog>` nativo (ver `lib/use-modal-dialog.ts`:
+    showModal/close, Escape vía el evento `cancel`, scroll-lock del body, y un timeout de
+    seguridad por si `animationend` no llega a disparar — jsdom no lo simula). Por eso son los
+    únicos componentes de `ui/` con test propio (`components/ui/__tests__/switch.test.tsx`,
+    `dialog.test.tsx`, `alert-dialog.test.tsx`): a diferencia del resto de `ui/` (que en su
+    momento delegaban foco/teclado/ARIA/animación a Radix), acá esa a11y es código de este repo.
+    `src/test/setup.ts` polyfillea `HTMLDialogElement.prototype.showModal/close/show` porque
+    jsdom solo refleja el atributo `open`, no implementa esos métodos.

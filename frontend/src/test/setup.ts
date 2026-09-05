@@ -30,6 +30,25 @@ if (!window.ResizeObserver) {
   } as unknown as typeof window.ResizeObserver;
 }
 
+// jsdom tampoco implementa showModal/close/show de <dialog> (solo refleja el
+// atributo `open`), y Dialog/AlertDialog (components/ui/dialog.tsx,
+// alert-dialog.tsx) los llaman directo desde un <dialog> nativo desde que se
+// dejó de usar @radix-ui/react-dialog/react-alert-dialog. Sin este polyfill
+// cualquier test que monte una de esas vistas con el diálogo abierto explota
+// con "showModal is not a function".
+if (!window.HTMLDialogElement.prototype.showModal) {
+  window.HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  };
+  window.HTMLDialogElement.prototype.show = function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  };
+  window.HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+    this.removeAttribute("open");
+    this.dispatchEvent(new window.Event("close"));
+  };
+}
+
 afterEach(() => {
   cleanup();
   // El store de sesión también es estado compartido entre tests: sin este
