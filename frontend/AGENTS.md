@@ -209,4 +209,7 @@ npm run lint            # eslint (dentro de frontend/)
     `components/__tests__/Topbar.test.tsx` (el click del toggle cambia `data-theme`, persiste en
     `app_theme` y dispara `PATCH /auth/me/theme`, resuelto por ruta con el helper `apiMock`). Hay
     tests de interacción puntuales (el toggle de tema) pero no una suite de interacción general ni
-    E2E.
+    E2E. `components/ui/__tests__/switch.test.tsx` cubre el `Switch` reimplementado sin Radix
+    (`role="switch"`, `aria-checked`/`data-state` sincronizados, toggle controlado, no-op si
+    `disabled`) — es el único componente de `ui/` con test propio, porque a diferencia del resto
+    (que delegan foco/teclado/ARIA a Radix) su a11y ahora es código de este repo.
