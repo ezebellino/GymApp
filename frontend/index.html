@@ -6,6 +6,25 @@
   <link rel="icon" type="image/svg+xml" href="/mini-espacio-logo.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mini Espacio</title>
+  <script>
+    // Anti-flash: aplica el modo de tema ANTES del primer paint, leyendo la
+    // caché local del navegador (sin red, sin sesión). Fuente de verdad real:
+    // src/lib/theme.ts (normalizeThemeMode/applyThemeMode) y src/stores/theme.ts,
+    // que vuelven a aplicar lo mismo apenas corre el bundle. La lista de ids
+    // legacy (dark-gold/dark-copper/dark-olive) está cerrada: no va a aparecer
+    // un cuarto, así que "cualquier cosa que no sea 'light' => dark" alcanza acá.
+    (function () {
+      try {
+        var stored = window.localStorage.getItem("app_theme");
+        var mode = stored === "light" ? "light" : "dark";
+        document.documentElement.dataset.theme = mode;
+        document.documentElement.style.colorScheme = mode;
+      } catch (e) {
+        document.documentElement.dataset.theme = "dark";
+        document.documentElement.style.colorScheme = "dark";
+      }
+    })();
+  </script>
 </head>
 
 <body>

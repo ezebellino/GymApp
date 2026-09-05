@@ -1,38 +1,8 @@
-import { NavLink } from "react-router-dom";
-import {
-  BarChart3,
-  CalendarCheck2,
-  CreditCard,
-  Dumbbell,
-  LayoutDashboard,
-  Settings,
-  Users,
-} from "lucide-react";
-import type { FC } from "react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { NavLink, useNavigate } from "react-router-dom";
+import { LogOut, UserRound } from "lucide-react";
 import { useSessionStore } from "@/stores/session";
-
-type NavItem = {
-  to: string;
-  label: string;
-  icon: FC<{ size?: number }>;
-};
-
-const items: NavItem[] = [
-  { to: "/my-routine", label: "Mi rutina", icon: Dumbbell },
-  { to: "/routines", label: "Rutinas", icon: Dumbbell },
-  { to: "/clients", label: "Clientes", icon: Users },
-  { to: "/attendance", label: "Asistencias", icon: CalendarCheck2 },
-  { to: "/dashboard", label: "Seguimiento", icon: LayoutDashboard },
-  { to: "/payments", label: "Pagos", icon: CreditCard },
-  { to: "/reports", label: "Reportes", icon: BarChart3 },
-  { to: "/settings", label: "Ajustes", icon: Settings },
-];
+import { preloadRoute } from "@/lib/routePreload";
+import { navItemsForRole } from "@/lib/navigation";
 
 function roleLabel(role: string) {
   if (role === "owner") return "Dueño";
@@ -42,82 +12,117 @@ function roleLabel(role: string) {
 
 export default function Sidebar() {
   const role = useSessionStore((s) => s.role) ?? "coach";
-  const allowed = items.filter((item) => {
-    if (role === "user") return item.to === "/my-routine";
-    if (item.to === "/my-routine") return false;
-    if (item.to === "/reports" && role !== "owner") return false;
-    return true;
-  });
+  const userName = useSessionStore((s) => s.userName);
+  const email = useSessionStore((s) => s.email);
+  const logout = useSessionStore((s) => s.logout);
+  const navigate = useNavigate();
+  const allowed = navItemsForRole(role);
+
+  // Único punto de logout del shell (dec.: se sacó del Topbar, que solo lo
+  // tenía duplicado). Limpia sesión y redirige directo, sin alerta
+  // intermedia: no hay nada que confirmar ni de qué avisar.
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
 
   return (
-    <aside className="subtle-scrollbar fixed left-0 top-14 z-40 hidden h-[calc(100vh-3.5rem)] w-64 flex-col overflow-y-auto border-r border-amber-200/10 bg-[#0d0b0a]/84 backdrop-blur-xl lg:flex">
-      <TooltipProvider delayDuration={80}>
-        <nav className="space-y-4 p-4">
-          <section className="rounded-2xl border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(255,247,237,0.03),rgba(249,115,22,0.12))] p-4 shadow-[0_20px_60px_-40px_rgba(249,115,22,0.55)]">
-            <div className="flex items-center gap-3">
-              <img
-                src="/mini-espacio-logo.svg"
-                alt="Mini Espacio"
-                className="h-12 w-12 rounded-full object-cover ring-1 ring-white/10"
-              />
-              <div>
-                <p className="text-sm font-semibold text-zinc-50">Mini Espacio</p>
-                <p className="text-xs uppercase tracking-[0.22em] text-amber-100/80">
-                  Entrenamiento personalizado
-                </p>
-              </div>
+    <aside className="subtle-scrollbar fixed left-0 top-0 z-40 hidden h-screen w-sidebar flex-col justify-between overflow-y-auto border-r border-border bg-surface-1/70 backdrop-blur-xl lg:flex">
+      <div>
+        {/* Padding propio, sin alto fijo ni borde inferior (dec. 16 y 17 de
+            redesign-list-page-layout): el dueño pidió sacar la línea
+            divisoria horizontal que antes calzaba con el borde inferior del
+            Topbar (dec. 2, ya revertida) y que la placa recupere margen
+            superior en vez de quedar pegada al borde del viewport.
+            `--spacing-topbar` sigue existiendo, pero ya no gobierna esta
+            banda — solo el alto del Topbar (`Topbar.tsx`) y, a través de
+            `--list-page-height`, el alto de una `ListPageLayout`. */}
+        <div className="px-4 pt-4 pb-2">
+          <section className="warm-accent-bg warm-glow flex w-full items-center gap-3 rounded-xl border border-border p-3.5">
+            <img
+              src="/mini-espacio-logo.svg"
+              alt="Gym App"
+              className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-border"
+            />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold leading-tight text-foreground">
+                Gym App
+              </p>
+              <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-primary-strong/70">
+                Entrenamiento personalizado
+              </p>
             </div>
           </section>
+        </div>
 
+        <nav className="space-y-1.5 p-4" aria-label="Navegación principal">
           {allowed.map(({ to, label, icon: Icon }) => (
-            <Tooltip key={to}>
-              <TooltipTrigger asChild>
-                <NavLink
-                  to={to}
-                  className={({ isActive }) =>
-                    [
-                      "group flex select-none items-center gap-10 rounded-xl border px-3 py-2 transition-all duration-200",
-                      "border-white/5 bg-white/[0.03]",
-                      "hover:border-amber-300/20 hover:bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.04),rgba(249,115,22,0.12))]",
-                      "hover:shadow-[0_0_24px_-10px_rgba(249,115,22,0.5)]",
-                      isActive
-                        ? "border-amber-300/25 bg-[linear-gradient(90deg,rgba(250,204,21,0.16),rgba(255,247,237,0.07),rgba(249,115,22,0.16))] shadow-[0_0_28px_-12px_rgba(249,115,22,0.55)]"
-                        : "",
-                    ].join(" ")
-                  }
-                >
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] ring-1 ring-inset ring-white/5 group-hover:ring-amber-300/25">
-                    <Icon size={18} />
+            <NavLink
+              key={to}
+              to={to}
+              onMouseEnter={() => preloadRoute(to)}
+              onFocus={() => preloadRoute(to)}
+              className={({ isActive }) =>
+                [
+                  "group flex select-none items-center gap-3 rounded-xl border border-transparent px-3.5 py-2.5 transition-all duration-200",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                    : "text-muted-foreground hover:border-border hover:bg-surface-2/60 hover:text-foreground",
+                ].join(" ")
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon
+                    size={18}
+                    className={isActive ? "" : "text-muted-foreground/80 group-hover:text-primary"}
+                  />
+                  <span className={isActive ? "text-sm font-semibold" : "text-sm font-medium"}>
+                    {label}
                   </span>
-                  <span className="text-sm font-medium text-zinc-100">{label}</span>
-                </NavLink>
-              </TooltipTrigger>
-              <TooltipContent
-                side="right"
-                className="border border-amber-200/10 bg-[#161210] text-zinc-100"
-              >
-                {label}
-              </TooltipContent>
-            </Tooltip>
+                </>
+              )}
+            </NavLink>
           ))}
         </nav>
+      </div>
 
-        <div className="space-y-4 px-4 pb-6">
-          <section className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(180deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03),rgba(249,115,22,0.12))] p-4">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-600">
-              Contexto
-            </p>
-            <p className="mt-2 text-base font-semibold text-zinc-100">
-              Vista {roleLabel(role)}
-            </p>
-            <p className="mt-2 text-sm leading-6 text-zinc-300">
-              {role === "user"
-                ? "Registrá tu avance, revisá tu rutina por día y seguí tu historial personal."
-                : "Usá rutinas como punto de partida y movete rápido entre clientes, asistencias y seguimiento."}
-            </p>
-          </section>
+      <div className="space-y-3 px-4 pb-6">
+        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2/60 px-3 py-1.5 text-label-caps uppercase text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+          Vista {roleLabel(role)}
         </div>
-      </TooltipProvider>
+
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-surface-1/70 p-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-primary-strong">
+              <UserRound size={18} />
+            </div>
+            <div className="min-w-0">
+              <p
+                className="truncate text-sm font-medium text-foreground"
+                title={userName ?? undefined}
+              >
+                {userName ?? "Usuario"}
+              </p>
+              {email ? (
+                <p className="truncate text-xs text-muted-foreground" title={email}>
+                  {email}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            title="Cerrar sesión"
+            aria-label="Cerrar sesión"
+            onClick={handleLogout}
+            className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-destructive"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
+      </div>
     </aside>
   );
 }

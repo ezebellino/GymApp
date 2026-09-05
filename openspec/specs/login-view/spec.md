@@ -1,22 +1,25 @@
 ## Purpose
 
 Vista de login (`/login`): formulario minimalista de acceso (usuario + contraseña) para
-propietarios, coaches y clientes de Gym App, sin panel de marketing ni mensajería de estado
-verbosa.
+propietarios, coaches y miembros de Gym App, sin panel de marketing ni mensajería de estado
+verbosa. No incluye un link de auto-registro: el alta de cualquier usuario la inicia siempre un
+Dueño/Coach (ver `user-management`, `member-invitation`).
 
 ## Requirements
 
 ### Requirement: Formulario de login minimalista
 La vista de login SHALL mostrar únicamente: logo + nombre de marca "Gym App", campo de usuario,
-campo de contraseña, botón de submit y un link a registro de cuenta. No SHALL incluir panel de
-marketing, banners de demo, ni mensajes de estado sobre el backend.
+campo de contraseña y botón de submit. No SHALL incluir panel de marketing, banners de demo,
+mensajes de estado sobre el backend, ni ningún link de auto-registro — el alta de un usuario
+nuevo (Dueño, Coach o Miembro) siempre la inicia un admin/Coach desde la gestión de Usuarios; ya
+no existe una ruta pública de registro a la que enlazar (ver capability `member-invitation`).
 
 #### Scenario: Carga inicial de la vista
 - **WHEN** el usuario navega a `/login`
-- **THEN** ve el logo, el nombre "Gym App", el campo "Usuario", el campo "Contraseña", el
-  botón "Entrar" y el link "Registrar cuenta"
-- **THEN** no ve texto de marketing, contador de conexión, aviso de reactivación de backend ni
-  banner de demo
+- **THEN** ve el logo, el nombre "Gym App", el campo "Usuario", el campo "Contraseña" y el botón
+  "Entrar"
+- **THEN** no ve texto de marketing, contador de conexión, aviso de reactivación de backend,
+  banner de demo, ni ningún link de registro de cuenta
 
 #### Scenario: Toggle de visibilidad de contraseña
 - **WHEN** el usuario hace click en el ícono de mostrar/ocultar contraseña
@@ -45,14 +48,6 @@ sesión sobrevive a recargar la página.
 - **THEN** el sistema muestra un toast de error ("Credenciales invalidas", ver capability
   `toast-notifications`) sin redirigir ni bloquear el formulario
 - **THEN** no queda ninguna sesión establecida: al recargar sigue viendo el formulario de login
-
-### Requirement: Link a registro de cuenta
-El formulario SHALL mostrar un link con el texto "Registrar cuenta" que navega a
-`/register-client`.
-
-#### Scenario: Navegar a registro
-- **WHEN** el usuario hace click en "Registrar cuenta"
-- **THEN** el sistema navega a la ruta `/register-client`
 
 ### Requirement: Diseño responsive
 La vista de login SHALL adaptarse correctamente a viewports mobile y desktop usando un único

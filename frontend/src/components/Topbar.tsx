@@ -1,32 +1,58 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import Swal from "sweetalert2";
-import {
-  BarChart3,
-  CalendarCheck2,
-  CreditCard,
-  Dumbbell,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Settings,
-  UserPlus,
-  Users,
-  X,
-} from "lucide-react";
+import { Menu, Moon, Sun, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Role } from "@/types";
 import { useSessionStore } from "@/stores/session";
+import { useThemeStore } from "@/stores/theme";
+import { THEME_MODES } from "@/lib/theme";
+import { useUpdateMyThemeMutation } from "@/services/me.queries";
+import { toastError } from "@/lib/toast";
+import { navItemsForRole } from "@/lib/navigation";
+
+const outlineButtonClass =
+  "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70";
+const mobileNavButtonClass =
+  "w-full justify-start border-border bg-surface-2/40 text-foreground hover:bg-surface-2/70";
 
 export default function Topbar() {
   const token = useSessionStore((s) => s.token);
   const storeRole = useSessionStore((s) => s.role);
-  const logout = useSessionStore((s) => s.logout);
   const role: Role = storeRole ?? "coach";
   const isAuthed = !!token;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const themeMode = useThemeStore((s) => s.mode);
+  const setThemeMode = useThemeStore((s) => s.setMode);
+  const updateMyThemeMutation = useUpdateMyThemeMutation();
+
+  const isDark = themeMode === "dark";
+  // Estado, no acción: un lector de pantalla anuncia "Modo Oscuro, presionado" /
+  // "Modo Claro, no presionado" -- coherente con `aria-pressed`, a diferencia de
+  // un label de acción ("Cambiar a modo claro") que junto con `aria-pressed`
+  // sonaba contradictorio (hallazgo de verification.md, adopt-kinetic-obsidian-theme).
+  const currentThemeLabel =
+    THEME_MODES.find((m) => m.id === themeMode)?.label ?? themeMode;
+  const themeToggleAriaLabel = `Modo ${currentThemeLabel}`;
+
+  // Se aplica al instante (setMode ya aplica + cachea via `stores/theme.ts`) y
+  // se manda el PATCH en paralelo. Si el PATCH falla, el modo queda aplicado
+  // igual (dec. 7 y 11 del design): revertirle el tema en la cara al usuario
+  // es peor que una preferencia que no viajo, asi que no hay rollback visual.
+  const handleToggleTheme = () => {
+    const nextMode = isDark ? "light" : "dark";
+    setThemeMode(nextMode);
+    updateMyThemeMutation.mutate(nextMode, {
+      onError: () => {
+        toastError(
+          "No se pudo guardar el tema",
+          "El modo se aplico en este dispositivo, pero no se pudo sincronizar con tu cuenta."
+        );
+      },
+    });
+  };
 
   const openGlobalSearch = () => {
     const trigger = () => window.dispatchEvent(new Event("app:open-spotlight"));
@@ -42,7 +68,7 @@ export default function Topbar() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (role === "user") return;
+      if (role === "member") return;
       const mod = navigator.platform.includes("Mac") ? e.metaKey : e.ctrlKey;
       if (mod && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -54,31 +80,29 @@ export default function Topbar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [location.pathname, role]);
 
-  const handleLogout = async () => {
-    logout();
-    setMobileMenuOpen(false);
-
-    await Swal.fire({
-      title: "Sesión cerrada",
-      text: "Serás redirigido al login.",
-      icon: "success",
-      timer: 1400,
-      showConfirmButton: false,
-      timerProgressBar: true,
-    });
-
-    navigate("/login", { replace: true });
-  };
-
   const go = (path: string) => {
     navigate(path);
     setMobileMenuOpen(false);
   };
 
+  const mobileNavItems = navItemsForRole(role);
+
   return (
-    <header className="sticky top-0 z-40 border-b border-amber-200/10 bg-[#0d0c0b]/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 items-center justify-between px-4">
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 border-b border-border bg-surface-1/70 backdrop-blur-xl lg:h-topbar lg:pl-sidebar">
+      {/* `h-topbar` (alto fijo) va en `lg:` sobre el `<header>`, no siempre:
+          debajo de `lg` el panel del menú mobile (más abajo) se renderiza
+          DENTRO de este header, y un alto fijo sin `overflow-hidden` lo haría
+          desbordar y tapar ~350px de `main` con un fondo 95% opaco en vez de
+          empujar el contenido — la dec. 4 justificó no hacer el Topbar
+          `fixed` precisamente para conservar ese empuje (hallazgo 3 de
+          verification.md, dec. 22). En `lg`, con el menú siempre cerrado
+          (`lg:hidden` en el panel), el header vuelve a medir exactamente
+          `h-topbar` y la alineación con el contenido no cambia. El div
+          interior necesita su propio `h-topbar` para el layout en mobile
+          (donde el header es de alto automático) y `lg:h-full` para heredar
+          el alto fijo del header en desktop. */}
+      <div className="app-container flex h-topbar items-center justify-between lg:h-full">
+        <div className="flex items-center gap-3 lg:hidden">
           <img
             src="/mini-espacio-logo.svg"
             alt="Mini Espacio"
@@ -86,47 +110,34 @@ export default function Topbar() {
           />
         </div>
 
-        {role !== "user" && (
+        {role !== "member" && (
           <div className="hidden flex-1 justify-center lg:flex">
             <Button
               variant="outline"
-              className="w-72 border-amber-200/10 bg-white/[0.03] text-amber-50 hover:border-amber-300/20 hover:bg-white/[0.06]"
+              className={`w-72 ${outlineButtonClass}`}
               onClick={openGlobalSearch}
             >
-              Buscar cliente (Ctrl/Cmd + K)
+              Buscar usuario (Ctrl/Cmd + K)
             </Button>
           </div>
         )}
 
         <div className="hidden items-center gap-3 lg:flex">
-          {isAuthed && role === "owner" && (
+          {isAuthed && (
             <Button
               variant="outline"
-              onClick={() => navigate("/clients")}
-              className="border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] text-amber-50 hover:bg-[linear-gradient(90deg,rgba(250,204,21,0.18),rgba(255,247,237,0.08),rgba(249,115,22,0.18))]"
+              size="icon"
+              className={outlineButtonClass}
+              onClick={handleToggleTheme}
+              aria-label={themeToggleAriaLabel}
+              aria-pressed={isDark}
             >
-              <UserPlus className="h-4 w-4" />
-              Nuevo cliente
+              {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </Button>
           )}
 
-          {isAuthed ? (
-            <Button
-              onClick={handleLogout}
-              className="group relative overflow-hidden border border-amber-300/20 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black shadow-[0_18px_45px_-28px_rgba(249,115,22,0.55)] hover:opacity-95"
-            >
-              <span className="relative z-10 flex items-center gap-2">
-                <LogOut size={16} />
-                Logout
-              </span>
-              <span className="pointer-events-none absolute inset-0 -translate-x-full skew-x-12 bg-white/40 transition-transform duration-700 ease-out group-hover:translate-x-full" />
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={() => navigate("/login")}
-              className="border-amber-200/10 text-amber-50 hover:bg-white/[0.06]"
-            >
+          {!isAuthed && (
+            <Button variant="outline" onClick={() => navigate("/login")}>
               Iniciar sesión
             </Button>
           )}
@@ -137,7 +148,7 @@ export default function Topbar() {
             <Button
               variant="outline"
               size="icon"
-              className="border-amber-200/10 bg-white/[0.04] text-zinc-100"
+              className={outlineButtonClass}
               onClick={() => setMobileMenuOpen((v) => !v)}
             >
               {mobileMenuOpen ? (
@@ -147,12 +158,7 @@ export default function Topbar() {
               )}
             </Button>
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-amber-200/10 text-xs text-zinc-100"
-              onClick={() => navigate("/login")}
-            >
+            <Button variant="outline" size="sm" onClick={() => navigate("/login")}>
               Login
             </Button>
           )}
@@ -160,102 +166,31 @@ export default function Topbar() {
       </div>
 
       {mobileMenuOpen && isAuthed && (
-        <div className="space-y-3 border-t border-amber-200/10 bg-[#120f0d]/95 px-4 pb-3 pt-2 lg:hidden">
-          <div className="space-y-2">
-            {role === "user" ? (
-              <Button
-                variant="outline"
-                className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-                onClick={() => go("/my-routine")}
-              >
-                <Dumbbell className="mr-2 h-4 w-4" />
-                Mi rutina
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-                  onClick={() => go("/dashboard")}
-                >
-                  <LayoutDashboard className="mr-2 h-4 w-4" />
-                  Dashboard
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-                  onClick={() => go("/clients")}
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Clientes
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-                  onClick={() => go("/payments")}
-                >
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Pagos
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-                  onClick={() => go("/attendance")}
-                >
-                  <CalendarCheck2 className="mr-2 h-4 w-4" />
-                  Asistencias
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-                  onClick={() => go("/routines")}
-                >
-                  <Dumbbell className="mr-2 h-4 w-4" />
-                  Rutinas
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-                  onClick={() => go("/settings")}
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  Ajustes
-                </Button>
-                {role === "owner" && (
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start border-amber-200/10 bg-white/[0.04] text-sm text-zinc-100 hover:bg-white/[0.08]"
-                    onClick={() => go("/reports")}
-                  >
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    Reportes
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-
-          {role === "owner" && (
-            <Button
-              variant="outline"
-              className="w-full justify-start border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] text-sm text-amber-50 hover:opacity-95"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                navigate("/clients");
-              }}
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              Nuevo cliente
-            </Button>
-          )}
-
+        <div className="space-y-3 border-t border-border bg-surface-1/95 px-4 pb-3 pt-2 lg:hidden">
           <Button
-            className="w-full justify-start border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] text-sm text-black hover:opacity-95"
-            onClick={handleLogout}
+            variant="outline"
+            size="icon"
+            className={outlineButtonClass}
+            onClick={handleToggleTheme}
+            aria-label={themeToggleAriaLabel}
+            aria-pressed={isDark}
           >
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
+            {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
           </Button>
+
+          <div className="space-y-2">
+            {mobileNavItems.map(({ to, label, icon: Icon }) => (
+              <Button
+                key={to}
+                variant="outline"
+                className={mobileNavButtonClass}
+                onClick={() => go(to)}
+              >
+                <Icon className="mr-2 h-4 w-4" />
+                {label}
+              </Button>
+            ))}
+          </div>
         </div>
       )}
     </header>

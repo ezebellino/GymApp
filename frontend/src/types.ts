@@ -1,23 +1,41 @@
-export type Role = "owner" | "coach" | "user";
+export type Role = "owner" | "coach" | "member";
 
-export type Client = {
+export type MembershipStatus = "none" | "active" | "cancelled";
+export type MembershipIndicator = "none" | "up_to_date" | "overdue" | "suspended";
+export type InvitationStatus = "none" | "pending" | "expired" | "access_active";
+
+export type User = {
   id: string;
+  first_name: string;
+  last_name?: string | null;
   full_name: string;
+  age?: number | null;
+  birth_date?: string | null; // ISO date
+  weight_kg?: number | null;
+  height_cm?: number | null;
   email?: string | null;
+  email_verified: boolean;
   phone?: string | null;
+  phone_verified: boolean;
+  role: Role;
   is_active: boolean;
-  join_date: string; // ISO
+  membership_status: MembershipStatus;
+  membership_start_date?: string | null; // ISO
+  membership_cancelled_at?: string | null; // ISO
+  membership_indicator: MembershipIndicator;
+  invitation_status: InvitationStatus;
+  created_at: string; // ISO
 };
 
-// Cliente embebido en la respuesta de /payments y /attendance: no es el
-// `Client` completo (sin `join_date`), pero alcanza para mostrar nombre y
+// Usuario embebido en la respuesta de /payments y /attendance: proyección
+// liviana (sin membresía ni invitación), alcanza para mostrar nombre y
 // contacto sin pedirlo aparte.
-export type EmbeddedClient = Pick<Client, "id" | "full_name" | "email" | "phone" | "is_active">;
+export type EmbeddedUser = Pick<User, "id" | "first_name" | "last_name" | "full_name" | "email" | "phone" | "role">;
 
 export type Payment = {
   id: string;
-  client_id: string;
-  client?: EmbeddedClient | null;
+  user_id: string;
+  user?: EmbeddedUser | null;
   amount: number;
   method: "cash" | "transfer" | null;
   method_channel?: string | null;
@@ -29,16 +47,20 @@ export type Payment = {
 
 export type Attendance = {
   id: string;
-  client_id: string;
+  user_id: string;
   coach_id?: string | null;
-  client?: EmbeddedClient | null;
+  user?: EmbeddedUser | null;
   checkin_at: string; // ISO
 };
 
 export type AppSettings = {
   gym_name: string;
   admin_name: string | null;
-  theme_preference: "dark-gold" | "dark-copper" | "dark-olive" | null;
+  // Legacy/deprecado: el tema pasó a ser una preferencia del usuario
+  // (`/auth/me`, `stores/theme.ts`), no del negocio. Este campo de
+  // `app_settings` queda sin uso (ver adopt-kinetic-obsidian-theme, dec. 6.5);
+  // se mantiene con tipo laxo solo para no romper el `GET /settings` viejo.
+  theme_preference?: string | null;
   currency: string;
   default_fee: number;
   address: string | null;
@@ -103,7 +125,7 @@ export type RoutineDayProgress = {
 
 export type WorkoutLog = {
   id: string;
-  client_id: string;
+  user_id: string;
   day_id: string;
   day_name: string;
   exercise_id: string;
@@ -123,9 +145,9 @@ export type ProgressImprovement = {
   delta_weight: number;
 };
 
-export type ClientProgressSummary = {
-  client_id: string;
-  client_name: string;
+export type UserProgressSummary = {
+  user_id: string;
+  user_name: string;
   gym_name: string;
   log_count: number;
   attendance_count: number;

@@ -16,12 +16,10 @@ export function useSettingsQuery() {
 // `data` es el reemplazo (dec. 12). El resto de la app solo lee del store o
 // escribe con `setSettings`; nadie mas debe escuchar `data` de esta query.
 //
-// `theme_preference` es la unica excepcion a "el servidor manda sobre lo
-// persistido": el propio copy de Settings dice que el tema "se guarda solo
-// en este dispositivo". Como este hook corre en CADA carga de la app (esta
-// montado en App.jsx, no solo en /settings), sincronizar ese campo tambien
-// pisaria, en cualquier reload, un tema elegido por el swatch que todavia no
-// paso por "Guardar cambios".
+// `theme_preference` se descarta siempre: el tema dejo de ser configuracion
+// del negocio y paso a ser una preferencia del usuario (`/auth/me` +
+// `stores/theme.ts`, ver adopt-kinetic-obsidian-theme). El campo de
+// `app_settings` queda legacy, sin ningun lector (dec. 6.5 del design).
 export function useSyncSettings() {
   const { data } = useSettingsQuery();
   const setSettings = useSettingsStore((s) => s.setSettings);

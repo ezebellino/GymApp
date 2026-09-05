@@ -1,53 +1,226 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Fuentes self-hosted (dec. 9 de adopt-kinetic-obsidian-theme): un único import por familia,
+   Vite las vendorea como .woff2 hasheados del mismo origen. Los nombres de familia que exponen
+   estos paquetes son "Plus Jakarta Sans Variable" / "Inter Variable" (no el nombre "normal" de
+   Google Fonts), y son los que usan --font-display/--font-ui más abajo. */
+@import "@fontsource-variable/plus-jakarta-sans";
+@import "@fontsource-variable/inter";
+
+/* Ata las utilidades `dark:*` que ya existen en src/components/ui/** (p. ej. `dark:bg-input/30`
+   en input.tsx) al atributo `data-theme`, que es el único interruptor de modo del repo (lo setea
+   `applyThemeMode`, tarea 3.1). Sin esto, `dark:*` quedaría atado a la clase `.dark`, que nadie
+   pone. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* `inline` (en vez de `@theme` pelado): la utilidad generada referencia directo la CSS var
+   semántica de abajo, así que la cascada la resuelve en el punto de uso — incluye el caso de un
+   elemento que redefine la var y los modificadores de opacidad (`bg-surface-1/70`). Con `@theme`
+   normal, Tailwind fija el `--color-*` en :root y cada modo tendría que redeclararlo aparte. */
+@theme inline {
+  /* Colores semánticos propios del design system */
+  --color-canvas: var(--canvas);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-primary-strong: var(--primary-strong);
+  --color-border: var(--border-hairline);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+
+  /* Indicadores de estado de membresía (MembershipDot.tsx), semánticos por modo — genera
+     `bg-status-ok|warn|danger` (dec. 12 de redesign-list-page-layout). Ver `docs/design/design.md`
+     ("Colors") para el valor de cada modo y por qué light usa el paso 700. */
+  --color-status-ok: var(--status-ok);
+  --color-status-warn: var(--status-warn);
+  --color-status-danger: var(--status-danger);
+
+  /* Banda de fondo del encabezado de columnas — genera `bg-table-head`
+     (dec. 19.3 de redesign-list-page-layout). */
+  --color-table-head: var(--table-head);
+
+  /* Contrato shadcn (src/components/ui/**): mismos nombres que components.json/registry
+     asumen, apuntando a las mismas vars de arriba. Esto revive intencionalmente los tokens que
+     hoy son no-ops (dec. 3). */
+  --color-background: var(--canvas);
+  --color-card: var(--surface-1);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--surface-1);
+  --color-popover-foreground: var(--foreground);
+  --color-primary-foreground: var(--on-primary);
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--surface-2);
+  --color-accent: var(--surface-2);
+  --color-accent-foreground: var(--foreground);
+  --color-input: var(--border-hairline);
+  --radius: 0.5rem;
+
+  /* Tipografía (dec. 9): Plus Jakarta Sans para display/headings/métricas, Inter para labels y
+     micro-copy. Fallbacks del sistema por si el .woff2 todavía no cargó. */
+  --font-display: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-ui: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --text-headline-hero: 36px;
+  --text-headline-hero--line-height: 44px;
+  --text-headline-hero--letter-spacing: -0.03em;
+
+  --text-headline-lg: 24px;
+  --text-headline-lg--line-height: 32px;
+  --text-headline-lg--letter-spacing: -0.02em;
+
+  --text-headline-md: 18px;
+  --text-headline-md--line-height: 26px;
+  --text-headline-md--letter-spacing: -0.01em;
+
+  /* Tailwind v4 solo soporta --line-height/--letter-spacing/--font-weight como submodificador
+     de un token `--text-*`; no existe un `--font-variant-numeric` propio. El call site que use
+     `text-metric-kpi` (fase 4) tiene que sumar la utilidad nativa `tabular-nums` de Tailwind al
+     lado, para el `font-variant-numeric: tabular-nums` que pide el design doc. */
+  --text-metric-kpi: 32px;
+  --text-metric-kpi--line-height: 36px;
+  --text-metric-kpi--letter-spacing: -0.03em;
+
+  --text-body-lg: 15px;
+  --text-body-lg--line-height: 22px;
+
+  --text-body-md: 14px;
+  --text-body-md--line-height: 20px;
+
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 18px;
+
+  --text-label-caps: 11px;
+  --text-label-caps--line-height: 16px;
+  --text-label-caps--letter-spacing: 0.08em;
+
+  --text-label-code: 12px;
+  --text-label-code--line-height: 16px;
+  --text-label-code--letter-spacing: 0.02em;
+
+  /* Radios (docs/design/design.md, sección Shapes): DEFAULT (`--radius` de arriba) es el que
+     también consume el contrato shadcn. El doc solo fija dos valores explícitos —
+     inputs/botones en `rounded-lg` (0.5rem/8px) y cards/paneles en `rounded-xl` (1rem/16px)—,
+     así que `lg`/`xl` van literales y `sm`/`md` quedan en la escala stock de Tailwind (no hay
+     spec para ellos; desviar solo lo que el doc pide evita romper radios no mencionados). */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  /* Espaciados / layout (docs/design/design.md, sección Layout & Spacing) */
+  --spacing-sidebar: 240px;
+  --spacing-gutter: 1.25rem;
+  --container-app: 1600px;
+  /* Alto del Topbar (docs/design/design.md, "1. Navigation Elements") y
+     gutter vertical del contenedor de contenido (docs/design/design.md,
+     front-matter `spacing.page-gutter-y`) — ver
+     openspec/changes/redesign-list-page-layout (dec. 2). La placa de marca
+     del Sidebar **ya no** comparte esta var (dec. 16 y 17): el dueño pidió
+     sacar la línea divisoria que igualaba su borde inferior con el del
+     Topbar, así que hoy `--spacing-topbar` gobierna solo el Topbar y, vía
+     `--list-page-height` más abajo, el alto de una list page. */
+  --spacing-topbar: 4rem;
+  --spacing-page-y: 1.5rem;
+  /* Alto disponible para una "list page" (ver ListPageLayout.tsx): el
+     viewport menos el Topbar y los dos gutters verticales del contenedor de
+     `App.jsx`. Derivada acá y no como `calc` inline en un className: Tailwind
+     exige escapar los espacios de un calc inline con `_`, lo que lo vuelve
+     ilegible (dec. 6.1 del design). */
+  --list-page-height: calc(100dvh - var(--spacing-topbar) - 2 * var(--spacing-page-y));
+}
+
 @layer base {
+  /* Modo dark: default operacional (docs/design/design.md, "Dark Theme (Default Operational
+     State)"). Nota de alcance (fase 2 de adopt-kinetic-obsidian-theme): design.md no da un hex
+     literal para `--foreground`/`--muted-foreground` en dark ni para `--surface-3` en ninguno de
+     los dos modos — ver el reporte de la task para el detalle de qué se infirió y por qué. */
   :root {
-    /* App dark-only en sus tres temas: le decimos al UA que pinte sus propios
-       controles (autofill, popup de <select>, ícono de input[type=date],
-       scrollbars) con la paleta oscura en vez de la clara por defecto. */
-    color-scheme: dark;
-    --background: oklch(0.16 0.01 70);
+    --canvas: #09090b;
+    --surface-1: #18181b;
+    --surface-2: #27272a;
+    --surface-3: #27272a;
     --foreground: oklch(0.96 0.01 80);
-    --theme-accent-start: 250 204 21;
-    --theme-accent-mid: 255 247 237;
-    --theme-accent-end: 249 115 22;
-    --theme-accent-secondary: 251 191 36;
-    --theme-accent-shadow: 249 115 22;
-    --theme-body-start: #090909;
-    --theme-body-mid: #111111;
-    --theme-body-end: #17120d;
-    --theme-shell-start: #0b0b0b;
-    --theme-shell-mid: #12100d;
-    --theme-shell-end: #1b140e;
+    --muted-foreground: #a1a1aa;
+    --primary: #f59e0b;
+    --on-primary: #09090b;
+    --primary-strong: #d97706;
+    --border-hairline: rgba(255, 255, 255, 0.08);
+    --ring: var(--primary);
+    --destructive: #ef4444;
+    /* Indicadores de estado de membresía (MembershipDot), semánticos por modo (dec. 12 de
+       redesign-list-page-layout — requirement "Contraste accesible de indicadores de estado y
+       roles"). Dark conserva los mismos oklch que la paleta v4 usa para emerald-500/amber-500 (el
+       color que ya había, sin regresión visual); `--status-danger` es un alias de `--destructive`,
+       no un tercer valor a mantener sincronizado a mano. */
+    --status-ok: oklch(0.696 0.17 162.48);
+    --status-warn: oklch(0.769 0.188 70.08);
+    --status-danger: var(--destructive);
+    /* Banda de fondo del encabezado de columnas de una list page (dec. 19.3 de
+       redesign-list-page-layout): mismo tono que `bg-surface-2/40` (lo que usa
+       Asistencias), pero resuelto a un color **opaco** en tiempo de cómputo —
+       necesario porque acá el `th` es `sticky` sobre filas que scrollean
+       debajo, y un fondo translúcido dejaría leerlas a través (dec. 7). Mismo
+       patrón `color-mix` que ya usan `--shell-gradient-*` más abajo. */
+    --table-head: color-mix(in srgb, var(--surface-2) 40%, var(--surface-1));
+    --shadow-level-2:
+      0 12px 32px -4px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(245, 158, 11, 0.15);
+    --hero-aura: radial-gradient(ellipse at top right, rgba(245, 158, 11, 0.15) 0%, transparent 70%);
+    /* `.app-shell-bg` (más abajo): deepen del canvas/surface-1 hacia negro, que en un modo ya casi
+       negro es imperceptible mas alla del gradiente sutil. */
+    --shell-gradient-start: color-mix(in srgb, var(--canvas) 92%, black);
+    --shell-gradient-end: color-mix(in srgb, var(--surface-1) 88%, black);
   }
 
-  :root[data-theme="dark-copper"] {
-    --theme-accent-start: 251 146 60;
-    --theme-accent-mid: 245 235 220;
-    --theme-accent-end: 180 83 9;
-    --theme-accent-secondary: 217 119 6;
-    --theme-accent-shadow: 180 83 9;
-    --theme-body-start: #0b0908;
-    --theme-body-mid: #14100d;
-    --theme-body-end: #211712;
-    --theme-shell-start: #0c0a09;
-    --theme-shell-mid: #17110d;
-    --theme-shell-end: #241714;
+  /* Modo light: "Crisp Slate" (docs/design/design.md, "Light Theme (Ambient Daylight State)"). */
+  :root[data-theme="light"] {
+    --canvas: #f8fafc;
+    --surface-1: #ffffff;
+    --surface-2: #e2e8f0;
+    --surface-3: #e2e8f0;
+    --foreground: #0f172a;
+    --muted-foreground: #475569;
+    --primary: #d97706;
+    --on-primary: #0f172a;
+    /* Variante mas oscura de `--primary`, reservada para texto/iconos sobre superficies claras:
+       `--primary` (#d97706) da 3.18:1 sobre blanco como texto -- no llega a AA -- pero si llega
+       como fondo solido con `--on-primary` encima (5.6:1). `--primary-strong` en light SI es
+       AA-safe como texto/icono (7.1:1 sobre blanco, 5.75:1 sobre --surface-2, ~6:1 sobre los
+       fondos tintados bg-primary/10-15 de los pills). Ver docs/design/design.md. */
+    --primary-strong: #92400e;
+    --border-hairline: #e2e8f0;
+    --ring: var(--primary);
+    --destructive: #dc2626;
+    /* Paso 700 (no 500/600) para los dos que necesitan oscurecerse en light, mismo criterio que
+       ya justifica `--primary-strong`: un punto de 10px cuenta como objeto gráfico (WCAG 1.4.11,
+       mínimo 3:1), y emerald-500/amber-500 dan ≈2.36/≈2.05 sobre los fondos claros del shell —
+       el 600 mejora pero queda sin margen (≈3.65/≈3.2) para el antialiasing del borde curvo del
+       punto. Con 700 los tres estados quedan en la misma banda de ≈5:1 (dec. 12). */
+    --status-ok: oklch(0.508 0.118 165.612);
+    --status-warn: oklch(0.555 0.163 48.998);
+    --status-danger: var(--destructive);
+    --table-head: color-mix(in srgb, var(--surface-2) 40%, var(--surface-1));
+    --shadow-level-2:
+      0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+    --hero-aura: radial-gradient(ellipse at top right, rgba(217, 119, 6, 0.15) 0%, transparent 70%);
+    /* En light mode "deepen hacia negro" ensucia un canvas que ya es casi blanco (ver hallazgo
+       2026-09-04 en verification.md del change adopt-kinetic-obsidian-theme): sin mezcla, el
+       gradiente queda entre el canvas y surface-1 tal cual, sin el wash gris. */
+    --shell-gradient-start: var(--canvas);
+    --shell-gradient-end: var(--surface-1);
   }
 
-  :root[data-theme="dark-olive"] {
-    --theme-accent-start: 163 230 53;
-    --theme-accent-mid: 245 245 220;
-    --theme-accent-end: 217 119 6;
-    --theme-accent-secondary: 132 204 22;
-    --theme-accent-shadow: 132 204 22;
-    --theme-body-start: #080908;
-    --theme-body-mid: #11130f;
-    --theme-body-end: #171b12;
-    --theme-shell-start: #0a0b09;
-    --theme-shell-mid: #12140f;
-    --theme-shell-end: #1a1d13;
+  /* Patrón oficial de shadcn para Tailwind v4: sin esto, un componente de ui/** que solo pone
+     `border` (sin color explícito, ej. el variant "outline" de button.tsx) hereda `currentColor`
+     en vez de `--color-border`, y el borde queda del color del texto en vez del hairline. */
+  * {
+    @apply border-border outline-ring/50;
   }
 
   html,
@@ -57,34 +230,14 @@
   }
 
   body {
-    background:
-      radial-gradient(circle at top left, rgba(var(--theme-accent-start), 0.14), transparent 30%),
-      radial-gradient(circle at top right, rgba(var(--theme-accent-end), 0.12), transparent 34%),
-      radial-gradient(circle at bottom center, rgba(var(--theme-accent-secondary), 0.09), transparent 38%),
-      linear-gradient(180deg, var(--theme-body-start) 0%, var(--theme-body-mid) 52%, var(--theme-body-end) 100%);
+    /* El fondo con degradés cálidos que tenía este bloque queda cubierto siempre por
+       `.app-shell-bg` (App.jsx envuelve toda la app en un div `min-h-screen` con esa clase), así
+       que un canvas plano acá no cambia nada visible; ese efecto ambiental vive en la tarea 2.7. */
+    background: var(--canvas);
     color: var(--foreground);
-    font-family: "Inter", system-ui, sans-serif;
+    font-family: var(--font-ui);
     -webkit-font-smoothing: antialiased;
     transition: background 220ms ease, color 220ms ease;
-  }
-
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: -1;
-    background:
-      radial-gradient(circle at 12% 18%, rgba(var(--theme-accent-start), 0.1), transparent 22%),
-      radial-gradient(circle at 88% 14%, rgba(var(--theme-accent-end), 0.08), transparent 24%),
-      radial-gradient(circle at 50% 100%, rgba(var(--theme-accent-secondary), 0.08), transparent 28%);
-    opacity: 1;
-    transition: background 220ms ease;
-  }
-
-  .dark {
-    --background: oklch(0.16 0.01 70);
-    --foreground: oklch(0.96 0.01 80);
   }
 }
 
@@ -100,8 +253,8 @@ input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
   -webkit-text-fill-color: var(--foreground) !important;
   caret-color: var(--foreground);
-  -webkit-box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset !important;
-  box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset !important;
+  -webkit-box-shadow: 0 0 0px 1000px var(--color-surface-2) inset !important;
+  box-shadow: 0 0 0px 1000px var(--color-surface-2) inset !important;
   background-color: transparent !important;
   transition: background-color 9999s ease-in-out 0s;
 }
@@ -116,30 +269,44 @@ input:autofill:focus,
 input:autofill:active {
   -webkit-text-fill-color: var(--foreground) !important;
   caret-color: var(--foreground);
-  -webkit-box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset !important;
-  box-shadow: 0 0 0px 1000px rgba(24, 24, 27, 0.7) inset !important;
+  -webkit-box-shadow: 0 0 0px 1000px var(--color-surface-2) inset !important;
+  box-shadow: 0 0 0px 1000px var(--color-surface-2) inset !important;
   background-color: transparent !important;
   transition: background-color 9999s ease-in-out 0s;
 }
 
 @layer utilities {
+  /* Contenedor único de ancho máximo + gutter horizontal, compartido por el
+     `<main>` de App.jsx y el interior del Topbar (dec. 1 del design de
+     redesign-list-page-layout): antes cada uno repetía estas clases a mano y
+     al Topbar se le olvidó el `max-w`, que es la causa raíz de que quedara
+     desalineado con el contenido en viewports anchos. El gutter vertical
+     (`py-*`) queda deliberadamente afuera: es del área de contenido, no del
+     Topbar, que centra verticalmente contra su alto fijo (`h-topbar`). */
+  .app-container {
+    @apply mx-auto w-full max-w-[var(--container-app)] px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Hairline border + sombra Level 2 + hero-aura radial (docs/design/design.md, "Elevation &
+     Depth") sobre los tokens nuevos, por modo, sin cambiar el nombre de ninguna de estas 9
+     utilidades (dec. 10). */
   .surface-panel {
-    @apply border border-white/10 bg-zinc-950/65 backdrop-blur-xl;
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.03),
-      0 24px 70px -42px rgba(var(--theme-accent-shadow), 0.32);
+    @apply backdrop-blur-xl;
+    background-color: color-mix(in srgb, var(--surface-1) 65%, transparent);
+    border: 1px solid var(--border-hairline);
+    box-shadow: var(--shadow-level-2);
   }
 
   .warm-glow {
-    box-shadow: 0 18px 60px -34px rgba(var(--theme-accent-start), 0.35);
+    box-shadow: 0 18px 60px -34px color-mix(in srgb, var(--primary) 35%, transparent);
   }
 
   .warm-border {
     border-image: linear-gradient(
         90deg,
-        rgba(var(--theme-accent-start), 0.5),
-        rgba(255, 255, 255, 0.35),
-        rgba(var(--theme-accent-end), 0.45)
+        color-mix(in srgb, var(--primary) 50%, transparent),
+        color-mix(in srgb, var(--foreground) 35%, transparent),
+        color-mix(in srgb, var(--primary-strong) 45%, transparent)
       )
       1;
   }
@@ -147,9 +314,9 @@ input:autofill:active {
   .warm-accent-text {
     background-image: linear-gradient(
       90deg,
-      rgb(var(--theme-accent-start)) 0%,
-      rgb(var(--theme-accent-mid)) 48%,
-      rgb(var(--theme-accent-end)) 100%
+      var(--primary) 0%,
+      var(--foreground) 48%,
+      var(--primary-strong) 100%
     );
     -webkit-background-clip: text;
     background-clip: text;
@@ -159,70 +326,59 @@ input:autofill:active {
   .warm-accent-bg {
     background-image: linear-gradient(
       90deg,
-      rgba(var(--theme-accent-start), 0.22),
-      rgba(255, 255, 255, 0.08),
-      rgba(var(--theme-accent-end), 0.22)
+      color-mix(in srgb, var(--primary) 22%, transparent),
+      color-mix(in srgb, var(--foreground) 8%, transparent),
+      color-mix(in srgb, var(--primary-strong) 22%, transparent)
     );
   }
 
-  .app-shell-bg {
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--theme-shell-start) 92%, black) 0%, color-mix(in srgb, var(--theme-shell-end) 88%, black) 100%);
+  /* CTA de /login y /register-client (Non-Goal de adopt-kinetic-obsidian-theme: esas dos vistas
+     reciben solo el pase mecánico a tokens, sin rediseño). Gradiente fijo, no ligado al modo --
+     `--foreground` cambia de casi-blanco (dark) a casi-negro (light), y con texto negro encima el
+     tramo del medio tiene que seguir siendo claro en los dos modos. Antes vivía como hex literal
+     inline en el className (`bg-[linear-gradient(...)]`); el único lugar permitido para hex
+     crudo es este archivo (dec. 4 del design). */
+  .auth-cta-gradient {
+    background-image: linear-gradient(90deg, #facc15 0%, #fff7ed 48%, #f97316 100%);
   }
 
+  /* Aura radial del hero operativo (docs/design/design.md, "Elevation & Depth" > "Hero Aura"):
+     consume la var `--hero-aura` definida por modo en :root de arriba. No existía como clase
+     utilitaria hasta la fase 4 (dec. 4.3 de adopt-kinetic-obsidian-theme); la var ya estaba desde
+     la fase 2, solo faltaba este wrapper de una línea para exponerla como fondo del hero card. */
+  .hero-aura {
+    background-color: var(--surface-1);
+    background-image: var(--hero-aura);
+  }
+
+  /* Estructura idéntica a la del shell viejo (gradiente vertical canvas -> surface-1): el "deepen"
+     hacia negro solo se aplica en dark (`--shell-gradient-*` arriba); en light el gradiente usa
+     canvas/surface-1 tal cual, sin ensuciarse hacia gris. */
+  .app-shell-bg {
+    background: linear-gradient(
+      180deg,
+      var(--shell-gradient-start) 0%,
+      var(--shell-gradient-end) 100%
+    );
+  }
+
+  /* Misma composición que antes (3 radiales tenues de acento + gradiente vertical de fondo),
+     reemplazando los 3 acentos de la paleta vieja (accent-start/end/secondary) por
+     primary/primary-strong, los únicos dos acentos del design system nuevo. */
   .app-main-shell-bg {
     background:
-      radial-gradient(circle at top, rgba(var(--theme-accent-start), 0.14), transparent 20%),
-      radial-gradient(circle at 85% 18%, rgba(var(--theme-accent-end), 0.08), transparent 22%),
-      radial-gradient(circle at 20% 82%, rgba(var(--theme-accent-secondary), 0.06), transparent 24%),
-      linear-gradient(
-        180deg,
-        var(--theme-shell-start) 0%,
-        var(--theme-shell-mid) 54%,
-        var(--theme-shell-end) 100%
-      );
-  }
-
-  :root[data-theme="dark-copper"] .app-main-shell-bg {
-    background:
-      radial-gradient(circle at top, rgba(var(--theme-accent-start), 0.16), transparent 20%),
-      radial-gradient(circle at 84% 14%, rgba(var(--theme-accent-end), 0.09), transparent 21%),
-      radial-gradient(circle at 24% 78%, rgba(var(--theme-accent-secondary), 0.06), transparent 26%),
-      linear-gradient(
-        180deg,
-        var(--theme-shell-start) 0%,
-        var(--theme-shell-mid) 54%,
-        var(--theme-shell-end) 100%
-      );
-  }
-
-  :root[data-theme="dark-olive"] .app-main-shell-bg {
-    background:
-      radial-gradient(circle at top, rgba(var(--theme-accent-start), 0.13), transparent 20%),
-      radial-gradient(circle at 82% 16%, rgba(var(--theme-accent-end), 0.08), transparent 20%),
-      radial-gradient(circle at 18% 80%, rgba(var(--theme-accent-secondary), 0.08), transparent 28%),
-      linear-gradient(
-        180deg,
-        var(--theme-shell-start) 0%,
-        var(--theme-shell-mid) 54%,
-        var(--theme-shell-end) 100%
-      );
-  }
-
-  .theme-chip {
-    background-image: linear-gradient(
-      90deg,
-      rgb(var(--theme-accent-start)) 0%,
-      rgb(var(--theme-accent-mid)) 48%,
-      rgb(var(--theme-accent-end)) 100%
-    );
+      radial-gradient(circle at top, color-mix(in srgb, var(--primary) 14%, transparent), transparent 20%),
+      radial-gradient(circle at 85% 18%, color-mix(in srgb, var(--primary-strong) 8%, transparent), transparent 22%),
+      radial-gradient(circle at 20% 82%, color-mix(in srgb, var(--primary) 6%, transparent), transparent 24%),
+      linear-gradient(180deg, var(--canvas) 0%, var(--surface-1) 54%, var(--surface-1) 100%);
   }
 
   /* Scrollbar de superficies de CONTENIDO (SpotlightSearch.tsx, Reports.tsx).
      Las superficies de NAVEGACIÓN (el <aside> del Sidebar) usan
      `.subtle-scrollbar`, más discreta. */
   .warm-scrollbar {
-    scrollbar-color: rgba(var(--theme-accent-start), 0.5) rgba(255, 255, 255, 0.05);
+    scrollbar-color: color-mix(in srgb, var(--primary) 50%, transparent)
+      color-mix(in srgb, var(--foreground) 5%, transparent);
     scrollbar-width: thin;
   }
 
@@ -232,18 +388,18 @@ input:autofill:active {
   }
 
   .warm-scrollbar::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.04);
+    background: color-mix(in srgb, var(--foreground) 4%, transparent);
     border-radius: 9999px;
   }
 
   .warm-scrollbar::-webkit-scrollbar-thumb {
     background: linear-gradient(
       180deg,
-      rgba(var(--theme-accent-start), 0.8),
-      rgba(255, 247, 237, 0.7),
-      rgba(var(--theme-accent-end), 0.75)
+      var(--primary),
+      var(--foreground),
+      var(--primary-strong)
     );
-    border: 2px solid rgba(12, 11, 10, 0.72);
+    border: 2px solid color-mix(in srgb, var(--canvas) 72%, transparent);
     border-radius: 9999px;
   }
 
@@ -251,7 +407,7 @@ input:autofill:active {
      Sidebar): bajo contraste, sin gradiente ni borde, a diferencia de
      `.warm-scrollbar`. */
   .subtle-scrollbar {
-    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+    scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
     scrollbar-width: thin;
   }
 
@@ -265,7 +421,7 @@ input:autofill:active {
   }
 
   .subtle-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.18);
+    background: color-mix(in srgb, var(--foreground) 18%, transparent);
     border-radius: 9999px;
   }
 }

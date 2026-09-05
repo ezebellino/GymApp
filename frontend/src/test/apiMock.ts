@@ -14,7 +14,7 @@ type AxiosLikeResponse = {
   config: Record<string, unknown>;
 };
 
-const EMPTY_LIST_ROUTES = ["/clients", "/payments", "/attendance"];
+const EMPTY_LIST_ROUTES = ["/users", "/payments", "/attendance"];
 
 /** Payload por defecto segun la ruta pedida. */
 export function defaultPayloadFor(url: string): unknown {
@@ -63,6 +63,7 @@ export function createApiMock(overrides: Record<string, unknown> = {}) {
     get: vi.fn((url: string) => Promise.resolve(respond(url, overrides))),
     post: vi.fn((url: string) => Promise.resolve(respond(url, overrides))),
     put: vi.fn((url: string) => Promise.resolve(respond(url, overrides))),
+    patch: vi.fn((url: string) => Promise.resolve(respond(url, overrides))),
     delete: vi.fn((url: string) => Promise.resolve(respond(url, overrides))),
     interceptors: {
       request: { use: vi.fn() },

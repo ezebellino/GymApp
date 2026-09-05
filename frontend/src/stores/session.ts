@@ -6,19 +6,31 @@ import type { Role } from "@/types";
 
 type TokenPayload = {
   exp: number;
-  role?: Role;
+  role?: Role | "user";
   name?: string;
   email?: string;
 };
+
+// Compatibilidad con JWT emitidos antes del deploy de `unify-clients-into-users`
+// (design.md, decision 3): esos tokens todavia traen `role: "user"`. Mismo
+// patron que `normalizeThemeMode` (`lib/theme.ts`) — sin este mapeo, cualquiera
+// con sesion abierta queda con un rol desconocido y sin rutas (`ProtectedRoute`
+// no reconoce "user").
+export function normalizeRole(raw: unknown): Role | null {
+  if (raw === "owner" || raw === "coach" || raw === "member") return raw;
+  if (raw === "user") return "member";
+  return null;
+}
 
 export type SessionState = {
   token: string | null;
   userName: string | null;
   role: Role | null;
-  // Derivado del token, NUNCA persistido: se recalcula del token al rehidratar
-  // (ver `sessionStorage.getItem`).
+  // Derivados del token, NUNCA persistidos: se recalculan del token al
+  // rehidratar (ver `sessionPersistStorage.getItem`), igual que `exp`.
+  email: string | null;
   exp: number | null;
-  setSession: (token: string, over?: { name?: string; role?: Role }) => void;
+  setSession: (token: string, over?: { name?: string; role?: Role; email?: string }) => void;
   logout: () => void;
 };
 
@@ -88,17 +100,22 @@ const sessionPersistStorage: PersistStorage<SessionState> = {
     if (!token) return null;
 
     const userName = localStorage.getItem("user_name");
-    const role = localStorage.getItem("user_role") as Role | null;
+    const role = normalizeRole(localStorage.getItem("user_role"));
 
-    // `exp` no se persiste: se recalcula del token en cada rehidratacion.
+    // `exp` y `email` no se persisten: se recalculan del token en cada
+    // rehidratacion.
     let exp: number | null = null;
+    let email: string | null = null;
     try {
-      exp = jwtDecode<TokenPayload>(token).exp ?? null;
+      const payload = jwtDecode<TokenPayload>(token);
+      exp = payload.exp ?? null;
+      email = payload.email ?? null;
     } catch {
       exp = null;
+      email = null;
     }
 
-    return { state: { token, userName, role, exp }, version: 0 };
+    return { state: { token, userName, role, email, exp }, version: 0 };
   },
   setItem: (_name, value) => {
     const { token, userName, role } = value.state;
@@ -127,6 +144,7 @@ export const useSessionStore = create<SessionState>()(
         token: null,
         userName: null,
         role: null,
+        email: null,
         exp: null,
         setSession: (token, over) => {
           // Igual que el adaptador de persistencia (`getItem` arriba): un
@@ -139,16 +157,17 @@ export const useSessionStore = create<SessionState>()(
           } catch {
             payload = {};
           }
-          const role = over?.role ?? payload.role ?? null;
+          const role = normalizeRole(over?.role ?? payload.role);
           const userName = over?.name ?? payload.name ?? payload.email ?? null;
+          const email = over?.email ?? payload.email ?? null;
           const exp = payload.exp ?? null;
 
-          set({ token, userName, role, exp });
+          set({ token, userName, role, email, exp });
           scheduleAutoLogout(exp);
         },
         logout: () => {
           clearAutoLogout();
-          set({ token: null, userName: null, role: null, exp: null });
+          set({ token: null, userName: null, role: null, email: null, exp: null });
           // Sin esto los datos del usuario anterior quedarian en la cache de
           // react-query y se pintarian al loguearse otro usuario en la misma
           // pestaña.

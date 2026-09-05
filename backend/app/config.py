@@ -20,6 +20,21 @@ class Settings(BaseSettings):
         "https://miniespacio.vercel.app"
     ]
 
+    # Origen público del frontend, para construir el link de invitación
+    # (`/invitacion/{channel}/{token}`) que se manda por email/WhatsApp.
+    FRONTEND_BASE_URL: str = "http://localhost:5173"
+
+    # Entrega del link de invitación (member-invitation, design.md decisión 12).
+    # "log" (default): no manda nada de verdad, deja el link en backend/logs/.
+    # "smtp": smtplib de la biblioteca estándar, sin dependencias nuevas.
+    NOTIFICATIONS_BACKEND: str = "log"
+    SMTP_HOST: str = "localhost"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = ""
+    SMTP_FROM_NAME: str = ""
+
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def normalize_database_url(cls, value: str) -> str:

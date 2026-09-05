@@ -16,6 +16,9 @@ import DataError from "@/components/DataError";
 import { useAttendanceQuery } from "@/services/attendance.queries";
 import { cn } from "@/lib/utils";
 
+const outlineButtonClass =
+  "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70";
+
 type StatCardProps = {
   title: string;
   value: string;
@@ -38,16 +41,16 @@ function endOfDay(date: Date) {
 
 function StatCard({ title, value, hint, icon: Icon }: StatCardProps) {
   return (
-    <div className="rounded-[24px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.07),rgba(255,255,255,0.02)_48%,rgba(249,115,22,0.08))] p-5">
+    <div className="rounded-xl border border-border bg-surface-1 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+          <p className="text-label-caps uppercase text-muted-foreground">
             {title}
           </p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-50">{value}</p>
-          <p className="mt-1 text-sm text-zinc-400">{hint}</p>
+          <p className="font-display mt-2 text-metric-kpi font-extrabold tabular-nums text-foreground">{value}</p>
+          <p className="mt-1 text-body-sm text-muted-foreground">{hint}</p>
         </div>
-        <div className="rounded-2xl bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(255,247,237,0.08),rgba(249,115,22,0.22))] p-3 text-amber-50">
+        <div className="rounded-full bg-primary/15 p-3 text-primary-strong">
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -85,7 +88,7 @@ export default function AttendancePage() {
   }, [items]);
 
   const uniqueClients = useMemo(() => {
-    const ids = new Set(items.map((item) => item.client_id));
+    const ids = new Set(items.map((item) => item.user_id));
     return ids.size;
   }, [items]);
 
@@ -102,29 +105,29 @@ export default function AttendancePage() {
   return (
     <div className="space-y-8">
       <section className="grid gap-4 lg:grid-cols-[1.45fr_0.95fr]">
-        <div className="rounded-[28px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.11))] p-6 shadow-[0_20px_80px_-40px_rgba(249,115,22,0.42)]">
-          <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
+        <div className="hero-aura rounded-xl border border-border p-6">
+          <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
             Operación diaria
           </div>
-          <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+          <h1 className="warm-accent-text font-display mt-4 text-3xl font-extrabold md:text-headline-hero">
             Controla la asistencia del gimnasio con una vista mas clara.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
+          <p className="mt-3 max-w-2xl text-body-md text-muted-foreground md:text-body-lg">
             Busca check-ins por cliente, revisa el movimiento reciente y detecta
             rapidamente como viene la jornada.
           </p>
         </div>
 
-        <div className="rounded-[28px] border border-amber-200/10 bg-white/[0.035] p-6 backdrop-blur-xl">
-          <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+        <div className="rounded-xl border border-border bg-surface-1/60 p-6 backdrop-blur-xl">
+          <p className="text-label-caps uppercase text-muted-foreground">
             Contexto rápido
           </p>
           <div className="mt-4 space-y-4">
             <div>
-              <p className="text-sm text-zinc-400">Ultimo check-in visible</p>
-              <p className="text-lg font-semibold text-zinc-100">{latestCheckin}</p>
+              <p className="text-sm text-muted-foreground">Ultimo check-in visible</p>
+              <p className="text-lg font-semibold text-foreground">{latestCheckin}</p>
             </div>
-            <div className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.05),rgba(249,115,22,0.12))] p-4 text-sm text-amber-50">
+            <div className="rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-foreground">
               Esta vista te ayuda a validar ingresos, detectar picos de actividad y
               buscar rápido a quien ya asistió.
             </div>
@@ -159,31 +162,31 @@ export default function AttendancePage() {
         />
       </section>
 
-      <Card className="rounded-[28px] border-amber-200/10 bg-zinc-900/60 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_30px_-10px_rgba(0,0,0,0.6)] backdrop-blur-xl">
-        <CardHeader className="border-b border-amber-200/10 pb-5">
+      <Card className="rounded-xl border-border bg-surface-1 backdrop-blur-xl">
+        <CardHeader className="border-b border-border pb-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <CardTitle className="text-zinc-100">Listado de check-ins</CardTitle>
-              <p className="mt-2 text-sm leading-6 text-zinc-400">
+              <CardTitle className="text-foreground">Listado de check-ins</CardTitle>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Consultá ingresos por nombre, email o teléfono y revisá rápido
                 quien entreno hoy.
               </p>
             </div>
             <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
               <div className="relative w-full sm:min-w-[320px]">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por nombre, email o teléfono"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  className="border-amber-200/10 bg-zinc-900/70 pl-9 text-zinc-100"
+                  className="border-border bg-surface-2/40 pl-9 text-foreground"
                 />
               </div>
               <Button
                 onClick={() => refetch()}
                 disabled={isFetching}
                 variant="outline"
-                className="border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.05),rgba(249,115,22,0.14))] text-amber-50 hover:opacity-95"
+                className={outlineButtonClass}
               >
                 {isFetching ? "Actualizando..." : "Actualizar"}
               </Button>
@@ -194,13 +197,13 @@ export default function AttendancePage() {
         <CardContent className="space-y-5 pt-6">
           <div
             className={cn(
-              "overflow-hidden rounded-2xl border border-amber-200/10",
+              "overflow-hidden rounded-xl border border-border",
               isFetching && isPlaceholderData && "opacity-60 transition-opacity"
             )}
           >
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-[linear-gradient(90deg,rgba(250,204,21,0.08),rgba(255,247,237,0.04),rgba(249,115,22,0.1))] text-left text-zinc-300">
+                <thead className="bg-surface-2/40 text-left text-label-caps uppercase text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3">Fecha</th>
                     <th className="px-4 py-3">Cliente</th>
@@ -208,10 +211,10 @@ export default function AttendancePage() {
                     <th className="px-4 py-3">Coach</th>
                   </tr>
                 </thead>
-                <tbody className="bg-zinc-950/30">
+                <tbody className="bg-canvas/30">
                   {isPending ? (
                     <tr>
-                      <td colSpan={4} className="px-4 py-10 text-center text-zinc-400">
+                      <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
                         <div className="inline-flex items-center gap-2">
                           <Clock3 className="h-4 w-4" />
                           Cargando asistencias...
@@ -234,7 +237,7 @@ export default function AttendancePage() {
 
                   {!isPending && !isError && items.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-4 py-10 text-center text-zinc-400">
+                      <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
                         No hay asistencias para el filtro actual.
                       </td>
                     </tr>
@@ -244,18 +247,18 @@ export default function AttendancePage() {
                     ? items.map((item, index) => (
                         <tr
                           key={item.id}
-                          className={`border-t border-white/5 ${index % 2 ? "bg-white/[0.03]" : ""}`}
+                          className={`border-t border-border ${index % 2 ? "bg-surface-2/30" : ""}`}
                         >
-                          <td className="px-4 py-3 text-zinc-200">
+                          <td className="px-4 py-3 text-foreground">
                             {new Date(item.checkin_at).toLocaleString("es-AR")}
                           </td>
-                          <td className="px-4 py-3 text-zinc-100">
-                            {item.client?.full_name ?? shortId(item.client_id)}
+                          <td className="px-4 py-3 text-foreground">
+                            {item.user?.full_name ?? shortId(item.user_id)}
                           </td>
-                          <td className="px-4 py-3 text-zinc-300">
-                            {item.client?.phone || item.client?.email || "-"}
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {item.user?.phone || item.user?.email || "-"}
                           </td>
-                          <td className="px-4 py-3 text-zinc-300">
+                          <td className="px-4 py-3 text-muted-foreground">
                             {item.coach_id ? shortId(item.coach_id) : "-"}
                           </td>
                         </tr>

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, Literal, Annotated
 from uuid import UUID
@@ -8,8 +8,13 @@ from sqlalchemy import func
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator, field_serializer
 
 
-Role = Literal["owner", "coach", "user"]
+Role = Literal["owner", "coach", "member"]
+ThemeMode = Literal["dark", "light"]
 ThemePreference = Literal["dark-gold", "dark-copper", "dark-olive"]
+MembershipStatusLiteral = Literal["none", "active", "cancelled"]
+MembershipIndicator = Literal["none", "up_to_date", "overdue", "suspended"]
+InvitationStatus = Literal["none", "pending", "expired", "access_active"]
+InvitationChannel = Literal["email", "phone"]
 
 
 class BaseSchema(BaseModel):
@@ -20,106 +25,114 @@ class BaseSchema(BaseModel):
     )
 
 
+def _strip_or_none(value):
+    if isinstance(value, str):
+        value = value.strip()
+        return value or None
+    return value
+
+
 class UserBase(BaseSchema):
-    full_name: str = Field(min_length=1, max_length=120)
-    email: Annotated[str, Field(min_length=1, max_length=120)]
+    """Perfil compartido por alta/edición (sin membresía ni cuenta: ver deps dedicadas)."""
+
+    first_name: Annotated[str, Field(min_length=1, max_length=80)]
+    last_name: Optional[Annotated[str, Field(max_length=80)]] = None
+    birth_date: Optional[date] = None
+    weight_kg: Optional[Annotated[float, Field(ge=0, le=500)]] = None
+    height_cm: Optional[Annotated[float, Field(ge=0, le=300)]] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[Annotated[str, Field(max_length=30)]] = None
     role: Role
-    client_id: Optional[str] = None
-    is_active: bool = True
+
+    @field_validator("first_name", "last_name", "phone", mode="before")
+    @classmethod
+    def strip_strings(cls, value):
+        return _strip_or_none(value)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value):
+        stripped = _strip_or_none(value)
+        return stripped.lower() if stripped else stripped
 
 
 class UserCreate(UserBase):
-    role: Role = "coach"
-    password: str = Field(min_length=6, max_length=100)
-
-
-class UserUpdate(BaseSchema):
-    full_name: Optional[str] = Field(None, min_length=1, max_length=120)
-    email: Optional[Annotated[str, Field(min_length=1, max_length=120)]] = None
-    role: Optional[Role] = None
-    client_id: Optional[str] = None
-    is_active: Optional[bool] = None
+    role: Role = "member"
     password: Optional[str] = Field(None, min_length=6, max_length=100)
 
 
-class UserOut(UserBase):
-    id: str
-    email_verified: bool
+class UserUpdate(BaseSchema):
+    first_name: Optional[Annotated[str, Field(min_length=1, max_length=80)]] = None
+    last_name: Optional[Annotated[str, Field(max_length=80)]] = None
+    birth_date: Optional[date] = None
+    weight_kg: Optional[Annotated[float, Field(ge=0, le=500)]] = None
+    height_cm: Optional[Annotated[float, Field(ge=0, le=300)]] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[Annotated[str, Field(max_length=30)]] = None
+    role: Optional[Role] = None
+    password: Optional[str] = Field(None, min_length=6, max_length=100)
 
-
-class ClientRegisterIn(BaseSchema):
-    full_name: Annotated[str, Field(min_length=1, max_length=120)]
-    email: EmailStr
-    password: str = Field(min_length=6, max_length=100)
-    phone: Optional[str] = Field(None, max_length=30)
-
-    @field_validator("full_name", "phone", mode="before")
+    @field_validator("first_name", "last_name", "phone", mode="before")
     @classmethod
-    def normalize_registration_strings(cls, value):
-        if isinstance(value, str):
-            value = value.strip()
-            return value or None
-        return value
+    def strip_strings(cls, value):
+        return _strip_or_none(value)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value):
+        stripped = _strip_or_none(value)
+        return stripped.lower() if stripped else stripped
 
 
-class ClientPortalAccessCreate(BaseSchema):
-    email: EmailStr
-    password: str = Field(min_length=6, max_length=100)
-    full_name: Optional[str] = Field(None, min_length=1, max_length=120)
-    is_active: bool = True
-
-
-class ClientPortalAccessOut(BaseSchema):
-    user_id: str
-    client_id: str
+class UserOut(BaseSchema):
+    id: str
+    first_name: str
+    last_name: Optional[str] = None
     full_name: str
-    email: str
+    age: Optional[int] = None
+    birth_date: Optional[date] = None
+    weight_kg: Optional[float] = None
+    height_cm: Optional[float] = None
+    email: Optional[str] = None
+    email_verified: bool
+    phone: Optional[str] = None
+    phone_verified: bool
+    role: Role
     is_active: bool
+    membership_status: MembershipStatusLiteral
+    membership_start_date: Optional[datetime] = None
+    membership_cancelled_at: Optional[datetime] = None
+    membership_indicator: MembershipIndicator
+    invitation_status: InvitationStatus
+    created_at: datetime
+    theme_preference: Optional[ThemeMode] = None
 
 
-class ClientBase(BaseSchema):
-    full_name: Annotated[str, Field(min_length=1, max_length=120)]
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = Field(None, max_length=30)
-    is_active: bool = True
+class UserSummary(BaseSchema):
+    """Proyección liviana de `User` para embeber en `PaymentOut`/`AttendanceOut`."""
 
-    @field_validator("full_name")
-    @classmethod
-    def strip_name(cls, value: str) -> str:
-        return value.strip()
-
-    @field_validator("phone")
-    @classmethod
-    def strip_phone(cls, value: Optional[str]) -> Optional[str]:
-        return value.strip() if value else value
-
-
-class ClientCreate(ClientBase):
-    pass
-
-
-class ClientUpdate(BaseSchema):
-    full_name: Optional[str] = Field(None, min_length=1, max_length=120)
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = Field(None, max_length=30)
-    is_active: Optional[bool] = None
-
-    @field_validator("full_name")
-    @classmethod
-    def strip_name_opt(cls, value: Optional[str]) -> Optional[str]:
-        return value.strip() if value else value
-
-
-class ClientOut(ClientBase):
     id: str
-    join_date: datetime
+    first_name: str
+    last_name: Optional[str] = None
+    full_name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    role: Role
+
+
+class ThemeModeIn(BaseSchema):
+    theme_preference: ThemeMode
+
+
+class MembershipCancelIn(BaseSchema):
+    cancelled_at: Optional[datetime] = None
 
 
 PaymentMethod = Literal["cash", "transfer"]
 
 
 class PaymentBase(BaseSchema):
-    client_id: Annotated[str, Field(min_length=36, max_length=36)]
+    user_id: Annotated[str, Field(min_length=36, max_length=36)]
     amount: Annotated[float, Field(ge=0)]
     method: PaymentMethod
     method_channel: Optional[str] = Field(
@@ -139,14 +152,14 @@ class PaymentCreate(PaymentBase):
 class PaymentOut(PaymentBase):
     id: UUID
     created_at: datetime
-    client: Optional[ClientOut] = None
+    user: Optional[UserSummary] = None
 
     class Config:
         from_attributes = True
 
 
-class ClientStatus(BaseSchema):
-    client_id: str
+class UserPaymentStatus(BaseSchema):
+    user_id: str
     full_name: str
     is_up_to_date: bool
     last_payment_month: Optional[int] = None
@@ -154,18 +167,18 @@ class ClientStatus(BaseSchema):
 
 
 class AttendanceBase(BaseSchema):
-    client_id: Annotated[str, Field(min_length=36, max_length=36)]
+    user_id: Annotated[str, Field(min_length=36, max_length=36)]
 
 
 class AttendanceCheckinIn(BaseSchema):
-    client_id: Optional[Annotated[str, Field(min_length=36, max_length=36)]] = None
+    user_id: Optional[Annotated[str, Field(min_length=36, max_length=36)]] = None
     q: Optional[str] = Field(None, max_length=120, description="nombre, email o telefono")
 
 
 class AttendanceOut(AttendanceBase):
     id: UUID
     checkin_at: datetime
-    client: ClientOut
+    user: UserSummary
 
     class Config:
         from_attributes = True
@@ -292,7 +305,7 @@ class WorkoutLogUpdate(BaseSchema):
 
 class WorkoutLogOut(BaseSchema):
     id: str
-    client_id: str
+    user_id: str
     day_id: str
     day_name: str
     exercise_id: str
@@ -321,9 +334,9 @@ class ProgressImprovement(BaseSchema):
     delta_weight: float
 
 
-class ClientProgressSummary(BaseSchema):
-    client_id: str
-    client_name: str
+class UserProgressSummary(BaseSchema):
+    user_id: str
+    user_name: str
     gym_name: str
     log_count: int
     attendance_count: int
@@ -418,6 +431,30 @@ class SettingsUpdate(BaseSchema):
 
 class SettingsOut(SettingsBase):
     pass
+
+
+# --- Invitación de miembro (member-invitation) ------------------------------
+
+
+class InvitationCreateOut(BaseSchema):
+    """Respuesta de `POST /users/{id}/invitation`: los dos links en claro."""
+
+    email_link: str
+    phone_link: str
+    expires_at: datetime
+
+
+class InvitationStateOut(BaseSchema):
+    """Respuesta de `GET /invitations/{channel}/{token}`."""
+
+    first_name: str
+    email_verified: bool
+    phone_verified: bool
+    can_set_password: bool
+
+
+class InvitationCompleteIn(BaseSchema):
+    password: str = Field(min_length=6, max_length=100)
 
 
 def _bucket_expr(column, bucket: Literal["day", "week", "month"]):

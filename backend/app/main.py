@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from .config import settings
 from .logging_conf import setup_logging
 from .middleware import RequestLogMiddleware
-from .routers import clients, payments, auth, attendance, reports, coaches, routines
+from .routers import users, payments, auth, attendance, reports, routines, invitations
 from .routers import settings as settings_router
 
 setup_logging(debug=getattr(settings, "DEBUG", False))  # ⬅️ antes de crear/usar loggers
@@ -39,13 +39,13 @@ app.add_middleware(RequestLogMiddleware)  # ⬅️ aseguralo
 
 # Routers
 app.include_router(auth.router)
-app.include_router(clients.router)
+app.include_router(users.router)
 app.include_router(payments.router)
 app.include_router(attendance.router)
 app.include_router(reports.router)
-app.include_router(coaches.router)
 app.include_router(routines.router)
 app.include_router(settings_router.router)
+app.include_router(invitations.router)
 
 
 @app.get("/health", tags=["health"])

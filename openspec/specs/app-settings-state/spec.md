@@ -1,8 +1,9 @@
 ## Purpose
 
-Configuración del negocio (nombre del gimnasio, contacto, cobranza, recordatorio de pago) y tema
-visual, compartidos entre vistas del frontend, con propagación inmediata al guardar y sin
-eventos globales de `window`.
+Configuración del negocio (nombre del gimnasio, contacto, cobranza, recordatorio de pago),
+compartida entre vistas del frontend, con propagación inmediata al guardar y sin eventos
+globales de `window`. El tema visual ya no es parte de esta configuración: es una preferencia
+por usuario, ver capability `session-state`.
 
 ## Requirements
 
@@ -49,17 +50,3 @@ este responde.
 #### Scenario: El servidor manda sobre lo persistido
 - **WHEN** la app carga con una configuración persistida y el servidor devuelve valores distintos
 - **THEN** la UI pasa a mostrar los valores del servidor
-
-### Requirement: El tema visual se aplica en toda la app y persiste
-El tema visual elegido SHALL aplicarse a toda la app apenas se cambia, sin recargar la página, y
-SHALL seguir aplicado en la siguiente carga.
-
-#### Scenario: Cambiar el tema
-- **WHEN** el Dueño elige otro tema visual en `/settings`
-- **THEN** la apariencia de la app cambia de inmediato en toda la pantalla, incluidos menú
-  lateral, barra superior y pie de página
-
-#### Scenario: El tema sobrevive a recargar
-- **WHEN** el Dueño cambia el tema y recarga la página
-- **THEN** la app se muestra con el tema elegido desde el primer render, sin destello del tema
-  anterior

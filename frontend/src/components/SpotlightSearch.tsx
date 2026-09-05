@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import UserCard from "./UserCard";
-import { fetchClientStats, searchClients } from "@/services/search";
-import type { Client, Payment, Role } from "@/types";
+import { fetchUserStats, searchUsers } from "@/services/search";
+import type { Payment, Role, User } from "@/types";
 import { useNavigate } from "react-router-dom";
 
 type Props = {
@@ -30,17 +30,17 @@ type Props = {
   viewerRole: Role;
 };
 
-type ClientStats = {
+type UserStats = {
   lastPayment?: Payment | null;
   attendanceCount?: number;
 };
 
 export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Props) {
   const [query, setQuery] = React.useState("");
-  const [results, setResults] = React.useState<Client[]>([]);
+  const [results, setResults] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(false);
-  const [selected, setSelected] = React.useState<Client | null>(null);
-  const [stats, setStats] = React.useState<Record<string, ClientStats>>({});
+  const [selected, setSelected] = React.useState<User | null>(null);
+  const [stats, setStats] = React.useState<Record<string, UserStats>>({});
   const navigate = useNavigate();
 
   const closeAll = React.useCallback(() => {
@@ -61,15 +61,15 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
 
       setLoading(true);
       try {
-        const data = await searchClients(query.trim());
+        const data = await searchUsers(query.trim());
         setResults(data);
 
         const top = data.slice(0, 5);
         const entries = await Promise.all(
-          top.map(async (client) => [client.id, await fetchClientStats(client.id)] as const)
+          top.map(async (user) => [user.id, await fetchUserStats(user.id)] as const)
         );
 
-        const nextStats: Record<string, ClientStats> = {};
+        const nextStats: Record<string, UserStats> = {};
         entries.forEach(([id, pack]) => {
           nextStats[id] = pack;
         });
@@ -106,57 +106,57 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
             type="button"
             aria-label="Cerrar buscador"
             onClick={closeAll}
-            className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,rgba(250,204,21,0.12),transparent_35%),rgba(3,3,3,0.78)] backdrop-blur-sm"
+            className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,color-mix(in_srgb,var(--primary)_12%,transparent),transparent_35%),color-mix(in_srgb,var(--canvas)_78%,transparent)] backdrop-blur-sm"
           />
 
           <div className="relative z-10 mx-auto flex h-full w-full max-w-4xl items-start justify-center px-4 pb-6 pt-20 md:pt-24">
-            <Command className="surface-panel warm-glow relative z-20 w-full overflow-hidden rounded-[30px] border border-amber-200/10 bg-[#0c0b0a]/95">
-              <div className="flex items-center justify-between border-b border-white/8 px-5 py-3">
+            <Command className="surface-panel warm-glow relative z-20 w-full overflow-hidden rounded-xl border border-border bg-surface-1">
+              <div className="flex items-center justify-between border-b border-border px-5 py-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
+                  <p className="text-label-caps uppercase text-muted-foreground">
                     Busqueda rapida
                   </p>
-                  <p className="mt-1 text-sm text-zinc-300">
-                    Clientes, pagos e historial en un solo lugar
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Usuarios, pagos e historial en un solo lugar
                   </p>
                 </div>
-                <div className="hidden items-center gap-2 rounded-full border border-amber-200/10 bg-white/4 px-3 py-1 text-xs text-zinc-400 md:flex">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-200" />
+                <div className="hidden items-center gap-2 rounded-full border border-border bg-surface-2/40 px-3 py-1 text-xs text-muted-foreground md:flex">
+                  <Sparkles className="h-3.5 w-3.5 text-primary-strong" />
                   ESC para cerrar
                 </div>
               </div>
 
               <CommandInput
                 autoFocus
-                placeholder="Buscar clientes por nombre, email o telefono..."
+                placeholder="Buscar usuarios por nombre, email o telefono..."
                 value={query}
                 onValueChange={setQuery}
-                className="text-base text-zinc-100 placeholder:text-zinc-500"
+                className="text-base text-foreground placeholder:text-muted-foreground"
               />
 
               <CommandList className="warm-scrollbar max-h-[380px] px-2 pb-2">
                 {!loading ? <CommandEmpty>Sin resultados</CommandEmpty> : null}
-                <CommandGroup heading="Clientes">
-                  {results.map((client) => (
+                <CommandGroup heading="Usuarios">
+                  {results.map((user) => (
                     <CommandItem
-                      key={client.id}
-                      value={client.full_name}
-                      className="rounded-2xl border border-transparent px-3 py-3 text-zinc-100 data-[selected=true]:border-amber-200/10 data-[selected=true]:bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.04),rgba(249,115,22,0.1))] data-[selected=true]:text-zinc-50"
+                      key={user.id}
+                      value={user.full_name}
+                      className="rounded-xl border border-transparent px-3 py-3 text-foreground data-[selected=true]:border-primary/30 data-[selected=true]:bg-primary/10 data-[selected=true]:text-foreground"
                       onSelect={() => {
-                        setSelected(client);
+                        setSelected(user);
                         onOpenChange(false);
                       }}
                     >
                       <div className="flex w-full items-center justify-between gap-3">
                         <div className="truncate">
-                          <div className="font-medium">{client.full_name}</div>
-                          <div className="text-xs text-zinc-400">
-                            {client.phone ?? "-"} • {client.email ?? "-"}
+                          <div className="font-medium">{user.full_name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {user.phone ?? "-"} • {user.email ?? "-"}
                           </div>
                         </div>
-                        <div className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-xs text-zinc-300">
-                          <Search className="h-3.5 w-3.5 text-amber-200" />
-                          {stats[client.id]?.attendanceCount ?? 0} asis.
+                        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2/40 px-2.5 py-1 text-xs text-muted-foreground">
+                          <Search className="h-3.5 w-3.5 text-primary-strong" />
+                          {stats[user.id]?.attendanceCount ?? 0} asis.
                         </div>
                       </div>
                     </CommandItem>
@@ -176,11 +176,11 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
           }
         }}
       >
-        <DrawerContent className="flex h-[92vh] flex-col border-zinc-800 bg-zinc-950">
+        <DrawerContent className="flex h-[92vh] flex-col border-border bg-canvas">
           <div className="warm-scrollbar mx-auto w-full max-w-4xl flex-1 overflow-y-auto p-4">
             <DrawerHeader>
               <DrawerTitle className="text-xl">Ficha del cliente</DrawerTitle>
-              <DrawerDescription className="text-zinc-400">
+              <DrawerDescription className="text-muted-foreground">
                 Vista {viewerRole === "owner" ? "completa (Dueño)" : "para Coach"}.
               </DrawerDescription>
             </DrawerHeader>
@@ -191,12 +191,12 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
                   viewerRole={viewerRole}
                   client={selected}
                   stats={stats[selected.id] ?? undefined}
-                  onAction={(action, client) => {
+                  onAction={(action, user) => {
                     if (action === "viewHistory") {
                       closeAll();
                       const params = new URLSearchParams({
-                        client_id: client.id,
-                        q: client.full_name || "",
+                        user_id: user.id,
+                        q: user.full_name || "",
                       });
                       navigate(`/payments?${params.toString()}`);
                     }
@@ -205,11 +205,7 @@ export default function SpotlightSearch({ open, onOpenChange, viewerRole }: Prop
 
                 <div className="mt-4 flex justify-end">
                   <DrawerClose asChild>
-                    <Button
-                      variant="outline"
-                      className="border-zinc-700 text-gray-100 hover:bg-zinc-800"
-                      onClick={closeAll}
-                    >
+                    <Button variant="outline" onClick={closeAll}>
                       Cerrar
                     </Button>
                   </DrawerClose>

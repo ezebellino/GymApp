@@ -52,13 +52,10 @@ El repositorio SHALL exponer `make test-backend` y `make test-frontend`, que eje
 
 ### Requirement: Smoke de autenticación del backend
 La suite de backend SHALL cubrir el camino feliz de autenticación de punta a punta contra la API:
-alta de cuenta de cliente, login con esas credenciales y consulta de la identidad autenticada con
-el token obtenido.
-
-#### Scenario: Registro de cliente devuelve una sesión utilizable
-- **WHEN** el test registra una cuenta de cliente nueva vía `POST /auth/client-register` con
-  nombre, email y contraseña válidos
-- **THEN** la respuesta es exitosa e incluye un `access_token` de tipo `bearer`
+login con las credenciales de una cuenta ya existente (creada como parte de la preparación del
+test, no vía auto-registro) y consulta de la identidad autenticada con el token obtenido. El
+auto-registro (`POST /auth/client-register`) ya no existe (ver capability `register-client-view`,
+retirada) y por lo tanto no es parte de este smoke.
 
 #### Scenario: Login con credenciales válidas
 - **WHEN** el test hace `POST /auth/token` con el email y la contraseña de una cuenta existente
@@ -138,21 +135,18 @@ como parte de su propia preparación.
 
 ### Requirement: Test de render por cada vista con spec
 La suite de frontend SHALL incluir al menos un test de render por cada vista que hoy tiene una
-capability en `openspec/specs/`: `login-view`, `register-client-view`, `dashboard-view` y
-`settings-view`. Cada test MUST afirmar elementos que la spec de esa vista promete que se ven y,
-cuando la spec lo declara explícitamente, que los elementos eliminados no aparecen.
+capability en `openspec/specs/`: `login-view`, `dashboard-view` y `settings-view`. La vista
+`register-client-view` deja de tener test de render porque su ruta se retiró (ver capability
+`register-client-view`, eliminada). Cada test MUST afirmar elementos que la spec de esa vista
+promete que se ven y, cuando la spec lo declara explícitamente, que los elementos eliminados no
+aparecen.
 
 #### Scenario: Render de la vista de login
 - **WHEN** el test renderiza la vista `/login`
-- **THEN** encuentra el nombre de marca "Gym App", el campo "Usuario", el campo "Contraseña", el
-  botón "Entrar" y el link "Registrar cuenta"
-- **THEN** no encuentra banner de demo, contador de conexión ni aviso de reactivación de backend
-
-#### Scenario: Render de la vista de registro de cliente
-- **WHEN** el test renderiza la vista `/register-client`
-- **THEN** encuentra el header de marca "Gym App", los campos de contraseña y confirmación, y el
-  link "Volver al login"
-- **THEN** no encuentra el eyebrow "Registro de cliente" ni el título "Crear acceso personal"
+- **THEN** encuentra el nombre de marca "Gym App", el campo "Usuario", el campo "Contraseña" y el
+  botón "Entrar"
+- **THEN** no encuentra banner de demo, contador de conexión, aviso de reactivación de backend, ni
+  ningún link de registro de cuenta
 
 #### Scenario: Render de la vista de dashboard
 - **WHEN** el test renderiza la vista `/dashboard`

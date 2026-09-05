@@ -13,26 +13,26 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type {
   AppSettings,
-  Client,
-  ClientProgressSummary,
   Payment,
   Role,
+  User,
+  UserProgressSummary,
 } from "@/types";
 import NewPaymentDialog from "./NewPaymentDialog";
 import AttendanceCalendar from "./AttendanceCalendar";
 import LastPayments from "./LastPayments";
-import EditClientDialog from "./EditClientDialog";
+import EditUserDialog from "./EditUserDialog";
 import api from "@/lib/http";
-import { alertInfo, alertSuccessAutoClose, toast } from "@/lib/alerts";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 
 type Props = {
   viewerRole: Role;
-  client: Client;
+  client: User;
   stats?: {
     lastPayment?: Payment | null;
     attendanceCount?: number;
   };
-  onAction?: (action: "checkin" | "newPayment" | "viewHistory", client: Client) => void;
+  onAction?: (action: "checkin" | "newPayment" | "viewHistory", client: User) => void;
   onRefresh?: () => void;
   onCloseAll?: () => void;
 };
@@ -95,7 +95,7 @@ export default function UserCard({
     try {
       const now = new Date();
       await api.post("/payments", {
-        client_id: client.id,
+        user_id: client.id,
         amount: defaultFee,
         method,
         method_channel: null,
@@ -109,12 +109,12 @@ export default function UserCard({
         new CustomEvent("payments:created", { detail: { client_id: client.id } })
       );
 
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Pago rapido registrado",
         `Se registró la cuota vigente de ${client.full_name} por ${method === "cash" ? "efectivo" : "transferencia"}.`
       );
     } catch (error: any) {
-      await alertError(
+      toastError(
         "No se pudo crear el pago rapido",
         error?.response?.data?.detail ?? "Revisa si el periodo ya fue cobrado."
       );
@@ -123,7 +123,7 @@ export default function UserCard({
     }
   }
 
-  function buildClientProgressPdf(summary: ClientProgressSummary) {
+  function buildClientProgressPdf(summary: UserProgressSummary) {
     const escapePdf = (value: string) =>
       value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
 
@@ -173,7 +173,7 @@ export default function UserCard({
         44,
         688,
         10,
-        `Cliente: ${summary.client_name} | Emitido: ${new Date().toLocaleDateString("es-AR")}`,
+        `Cliente: ${summary.user_name} | Emitido: ${new Date().toLocaleDateString("es-AR")}`,
         zinc
       )
     );
@@ -347,8 +347,8 @@ export default function UserCard({
   }
 
   async function fetchProgressReport() {
-    const { data } = await api.get<ClientProgressSummary>(
-      `/routines/clients/${client.id}/progress-summary`
+    const { data } = await api.get<UserProgressSummary>(
+      `/routines/users/${client.id}/progress-summary`
     );
     const blob = buildClientProgressPdf(data);
     const safeName = client.full_name.toLowerCase().replace(/\s+/g, "-");
@@ -373,16 +373,15 @@ export default function UserCard({
       const { blob, filename } = await fetchProgressReport();
       downloadBlob(blob, filename);
 
-      await alertSuccessAutoClose(
+      toastSuccess(
         "PDF listo",
         `Se descargo el reporte de progreso de ${client.full_name}.`
       );
     } catch (error: any) {
-      toast.fire({
-        icon: "error",
-        title: "No se pudo generar el PDF",
-        text: error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos.",
-      });
+      toastError(
+        "No se pudo generar el PDF",
+        error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos."
+      );
     } finally {
       setDownloadingReport(false);
     }
@@ -390,7 +389,7 @@ export default function UserCard({
 
   async function handleShareProgressReport() {
     if (!client.phone) {
-      await alertInfo(
+      toastInfo(
         "Falta WhatsApp",
         "Este cliente no tiene telefono cargado para compartirle el reporte."
       );
@@ -405,8 +404,8 @@ export default function UserCard({
         `Segui asi, tu constancia ya esta mostrando resultados.`;
 
       try {
-        const { data } = await api.get<ClientProgressSummary>(
-          `/routines/clients/${client.id}/progress-summary`
+        const { data } = await api.get<UserProgressSummary>(
+          `/routines/users/${client.id}/progress-summary`
         );
         const highlights: string[] = [];
 
@@ -449,7 +448,7 @@ export default function UserCard({
           text: message,
           files: [file],
         });
-        await alertSuccessAutoClose(
+        toastSuccess(
           "Reporte compartido",
           `Se abrio el flujo para enviarle el PDF a ${client.full_name}.`
         );
@@ -463,58 +462,62 @@ export default function UserCard({
       const whatsappUrl = `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
       window.open(whatsappUrl, "_blank", "noopener,noreferrer");
 
-      await alertInfo(
+      toastInfo(
         "PDF listo para compartir",
         "Descargamos el reporte y abrimos WhatsApp con el mensaje preparado. En algunos navegadores el archivo se adjunta manualmente."
       );
     } catch (error: any) {
-      toast.fire({
-        icon: "error",
-        title: "No se pudo preparar el reporte",
-        text: error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos.",
-      });
+      toastError(
+        "No se pudo preparar el reporte",
+        error?.response?.data?.detail ?? "Intenta nuevamente en unos segundos."
+      );
     } finally {
       setSharingReport(false);
     }
   }
 
   return (
-    <Card className="overflow-hidden rounded-[28px] border-amber-200/10 bg-[#0d0b0a]/92 shadow-[0_24px_80px_-50px_rgba(249,115,22,0.55)]">
-      <CardHeader className="border-b border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.12))] pb-5">
+    <Card className="overflow-hidden rounded-xl border-border bg-surface-1">
+      <CardHeader className="border-b border-border bg-surface-2/40 pb-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-amber-100">
+            <div className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
               Ficha del cliente
             </div>
-            <CardTitle className="mt-4 text-2xl text-zinc-50">
+            <CardTitle className="mt-4 text-2xl text-foreground">
               <span className="warm-accent-text">{client.full_name}</span>
             </CardTitle>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-zinc-200">
-              <span>Alta: {new Date(client.join_date).toLocaleDateString("es-AR")}</span>
-              <span className="text-zinc-600">•</span>
-              {client.is_active ? (
-                <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-100 hover:bg-amber-300/10">
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-foreground">
+              <span>
+                Alta:{" "}
+                {new Date(client.membership_start_date ?? client.created_at).toLocaleDateString(
+                  "es-AR"
+                )}
+              </span>
+              <span className="text-muted-foreground">•</span>
+              {client.membership_status === "active" ? (
+                <Badge className="border-primary/30 bg-primary/10 text-primary-strong hover:bg-primary/10">
                   Activo
                 </Badge>
               ) : (
                 <Badge
                   variant="outline"
-                  className="border-white/10 bg-white/[0.03] text-zinc-300"
+                  className="border-border bg-surface-2/30 text-muted-foreground"
                 >
-                  Inactivo
+                  {client.membership_status === "cancelled" ? "Dado de baja" : "Sin membresía"}
                 </Badge>
               )}
             </div>
           </div>
 
           <div className="min-w-[190px] space-y-2 text-sm">
-            <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-zinc-300">
-              <Phone className="h-4 w-4 text-amber-200" />
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-2/30 px-3 py-2 text-muted-foreground">
+              <Phone className="h-4 w-4 text-primary-strong" />
               <span className="break-all">{client.phone || "Sin teléfono"}</span>
             </div>
             {viewerRole === "owner" ? (
-              <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-zinc-400">
-                <Mail className="h-4 w-4 text-amber-200" />
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-2/30 px-3 py-2 text-muted-foreground">
+                <Mail className="h-4 w-4 text-primary-strong" />
                 <span className="break-all">{client.email ?? "Sin email"}</span>
               </div>
             ) : null}
@@ -522,37 +525,37 @@ export default function UserCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-5 px-4 py-5 text-zinc-100 sm:px-6">
+      <CardContent className="space-y-5 px-4 py-5 text-foreground sm:px-6">
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-[22px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.08),rgba(255,255,255,0.02)_50%,rgba(249,115,22,0.08))] p-4">
+          <div className="rounded-xl border border-primary/20 bg-primary/10 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                <p className="text-label-caps uppercase text-muted-foreground">
                   Asistencias
                 </p>
-                <p className="mt-2 text-3xl font-semibold text-zinc-50">
+                <p className="mt-2 text-3xl font-semibold text-foreground">
                   {attendanceCount}
                 </p>
-                <p className="mt-1 text-sm text-zinc-400">Registradas en el historial reciente</p>
+                <p className="mt-1 text-sm text-muted-foreground">Registradas en el historial reciente</p>
               </div>
-              <div className="rounded-2xl bg-white/[0.05] p-3 text-amber-100">
+              <div className="rounded-full bg-primary/15 p-3 text-primary-strong">
                 <CalendarClock className="h-5 w-5" />
               </div>
             </div>
           </div>
 
-          <div className="rounded-[22px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(249,115,22,0.12),rgba(255,247,237,0.03)_50%,rgba(250,204,21,0.08))] p-4">
+          <div className="rounded-xl border border-primary/20 bg-primary/10 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                <p className="text-label-caps uppercase text-muted-foreground">
                   Último pago
                 </p>
                 {lastPay ? (
                   <>
-                    <p className="mt-2 text-3xl font-semibold text-zinc-50">
+                    <p className="mt-2 text-3xl font-semibold text-foreground">
                       ${lastPay.amount.toFixed(0)}
                     </p>
-                    <p className="mt-1 text-sm text-zinc-400">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {String(lastPay.period_month).padStart(2, "0")}/{lastPay.period_year} •{" "}
                       {methodLabel(lastPay.method)}
                       {lastPay.method === "transfer" && lastPay.method_channel
@@ -562,12 +565,12 @@ export default function UserCard({
                   </>
                 ) : (
                   <>
-                    <p className="mt-2 text-3xl font-semibold text-zinc-50">-</p>
-                    <p className="mt-1 text-sm text-zinc-400">Todavía no registra pagos</p>
+                    <p className="mt-2 text-3xl font-semibold text-foreground">-</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Todavía no registra pagos</p>
                   </>
                 )}
               </div>
-              <div className="rounded-2xl bg-white/[0.05] p-3 text-amber-100">
+              <div className="rounded-full bg-primary/15 p-3 text-primary-strong">
                 <Wallet className="h-5 w-5" />
               </div>
             </div>
@@ -577,28 +580,24 @@ export default function UserCard({
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <AttendanceCalendar clientId={client.id} monthsBack={3} />
 
-          <div className="rounded-[24px] border border-white/10 bg-zinc-950/60 p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-100">
-              <BadgeCheck className="h-4 w-4 text-amber-200" />
+          <div className="rounded-xl border border-border bg-canvas/60 p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+              <BadgeCheck className="h-4 w-4 text-primary-strong" />
               Últimos pagos
             </div>
             <LastPayments clientId={client.id} />
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
-          <Button
-            size="sm"
-            className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
-            onClick={() => setOpenEdit(true)}
-          >
+        <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+          <Button size="sm" onClick={() => setOpenEdit(true)}>
             Editar datos
           </Button>
 
           <Button
             size="sm"
             variant="outline"
-            className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.08]"
+            className="border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70"
             onClick={() => {
               setOpenPayment(true);
               onAction?.("newPayment", client);
@@ -613,8 +612,8 @@ export default function UserCard({
               variant="outline"
               className={
                 quickPaymentMethod === "cash"
-                  ? "border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
-                  : "border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.08]"
+                  ? "border-primary/30 bg-primary/10 text-primary-strong"
+                  : "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70"
               }
               onClick={() => setQuickPaymentMethod("cash")}
             >
@@ -625,8 +624,8 @@ export default function UserCard({
               variant="outline"
               className={
                 quickPaymentMethod === "transfer"
-                  ? "border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
-                  : "border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.08]"
+                  ? "border-primary/30 bg-primary/10 text-primary-strong"
+                  : "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70"
               }
               onClick={() => setQuickPaymentMethod("transfer")}
             >
@@ -634,7 +633,6 @@ export default function UserCard({
             </Button>
             <Button
               size="sm"
-              className="border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.14),rgba(255,247,237,0.06),rgba(249,115,22,0.16))] text-amber-50 hover:opacity-95"
               onClick={() => handleQuickPayment(quickPaymentMethod)}
               disabled={quickPaying}
             >
@@ -647,7 +645,7 @@ export default function UserCard({
           <Button
             size="sm"
             variant="ghost"
-            className="text-zinc-100 hover:bg-white/[0.06]"
+            className="text-foreground hover:bg-surface-2/40"
             onClick={() => onAction?.("viewHistory", client)}
           >
             Ver historial
@@ -656,7 +654,7 @@ export default function UserCard({
           <Button
             size="sm"
             variant="outline"
-            className="border-white/10 bg-white/[0.03] text-zinc-100 hover:bg-white/[0.08]"
+            className="border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70"
             onClick={handleDownloadProgressReport}
             disabled={downloadingReport}
           >
@@ -667,7 +665,7 @@ export default function UserCard({
           <Button
             size="sm"
             variant="outline"
-            className="border-emerald-500/20 bg-emerald-500/8 text-emerald-100 hover:bg-emerald-500/15 disabled:opacity-60"
+            className="border-emerald-500/20 bg-emerald-500/8 text-emerald-800 hover:bg-emerald-500/15 disabled:opacity-60 dark:text-emerald-100"
             onClick={handleShareProgressReport}
             disabled={sharingReport || !client.phone}
           >
@@ -685,10 +683,10 @@ export default function UserCard({
         defaultFee={defaultFee}
         onSuccess={onRefresh}
       />
-      <EditClientDialog
+      <EditUserDialog
         open={openEdit}
         onOpenChange={setOpenEdit}
-        client={client}
+        user={client}
         onSuccess={onRefresh}
       />
     </Card>

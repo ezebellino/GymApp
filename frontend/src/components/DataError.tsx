@@ -18,19 +18,14 @@ export default function DataError({
   onRetry,
 }: DataErrorProps) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-amber-200/10 bg-zinc-900/40 px-6 py-10 text-center">
-      <AlertTriangle className="h-6 w-6 text-amber-300" aria-hidden="true" />
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-surface-1/40 px-6 py-10 text-center">
+      <AlertTriangle className="h-6 w-6 text-primary-strong" aria-hidden="true" />
       <div>
-        <p className="text-sm font-medium text-zinc-100">{title}</p>
-        <p className="mt-1 text-sm text-zinc-400">{description}</p>
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
       {onRetry ? (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onRetry}
-          className="border-amber-300/20 bg-white/[0.04] text-amber-50 hover:bg-white/[0.08]"
-        >
+        <Button type="button" variant="outline" onClick={onRetry}>
           Reintentar
         </Button>
       ) : null}

@@ -1,4 +1,4 @@
-import type { ClientsParams } from "./clients";
+import type { UsersParams } from "./users";
 import type { PaymentsParams, PeriodRange as PaymentsPeriodRange } from "./payments";
 import type { AttendanceParams, PeriodRange as AttendancePeriodRange } from "./attendance";
 
@@ -7,10 +7,11 @@ import type { AttendanceParams, PeriodRange as AttendancePeriodRange } from "./a
 // (`queryKeys.<dominio>.all`) sin importar la combinación de params de cada
 // query concreta.
 export const queryKeys = {
-  clients: {
-    all: ["clients"] as const,
-    list: (params: ClientsParams) => ["clients", "list", params] as const,
-    search: (q: string) => ["clients", "search", q] as const,
+  users: {
+    all: ["users"] as const,
+    list: (params: UsersParams) => ["users", "list", params] as const,
+    detail: (id: string) => ["users", "detail", id] as const,
+    search: (q: string) => ["users", "search", q] as const,
   },
   payments: {
     all: ["payments"] as const,
@@ -24,5 +25,8 @@ export const queryKeys = {
   },
   settings: {
     all: ["settings"] as const,
+  },
+  me: {
+    all: ["me"] as const,
   },
 };

@@ -23,7 +23,7 @@ def main(limit: int = 50):
     try:
         q = (
             db.query(models.Payment)
-            .options(joinedload(models.Payment.client))
+            .options(joinedload(models.Payment.user))
             .order_by(models.Payment.created_at.desc())
             .limit(limit)
         )
@@ -34,10 +34,10 @@ def main(limit: int = 50):
 
         print(f"Showing {len(rows)} most recent payments (limit={limit}):\n")
         for p in rows:
-            client = getattr(p, "client", None)
-            client_name = client.full_name if client else (p.client_id or "-")
+            user = getattr(p, "user", None)
+            user_name = user.full_name if user else (p.user_id or "-")
             created = p.created_at.isoformat() if isinstance(p.created_at, datetime) else str(p.created_at)
-            print(f"id={p.id}\n  client_id={p.client_id}\n  client_name={client_name}\n  method={p.method}\n  method_channel={p.method_channel}\n  amount={p.amount}\n  period={p.period_month}/{p.period_year}\n  created_at={created}\n")
+            print(f"id={p.id}\n  user_id={p.user_id}\n  user_name={user_name}\n  method={p.method}\n  method_channel={p.method_channel}\n  amount={p.amount}\n  period={p.period_month}/{p.period_year}\n  created_at={created}\n")
 
     finally:
         db.close()

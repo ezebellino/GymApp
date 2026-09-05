@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useSessionStore } from "@/stores/session";
 import { useSettingsStore } from "@/stores/settings";
+import { useThemeStore } from "@/stores/theme";
 
 // No hace falta AuthProvider (App.jsx no lo monta), ni theme provider (el tema
 // se aplica por document.documentElement.dataset), ni el Toaster de sileo (los
@@ -42,6 +43,7 @@ export function renderWithProviders(
   // después de cualquier beforeEach del test.
   useSessionStore.persist.rehydrate();
   useSettingsStore.persist.rehydrate();
+  useThemeStore.persist.rehydrate();
 
   return render(ui, {
     wrapper: ({ children }) => (

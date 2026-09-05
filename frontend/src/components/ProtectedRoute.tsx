@@ -1,8 +1,7 @@
 import { Navigate } from "react-router-dom";
 import type { JSX } from "react";
 import { useSessionStore } from "@/stores/session";
-
-type Role = "owner" | "coach" | "user";
+import type { Role } from "@/types";
 
 type Props = {
   children: JSX.Element;
@@ -26,7 +25,7 @@ export default function ProtectedRoute({ children, roles }: Props) {
 
   const effectiveRole = role ?? "coach";
   if (roles?.length && !roles.includes(effectiveRole)) {
-    return <Navigate to={effectiveRole === "user" ? "/my-routine" : "/dashboard"} replace />;
+    return <Navigate to={effectiveRole === "member" ? "/my-routine" : "/dashboard"} replace />;
   }
 
   return children;

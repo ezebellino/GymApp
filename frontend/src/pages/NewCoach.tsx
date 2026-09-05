@@ -13,19 +13,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/http";
 import { useNavigate } from "react-router-dom";
-import { alertError, alertSuccessAutoClose } from "@/lib/alerts";
+import { toastError, toastSuccess } from "@/lib/toast";
+
+const outlineButtonClass =
+  "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70";
 
 function PasswordRule({ label, ok }: { label: string; ok: boolean }) {
   return (
     <div
-      className={`rounded-2xl border px-3 py-3 text-xs transition ${
+      className={`rounded-xl border px-3 py-3 text-xs transition ${
         ok
-          ? "border-amber-300/20 bg-amber-300/10 text-amber-100"
-          : "border-white/10 bg-white/[0.02] text-zinc-500"
+          ? "border-primary/30 bg-primary/10 text-primary-strong"
+          : "border-border bg-surface-2/20 text-muted-foreground"
       }`}
     >
       <div className="flex items-center gap-2">
-        <BadgeCheck className={`h-4 w-4 ${ok ? "text-amber-200" : "text-zinc-600"}`} />
+        <BadgeCheck className={`h-4 w-4 ${ok ? "text-primary-strong" : "text-muted-foreground"}`} />
         <span>{label}</span>
       </div>
     </div>
@@ -61,15 +64,18 @@ export default function NewCoachPage() {
     setLoading(true);
 
     try {
+      const [firstName, ...rest] = fullName.trim().split(/\s+/);
       const payload = {
-        full_name: fullName.trim(),
+        first_name: firstName,
+        last_name: rest.length ? rest.join(" ") : null,
+        role: "coach",
         email: email.trim(),
         password,
       };
 
-      await api.post("/coaches", payload);
+      await api.post("/users", payload);
 
-      await alertSuccessAutoClose(
+      toastSuccess(
         "Coach creado",
         "El nuevo coach fue registrado correctamente."
       );
@@ -81,7 +87,7 @@ export default function NewCoachPage() {
     } catch (err: any) {
       const message =
         err?.response?.data?.detail || err?.message || "No se pudo crear el coach.";
-      await alertError("No se pudo crear el coach", String(message));
+      toastError("No se pudo crear el coach", String(message));
     } finally {
       setLoading(false);
     }
@@ -90,14 +96,14 @@ export default function NewCoachPage() {
   return (
     <div className="space-y-6">
       <section className="grid gap-4 lg:grid-cols-[1.35fr_0.85fr]">
-        <div className="rounded-[30px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.1),rgba(255,247,237,0.03)_45%,rgba(249,115,22,0.12))] p-6 shadow-[0_25px_90px_-52px_rgba(249,115,22,0.5)]">
-          <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-amber-100">
+        <div className="hero-aura rounded-xl border border-border p-6">
+          <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
             Equipo y accesos
           </div>
-          <h1 className="warm-accent-text mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+          <h1 className="warm-accent-text font-display mt-4 text-3xl font-extrabold md:text-headline-hero">
             Suma un nuevo coach con un alta mas clara, segura y lista para operar.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
+          <p className="mt-3 max-w-2xl text-body-md text-muted-foreground md:text-body-lg">
             Define sus datos base, prepara un acceso inicial y deja listo el perfil
             para que pueda trabajar con clientes, asistencias y seguimiento diario.
           </p>
@@ -107,7 +113,7 @@ export default function NewCoachPage() {
               type="button"
               variant="outline"
               onClick={() => navigate("/dashboard")}
-              className="border-amber-200/10 bg-white/[0.04] text-zinc-100 hover:bg-white/8"
+              className={outlineButtonClass}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Volver al dashboard
@@ -115,18 +121,18 @@ export default function NewCoachPage() {
           </div>
         </div>
 
-        <div className="rounded-[30px] border border-amber-200/10 bg-white/[0.035] p-6 backdrop-blur-xl">
-          <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+        <div className="rounded-xl border border-border bg-surface-1/60 p-6 backdrop-blur-xl">
+          <p className="text-label-caps uppercase text-muted-foreground">
             Recomendacion
           </p>
           <div className="mt-4 space-y-4">
             <div>
-              <p className="text-sm text-zinc-400">Alta sugerida</p>
-              <p className="text-lg font-semibold text-zinc-100">
+              <p className="text-sm text-muted-foreground">Alta sugerida</p>
+              <p className="text-lg font-semibold text-foreground">
                 Email real, acceso temporal y contexto claro
               </p>
             </div>
-            <div className="rounded-2xl border border-amber-300/20 bg-[linear-gradient(90deg,rgba(250,204,21,0.12),rgba(255,247,237,0.05),rgba(249,115,22,0.12))] p-4 text-sm text-amber-50">
+            <div className="rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-foreground">
               Lo ideal es compartir una clave inicial segura y pedirle al coach que
               la cambie en su primer ingreso.
             </div>
@@ -135,9 +141,9 @@ export default function NewCoachPage() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <Card className="rounded-[30px] border-amber-200/10 bg-zinc-950/70 backdrop-blur-md">
-          <CardHeader className="border-b border-amber-200/10 pb-5">
-            <CardTitle className="flex items-center gap-2 text-zinc-100">
+        <Card className="rounded-xl border-border bg-surface-1 backdrop-blur-md">
+          <CardHeader className="border-b border-border pb-5">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <UsersRound className="h-5 w-5" />
               Registrar nuevo coach
             </CardTitle>
@@ -145,16 +151,16 @@ export default function NewCoachPage() {
 
           <CardContent className="pt-6">
             <form onSubmit={onSubmit} className="space-y-6">
-              <div className="rounded-[24px] border border-amber-200/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.08),rgba(255,247,237,0.03)_48%,rgba(249,115,22,0.1))] p-4">
+              <div className="rounded-xl border border-primary/20 bg-primary/10 p-4">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-2xl bg-white/6 p-3 text-amber-100">
+                  <div className="rounded-full bg-primary/15 p-3 text-primary-strong">
                     <ShieldCheck className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-zinc-100">
+                    <p className="text-sm font-medium text-foreground">
                       Acceso inicial del equipo
                     </p>
-                    <p className="mt-1 text-sm leading-6 text-zinc-400">
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
                       Este alta crea la cuenta del coach y la deja lista para ingresar
                       al panel con permisos operativos.
                     </p>
@@ -163,44 +169,44 @@ export default function NewCoachPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-zinc-400">Nombre completo</label>
+                <label className="text-sm text-muted-foreground">Nombre completo</label>
                 <div className="relative">
-                  <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                  <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
-                    className="border-white/10 bg-zinc-900/70 pl-10 text-zinc-100"
+                    className="border-border bg-surface-2/40 pl-10 text-foreground"
                     placeholder="Nombre y apellido"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-zinc-400">Email</label>
+                <label className="text-sm text-muted-foreground">Email</label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="border-white/10 bg-zinc-900/70 pl-10 text-zinc-100"
+                    className="border-border bg-surface-2/40 pl-10 text-foreground"
                     placeholder="coach@miniespacio.com"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-zinc-400">Contrasena inicial</label>
+                <label className="text-sm text-muted-foreground">Contrasena inicial</label>
                 <div className="relative">
-                  <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                  <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="border-white/10 bg-zinc-900/70 pl-10 text-zinc-100"
+                    className="border-border bg-surface-2/40 pl-10 text-foreground"
                     placeholder="Minimo 6 caracteres"
                   />
                 </div>
@@ -217,15 +223,11 @@ export default function NewCoachPage() {
                   type="button"
                   variant="outline"
                   onClick={() => navigate("/dashboard")}
-                  className="border-amber-200/10 text-zinc-100 hover:bg-white/8"
+                  className={outlineButtonClass}
                 >
                   Cancelar
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={!canSubmit}
-                  className="border border-amber-300/25 bg-[linear-gradient(90deg,#facc15_0%,#fff7ed_48%,#f97316_100%)] font-medium text-black hover:opacity-90"
-                >
+                <Button type="submit" disabled={!canSubmit}>
                   {loading ? "Creando..." : "Crear coach"}
                 </Button>
               </div>
@@ -234,28 +236,28 @@ export default function NewCoachPage() {
         </Card>
 
         <div className="space-y-6">
-          <Card className="rounded-[30px] border-amber-200/10 bg-white/[0.035] backdrop-blur-xl">
-            <CardHeader className="border-b border-amber-200/10 pb-4">
-              <CardTitle className="text-zinc-100">Que se habilita con este alta</CardTitle>
+          <Card className="rounded-xl border-border bg-surface-1/60 backdrop-blur-xl">
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle className="text-foreground">Que se habilita con este alta</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-sm font-medium text-zinc-100">Acceso al panel</p>
-                <p className="mt-2 text-sm leading-6 text-zinc-400">
+              <div className="rounded-xl border border-border bg-surface-2/20 p-4">
+                <p className="text-sm font-medium text-foreground">Acceso al panel</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   El coach podra ingresar con sus credenciales para operar en la
                   aplicacion desde el primer momento.
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-sm font-medium text-zinc-100">Trabajo diario</p>
-                <p className="mt-2 text-sm leading-6 text-zinc-400">
+              <div className="rounded-xl border border-border bg-surface-2/20 p-4">
+                <p className="text-sm font-medium text-foreground">Trabajo diario</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   Quedara listo para registrar asistencias, consultar clientes y
                   trabajar dentro del flujo habitual del gimnasio.
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-sm font-medium text-zinc-100">Orden interno</p>
-                <p className="mt-2 text-sm leading-6 text-zinc-400">
+              <div className="rounded-xl border border-border bg-surface-2/20 p-4">
+                <p className="text-sm font-medium text-foreground">Orden interno</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   Mantener emails reales y accesos temporales seguros hace mas simple
                   el soporte y la administracion del equipo.
                 </p>
@@ -263,26 +265,26 @@ export default function NewCoachPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-[30px] border-amber-200/10 bg-white/[0.035] backdrop-blur-xl">
-            <CardHeader className="border-b border-amber-200/10 pb-4">
-              <CardTitle className="text-zinc-100">Checklist rápido</CardTitle>
+          <Card className="rounded-xl border-border bg-surface-1/60 backdrop-blur-xl">
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle className="text-foreground">Checklist rápido</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 pt-6 text-sm text-zinc-400">
+            <CardContent className="space-y-3 pt-6 text-sm text-muted-foreground">
               <p>
                 Nombre cargado:{" "}
-                <span className="font-medium text-zinc-100">
+                <span className="font-medium text-foreground">
                   {fullName.trim() ? "Listo" : "Pendiente"}
                 </span>
               </p>
               <p>
                 Email operativo:{" "}
-                <span className="font-medium text-zinc-100">
+                <span className="font-medium text-foreground">
                   {email.trim() ? "Listo" : "Pendiente"}
                 </span>
               </p>
               <p>
                 Seguridad inicial:{" "}
-                <span className="font-medium text-zinc-100">
+                <span className="font-medium text-foreground">
                   {passwordChecks.minLength && passwordChecks.hasLetter && passwordChecks.hasNumber
                     ? "Validada"
                     : "Faltan requisitos"}

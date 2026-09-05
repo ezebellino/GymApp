@@ -20,6 +20,13 @@ código ahí:
 
 Ver [README.md](README.md) para contexto de producto, módulos y deploy.
 
+## Diseño visual
+
+[docs/design/design.md](docs/design/design.md) es la fuente de verdad del tema visual del
+frontend ("Kinetic Obsidian": dark tactical + light mode "Crisp Slate"). Cualquier change que
+toque estilos globales o componentes de UI debe partir de ese documento — ver también la nota en
+[frontend/AGENTS.md](frontend/AGENTS.md#diseño).
+
 ## Comandos de desarrollo (Makefile)
 
 No inventes comandos: el `Makefile` en la raíz es la fuente de verdad de cómo se levanta el

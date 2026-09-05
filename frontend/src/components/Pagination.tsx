@@ -1,3 +1,5 @@
+import { getPageRange } from "@/services/pagination";
+
 type Props = {
   total: number;
   limit: number;
@@ -5,9 +7,13 @@ type Props = {
   onChange: (next: { limit: number; offset: number }) => void;
 };
 
-export default function Pagination({ total, limit, offset, onChange }: Props) {
-  const page = Math.floor(offset / limit) + 1;
-  const pages = Math.max(1, Math.ceil(total / limit));
+export default function Pagination({
+  total,
+  limit,
+  offset,
+  onChange,
+}: Props) {
+  const { page, pages, from, to } = getPageRange({ total, limit, offset });
 
   const prev = () => onChange({ limit, offset: Math.max(0, offset - limit) });
   const next = () =>
@@ -16,22 +22,24 @@ export default function Pagination({ total, limit, offset, onChange }: Props) {
       offset: Math.min((pages - 1) * limit, offset + limit),
     });
 
-  const from = total === 0 ? 0 : offset + 1;
-  const to = Math.min(total, offset + limit);
-
   return (
-    <div className="flex flex-col gap-3 text-sm text-zinc-300 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-zinc-400">
+    <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      {/* Rango a la izquierda, controles a la derecha, en una sola fila a
+          partir de `sm` (dec. 19.1 de redesign-list-page-layout): la
+          redundancia con el total del header queda aceptada por el PO —
+          revierte la dec. 8, que ocultaba este bloque en Usuarios para no
+          repetirlo. */}
+      <div className="text-muted-foreground">
         Mostrando{" "}
-        <span className="font-medium text-zinc-100">
+        <span className="font-medium text-foreground">
           {from}-{to}
         </span>{" "}
-        de <span className="font-medium text-zinc-100">{total}</span>
+        de <span className="font-medium text-foreground">{total}</span>
       </div>
 
       <div className="flex items-center gap-2">
         <select
-          className="rounded-md border border-white/10 bg-zinc-900/80 px-2 py-1.5 text-xs text-zinc-300 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+          className="rounded-md border border-border bg-surface-1/80 px-2 py-1.5 text-xs text-muted-foreground backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-ring"
           value={limit}
           onChange={(e) => onChange({ limit: Number(e.target.value), offset: 0 })}
         >
@@ -45,19 +53,19 @@ export default function Pagination({ total, limit, offset, onChange }: Props) {
         <button
           onClick={prev}
           disabled={page <= 1}
-          className="rounded-md border border-white/10 px-2 py-1.5 text-xs transition-all disabled:opacity-40 hover:bg-white/10 hover:text-zinc-100"
+          className="rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-all hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
         >
           Anterior
         </button>
 
-        <div className="select-none text-xs text-zinc-400">
-          pag <b className="text-zinc-100">{page}</b> / {pages}
+        <div className="select-none text-xs text-muted-foreground">
+          pag <b className="text-foreground">{page}</b> / {pages}
         </div>
 
         <button
           onClick={next}
           disabled={page >= pages}
-          className="rounded-md border border-white/10 px-2 py-1.5 text-xs transition-all disabled:opacity-40 hover:bg-white/10 hover:text-zinc-100"
+          className="rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-all hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
         >
           Siguiente
         </button>

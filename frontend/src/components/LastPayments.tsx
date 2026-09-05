@@ -21,7 +21,7 @@ export default function LastPayments({ clientId, limit = 3 }: Props) {
       try {
         const { data } = await api.get<Payment[]>("/payments", {
           params: {
-            client_id: clientId, // 👈 filtramos por cliente
+            user_id: clientId, // 👈 filtramos por usuario
             limit,
             offset: 0,
           },
@@ -41,16 +41,16 @@ export default function LastPayments({ clientId, limit = 3 }: Props) {
   }, [clientId, limit]);
 
   if (loading) {
-    return <div className="text-xs text-zinc-400">Cargando…</div>;
+    return <div className="text-xs text-muted-foreground">Cargando…</div>;
   }
 
   if (err) {
-    return <div className="text-xs text-red-400">{err}</div>;
+    return <div className="text-xs text-destructive">{err}</div>;
   }
 
   if (!rows.length) {
     return (
-      <div className="text-xs text-zinc-400">
+      <div className="text-xs text-muted-foreground">
         Sin pagos registrados todavía.
       </div>
     );
@@ -61,11 +61,11 @@ export default function LastPayments({ clientId, limit = 3 }: Props) {
       {rows.map((p) => (
         <li
           key={p.id}
-          className="flex items-center justify-between border-b border-white/5 pb-2 last:border-0"
+          className="flex items-center justify-between border-b border-border pb-2 last:border-0"
         >
-          <div className="text-zinc-200">
+          <div className="text-foreground">
             {String(p.period_month).padStart(2, "0")}/{p.period_year}
-            <span className="text-zinc-400">
+            <span className="text-muted-foreground">
               {" "}
               · {p.method ?? "—"}
               {p.method === "transfer" && p.method_channel
@@ -73,7 +73,7 @@ export default function LastPayments({ clientId, limit = 3 }: Props) {
                 : ""}
             </span>
           </div>
-          <div className="text-zinc-100">${p.amount.toFixed(0)}</div>
+          <div className="text-foreground">${p.amount.toFixed(0)}</div>
         </li>
       ))}
     </ul>
