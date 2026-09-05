@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import Swal from "sweetalert2";
 import {
   BarChart3,
   CalendarCheck2,
   CreditCard,
   Dumbbell,
   LayoutDashboard,
-  LogOut,
   Menu,
   Moon,
   Settings,
@@ -31,7 +29,6 @@ const mobileNavButtonClass =
 export default function Topbar() {
   const token = useSessionStore((s) => s.token);
   const storeRole = useSessionStore((s) => s.role);
-  const logout = useSessionStore((s) => s.logout);
   const role: Role = storeRole ?? "coach";
   const isAuthed = !!token;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -94,22 +91,6 @@ export default function Topbar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [location.pathname, role]);
 
-  const handleLogout = async () => {
-    logout();
-    setMobileMenuOpen(false);
-
-    await Swal.fire({
-      title: "Sesión cerrada",
-      text: "Serás redirigido al login.",
-      icon: "success",
-      timer: 1400,
-      showConfirmButton: false,
-      timerProgressBar: true,
-    });
-
-    navigate("/login", { replace: true });
-  };
-
   const go = (path: string) => {
     navigate(path);
     setMobileMenuOpen(false);
@@ -152,12 +133,7 @@ export default function Topbar() {
             </Button>
           )}
 
-          {isAuthed ? (
-            <Button onClick={handleLogout}>
-              <LogOut size={16} />
-              Logout
-            </Button>
-          ) : (
+          {!isAuthed && (
             <Button variant="outline" onClick={() => navigate("/login")}>
               Iniciar sesión
             </Button>
@@ -272,11 +248,6 @@ export default function Topbar() {
               </>
             )}
           </div>
-
-          <Button className="w-full justify-start" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
         </div>
       )}
     </header>

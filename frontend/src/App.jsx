@@ -10,20 +10,25 @@ import { useThemeStore } from "./stores/theme";
 import { useSyncSettings } from "./services/settings.queries";
 import { useSyncUserTheme } from "./services/me.queries";
 import { useLegacyRefetchBridge } from "./hooks/useLegacyRefetchBridge";
+import { routeImporters } from "./lib/routePreload";
 import "sileo/styles.css";
 import "./index.css";
 
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Clients = lazy(() => import("./pages/Clients"));
-const Payments = lazy(() => import("./pages/Payments"));
-const Attendance = lazy(() => import("./pages/Attendance"));
-const Routines = lazy(() => import("./pages/Routines"));
-const Reports = lazy(() => import("./pages/Reports"));
-const Settings = lazy(() => import("./pages/Settings"));
+// Los 8 lazy() de abajo con ruta propia en el Sidebar usan `routeImporters`
+// (misma factory), así el sidebar puede precargar el chunk en hover/focus sin
+// duplicar el specifier del import dinámico en dos archivos. Login/Register/
+// NewCoach no tienen entrada ahí (no se navegan desde el sidebar).
+const Dashboard = lazy(routeImporters["/dashboard"]);
+const Clients = lazy(routeImporters["/clients"]);
+const Payments = lazy(routeImporters["/payments"]);
+const Attendance = lazy(routeImporters["/attendance"]);
+const Routines = lazy(routeImporters["/routines"]);
+const Reports = lazy(routeImporters["/reports"]);
+const Settings = lazy(routeImporters["/settings"]);
+const UserRoutine = lazy(routeImporters["/my-routine"]);
 const Login = lazy(() => import("./pages/Login"));
 const RegisterClient = lazy(() => import("./pages/RegisterClient"));
 const NewCoachPage = lazy(() => import("./pages/NewCoach"));
-const UserRoutine = lazy(() => import("./pages/UserRoutine"));
 
 function PageLoader() {
   return (
