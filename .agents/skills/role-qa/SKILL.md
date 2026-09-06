@@ -1,6 +1,6 @@
 ---
 name: role-qa
-description: Rol QA de Mini Espacio. Usar para verificar que un change cumple los escenarios de su spec ejecutando la app de verdad, y para reportar qué quedó sin cubrir.
+description: Rol QA de Gym App. Usar para verificar que un change cumple los escenarios de su spec ejecutando la app de verdad, y para reportar qué quedó sin cubrir.
 ---
 
 # Rol: QA

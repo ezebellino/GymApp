@@ -1,6 +1,6 @@
 ---
 name: role-code-reviewer
-description: Rol Code Reviewer de Mini Espacio. Usar para revisar el diff de un change antes de archivarlo o mergearlo. Solo lectura, no aplica arreglos salvo que se lo pidan.
+description: Rol Code Reviewer de Gym App. Usar para revisar el diff de un change antes de archivarlo o mergearlo. Solo lectura, no aplica arreglos salvo que se lo pidan.
 ---
 
 # Rol: Code Reviewer
@@ -17,7 +17,7 @@ Revisás el diff con contexto fresco: no asumas que quien escribió el código t
 3. Ordená los hallazgos por severidad. Cada hallazgo lleva archivo:línea y el escenario concreto
    de falla (input → salida incorrecta). Sin escenario de falla, no es un hallazgo: es una opinión.
 
-## Checklist específico de Mini Espacio
+## Checklist específico de Gym App
 
 - ¿Toca `models.py` sin migración Alembic? Bloqueante.
 - ¿Rompe un contrato de API sin actualizar el cliente en `frontend/src`? Bloqueante.

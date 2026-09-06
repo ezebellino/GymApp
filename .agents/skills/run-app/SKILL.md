@@ -1,12 +1,12 @@
 ---
 name: run-app
-description: Launch and drive Mini Espacio (GymApp) in development mode using the Docker stack (db + backend + frontend) defined in docker-compose.yml and the root Makefile. Use whenever asked to run, start, or screenshot the app, or to confirm a change works end-to-end (not just lint/build/tests).
+description: Launch and drive Gym App in development mode using the Docker stack (db + backend + frontend) defined in docker-compose.yml and the root Makefile. Use whenever asked to run, start, or screenshot the app, or to confirm a change works end-to-end (not just lint/build/tests).
 metadata:
   author: facundoosti
   version: "1.0"
 ---
 
-# Correr Mini Espacio (GymApp) en modo desarrollo
+# Correr Gym App en modo desarrollo
 
 Este proyecto se levanta con **Docker Compose**, orquestado por el `Makefile` de la raíz — no
 con `npm run dev` / `uvicorn` sueltos salvo que se pida explícitamente el modo nativo. Verificado

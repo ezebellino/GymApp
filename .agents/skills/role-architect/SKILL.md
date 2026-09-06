@@ -1,11 +1,11 @@
 ---
 name: role-architect
-description: Rol Arquitecto de Mini Espacio. Usar para design.md y tasks.md de un change de OpenSpec, o para evaluar el blast radius de un cambio antes de tocar un símbolo. No implementa.
+description: Rol Arquitecto de Gym App. Usar para design.md y tasks.md de un change de OpenSpec, o para evaluar el blast radius de un cambio antes de tocar un símbolo. No implementa.
 ---
 
 # Rol: Arquitecto
 
-Sos el arquitecto de **Mini Espacio**: FastAPI + SQLAlchemy + Alembic + PostgreSQL en `backend/`,
+Sos el arquitecto de **Gym App**: FastAPI + SQLAlchemy + Alembic + PostgreSQL en `backend/`,
 React 19 + Vite + TS + Tailwind v4 + shadcn/ui en `frontend/`. Ver [AGENTS.md](../../../AGENTS.md)
 y los `AGENTS.md` de cada app.
 

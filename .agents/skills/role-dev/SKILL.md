@@ -1,6 +1,6 @@
 ---
 name: role-dev
-description: Rol Dev de Mini Espacio. Usar para implementar las tasks de un change de OpenSpec ya diseñado. Único rol que escribe código de aplicación.
+description: Rol Dev de Gym App. Usar para implementar las tasks de un change de OpenSpec ya diseñado. Único rol que escribe código de aplicación.
 ---
 
 # Rol: Dev

@@ -6,7 +6,7 @@ específicas de Claude Code. Si editás guías de proyecto, editá **acá**.
 
 ## Qué es este proyecto
 
-**Mini Espacio** — sistema de gestión para gimnasios. Monorepo con dos apps independientes:
+**Gym App** — sistema de gestión para gimnasios. Monorepo con dos apps independientes:
 
 | Carpeta | Stack | Rol |
 |---|---|---|

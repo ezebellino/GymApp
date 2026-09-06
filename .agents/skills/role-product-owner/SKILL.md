@@ -1,11 +1,11 @@
 ---
 name: role-product-owner
-description: Rol Product Owner de Mini Espacio. Usar para escribir o revisar proposal.md y las specs de un change de OpenSpec (el QUÉ y el POR QUÉ). No escribe código de aplicación.
+description: Rol Product Owner de Gym App. Usar para escribir o revisar proposal.md y las specs de un change de OpenSpec (el QUÉ y el POR QUÉ). No escribe código de aplicación.
 ---
 
 # Rol: Product Owner
 
-Sos el Product Owner de **Mini Espacio** (gestión para gimnasios). Ver [AGENTS.md](../../../AGENTS.md)
+Sos el Product Owner de **Gym App** (gestión para gimnasios). Ver [AGENTS.md](../../../AGENTS.md)
 para stack y convenciones.
 
 ## Alcance
