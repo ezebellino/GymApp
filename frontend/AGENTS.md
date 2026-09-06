@@ -60,6 +60,8 @@ src/services/
   me.ts                      # fetchers puros: fetchMe, updateMyTheme (PATCH /auth/me/theme)
   me.queries.ts              # hooks: useMeQuery, useUpdateMyThemeMutation, useSyncUserTheme
   auth.ts                    # fetchers puros del login: requestToken (con reintento), fetchMeWithToken, signIn
+  routineTemplates.ts         # fetchers de plantillas, base del catálogo y asignaciones (ver "Rutinas" abajo)
+  routineTemplates.queries.ts # hooks de esos fetchers, incluido el autosave del chip de estrategia
 ```
 
 - **`<dominio>.ts`** (fetchers): funciones async puras, reciben un objeto de params tipado, usan
@@ -215,15 +217,76 @@ completo con acciones).
   "Crear usuario" del encabezado abre `components/CreateUserDialog.tsx` (alta con perfil mínimo,
   rol restringido a Miembro para un Coach; icon-only debajo de 768px); las acciones por fila (Ver,
   Editar, WhatsApp) son botones de ícono accesibles — "Ver" navega a `pages/UserDetail.tsx`
-  (`/users/:id`, fuera de `routePreload.ts` como `NewCoach`: no tiene entrada en el Sidebar), la
-  ficha de solo lectura del perfil/membresía/invitación, con su propio botón "Editar".
-  `components/EditUserDialog.tsx` es el ABM (perfil, rol si sos owner, membresía con dar de
-  baja/reactivar, e invitación si el rol es Miembro) — no hay acción de eliminar, la única baja
-  posible es la de membresía; se monta solo mientras está abierto (nunca queda persistente en el
-  árbol con `open=false`, ver nota de `Dialog` más abajo).
-  `pages/InvitationAccept.tsx` (`/invitacion/:channel/:token`, ruta pública) es donde un Miembro
-  invitado verifica sus dos canales y define su contraseña; reemplaza al viejo `/register-client`
-  (retirado, ya no hay auto-registro).
+  (`/users/:id`, fuera de `routePreload.ts` como `NewCoach`: no tiene entrada en el Sidebar).
+  `components/EditUserDialog.tsx` es **solo** el formulario de perfil (nombre, apellido, fecha de
+  nacimiento, peso, altura, email, teléfono y, si edita un Dueño, el rol) con su botón "Guardar
+  cambios" — no dispara ninguna otra mutación (`move-user-actions-to-detail`: las acciones de
+  membresía, invitación y verificación de contacto que antes vivían acá se movieron a la ficha).
+  `pages/UserDetail.tsx` es la ficha: perfil (con badge de verificación de email/teléfono —
+  `Verificado` neutro con `BadgeCheck`, `Sin verificar` en ámbar, sin botón por fila — `move-user-
+  actions-to-detail`, rework: es un badge puramente presentacional; la acción vive una sola vez en
+  el footer de la card) con el botón único "Verificar contacto" en el `CardFooter`, visible solo
+  si `canManage` y queda algún dato cargado sin verificar (`hasPendingContact`, espejo de la regla
+  del backend), membresía (botón único en el footer de la card según `membership_status`) e
+  invitación al portal (botón "Invitar"/"Reenviar invitación" si `canManage` y el acceso no está
+  activo), cada acción detrás de un modal — no hay acción de eliminar, la única baja posible es la
+  de membresía. `canManage` sale de `lib/permissions.ts::canManageUser(viewerRole, targetRole)`,
+  espejo en frontend de `require_can_manage_user` (Dueño gestiona cualquier rol, Coach solo
+  Miembros) — **oculta**, no deshabilita, las acciones cuando el viewer no puede gestionar a ese
+  usuario. Los modales nuevos: `components/ConfirmActionDialog.tsx` (base presentacional sin
+  mutaciones: `title`/`description`/`confirmLabel`/`onConfirm`/slot `children`),
+  `CancelMembershipDialog.tsx` (fecha de baja opcional) y `ActivateMembershipDialog.tsx` sobre esa
+  base, `VerifyContactDialog.tsx` (sin prop `channel`: deriva adentro la lista de datos pendientes
+  con el mismo criterio del backend y arma el copy dinámico — "el email"/"el celular"/"el email y
+  el celular" — más una advertencia condicional si el email está pendiente y el usuario ya tiene
+  acceso activo, `useVerifyContactMutation`) también sobre esa base, e `InviteUserDialog.tsx`
+  (`Dialog` propio: dos fases, muestra el link de email con copiar y el botón de WhatsApp —
+  deshabilitado sin celular cargado — desde que abre, vacíos hasta que hay resultado; el error de
+  precondición 400 va inline con `role="alert"`, no toast). `UserDetail` guarda un único estado
+  `action` (no cinco booleanos) y monta cada modal condicionalmente.
+  `services/users.ts`/`users.queries.ts` exponen `verifyUserContact(id)` (sin canal, `POST
+  /users/{id}/contact/verify`) y `useVerifyContactMutation()` (`mutationFn: (id: string) =>
+  ...`), único consumidor `VerifyContactDialog`. `pages/InvitationAccept.tsx`
+  (`/invitacion/:channel/:token`, ruta pública) es
+  donde un Miembro invitado verifica sus dos canales y define su contraseña; reemplaza al viejo
+  `/register-client` (retirado, ya no hay auto-registro).
+- **Rutinas** (`add-routine-templates`): `pages/Routines.tsx` (`/routines`, owner/coach) es el
+  listado de plantillas de rutina, migrado al patrón "list page" igual que `Users.tsx` pero sin
+  buscador ni paginación (son unidades, no cientos) — columnas Nombre, Etiqueta (`Badge`), Días,
+  Miembros y la acción "Ver" que navega a `pages/RoutineTemplateDetail.tsx` (`/routines/:templateId`,
+  fuera de `routePreload.ts` como `UserDetail`: no se navega desde el sidebar). El botón "Crear
+  plantilla" abre `components/CreateRoutineTemplateDialog.tsx` (nombre, etiqueta y selección
+  múltiple de días, mandados siempre en el orden natural del catálogo — `day_order` — no en el
+  orden de click). El detalle sigue el patrón de `UserDetail.tsx` (hero con "Volver a Rutinas",
+  "Editar"/"Eliminar") y una `Card` por día con, por ejercicio: su base (editable solo para Dueño
+  vía `components/EditExerciseBaseDialog.tsx`, espejo de `require_role(owner)` del endpoint que
+  reusa), un `Switch` de activo/inactivo, `components/StrategyChips.tsx` (las cinco estrategias) y
+  `components/PlannedSetsList.tsx` (el plan de series, solo lectura). El toggle y los chips son
+  **autosave**: la mutación de `useUpdateTemplateExerciseMutation` escribe la respuesta del backend
+  (que ya trae el plan recalculado) con `setQueryData`, sin refetch — no hay botón "Guardar" ni
+  ninguna fórmula de progresión en `frontend/src/**` (esa cuenta es enteramente del backend).
+  `components/EditRoutineTemplateDialog.tsx` y `components/DeleteRoutineTemplateDialog.tsx`
+  (esta última sobre `ConfirmActionDialog`, `destructive`) completan el CRUD; el 409 de nombre
+  duplicado o de borrado con asignaciones vigentes se muestra tal cual lo redacta el backend.
+  La asignación de plantillas a un Miembro vive en su ficha:
+  `components/MemberTemplatesCard.tsx` (montada desde `pages/UserDetail.tsx` con un único bloque
+  `import` + render condicionado a `isMemberRole`, sin tocar nada más de ese archivo) lista sus
+  asignaciones con badge Activa/Alternativa y la autoría del último ajuste de base
+  ("Sin ajustes"/"Ajustada por X el dd/mm"), y monta — todas sobre `ConfirmActionDialog`, y **solo
+  cuando están abiertas** (nunca con el componente montado y `open={false}`: un `<dialog>` siempre
+  presente en el árbol hace que `getByRole("dialog", { hidden: true })` de otro modal abierto en
+  simultáneo encuentre dos elementos) — `components/AssignTemplateDialog.tsx`,
+  `components/RemoveAssignmentDialog.tsx` y `components/AdjustExerciseBaseDialog.tsx`. El botón
+  "+ Asignar plantilla" solo se ofrece con `canManageUser(...)` **y** `membership_status ===
+  "active"`; la lista de asignaciones sigue completa aunque la membresía esté dada de baja (la
+  regla de membresía activa solo condiciona el alta, nunca oculta lo ya asignado). `pages/
+  UserRoutine.tsx` (`/my-routine`, member) es la vista de solo lectura del cliente: elige entre sus
+  plantillas asignadas (`useMyTemplatesQuery`), navega los días de la elegida
+  (`useMyTemplateQuery`) y muestra `PlannedSetsList` por ejercicio activo — mismo componente que el
+  detalle de plantilla, así el plan se ve igual del lado del coach y del cliente. Sin ninguna
+  acción de marcar serie como hecha (spec `member-routine-view`, fuera de alcance). Tests:
+  `pages/__tests__/Routines.test.tsx`, `pages/__tests__/RoutineTemplateDetail.test.tsx`,
+  `pages/__tests__/UserRoutine.test.tsx` y `components/__tests__/MemberTemplatesCard.test.tsx`.
 - **Estilos**: Tailwind v4 (config vía `@tailwindcss/vite`, sin `tailwind.config.js` clásico si
   no existe — confirmar antes de asumir). Evitar CSS inline salvo casos puntuales.
 - **Layout del shell autenticado**: el contenedor de contenido (gutter horizontal y ancho máximo)
@@ -292,7 +355,22 @@ completo con acciones).
     contraseña deshabilitado con un solo canal verificado, habilitado con los dos), más
     `UserDetail.tsx` (perfil/membresía/invitación de la ficha, y que la sección de invitación no
     aparece para un rol que no es Miembro) y `Sidebar` (accesos ocultos por rol, badge de rol, card
-    de identidad, y el rename de nav "Clientes" -> "Usuarios"). `RegisterClient` ya no tiene test de
+    de identidad, y el rename de nav "Clientes" -> "Usuarios"). Suma de
+    `move-user-actions-to-detail`: `components/__tests__/EditUserDialog.test.tsx` (sin acciones de
+    membresía ni de invitación, y que "Guardar cambios" solo llama `api.patch` — ningún
+    `api.post`); `pages/__tests__/UserDetail.test.tsx` suma el badge de verificación de contacto
+    (`Verificado`/`Sin verificar` por dato, sin botón por fila), el botón único "Verificar
+    contacto" en el footer de la card Perfil (ofrecido con un dato cargado sin verificar, ausente
+    con ambos verificados o sin ningún dato cargado), que confirmarlo dispara `api.post` a
+    `/users/{id}/contact/verify` y la ficha refleja los dos badges en "Verificado" tras el
+    refetch, y que cancelar el modal no dispara ninguna mutación; las acciones de membresía por
+    modal (baja con fecha — afirmando el valor concreto de `cancelled_at` enviado, no
+    `expect.anything()` —, cancelar no dispara nada, activar cuando nunca hubo membresía,
+    reactivar cuando está dada de baja), la invitación por modal (link de email + copiar,
+    WhatsApp deshabilitado sin celular, error de precondición inline, sin acción con acceso
+    activo) y que un Coach no ve ninguna acción de gestión en la ficha de otro Coach — ni
+    membresía, ni invitación, ni "Verificar contacto" — (`seedRole` sembrando `access_token` +
+    `user_role` en `localStorage`, patrón de `Sidebar.test.tsx`). `RegisterClient` ya no tiene test de
     render: la vista se retiró junto con `/auth/client-register` (ver `unify-clients-into-users`),
     reemplazada por `InvitationAccept`. `Login.test.tsx` mockea `/auth/me` incluyendo
     `theme_preference` y ya no asume un link "Registrar cuenta" (retirado de `login-view`). Suma de
@@ -348,4 +426,17 @@ completo con acciones).
     aunque nunca se llamó a `showModal()` — un bug real que solo aparece en un navegador de verdad
     (jsdom no implementa esa hoja de estilos del UA, así que la suite no lo detecta) y que
     `dialog.test.tsx` cubre con un caso montado-cerrado que afirma sobre las clases, no sobre
-    estilos computados.
+    estilos computados. Suma de `add-routine-templates`: `pages/__tests__/Routines.test.tsx`
+    (columnas de plantilla, click en "Ver" navega al detalle, 409 de nombre duplicado mostrado
+    inline en `CreateRoutineTemplateDialog`), `pages/__tests__/RoutineTemplateDetail.test.tsx`
+    (solo los días de la plantilla, un chip de estrategia dispara el autosave y el plan mostrado
+    ya viene recalculado del backend — sin refetch —, confirmación antes de eliminar),
+    `pages/__tests__/UserRoutine.test.tsx` (elegir entre plantillas asignadas, aviso sin
+    asignaciones, plan de solo lectura sin ninguna acción de marcar serie) y
+    `components/__tests__/MemberTemplatesCard.test.tsx` (estado Activa/Alternativa y autoría del
+    ajuste, "+ Asignar plantilla" oculto sin membresía activa pero la lista de asignaciones sigue
+    completa, confirmación antes de quitar una asignación). Los cuatro mockean
+    `services/routineTemplates.ts` vía `vi.mock("@/lib/http")` (patrón `apiMock.ts`), sin backend.
+    Los diálogos siempre montados condicionalmente (nunca `open={false}` con el componente
+    presente) evitan que `getByRole("dialog", { hidden: true })` encuentre más de un `<dialog>` —
+    ver la nota de `MemberTemplatesCard.tsx` en "Rutinas" arriba.

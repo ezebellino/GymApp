@@ -1,172 +1,97 @@
-import { useEffect, useMemo, useState } from "react";
-import { Dumbbell, History, Save, Scale, UserRound } from "lucide-react";
-import api from "@/lib/http";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { Dumbbell } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { toastError, toastSuccess } from "@/lib/toast";
-import type { RoutineDay, RoutineDayProgress, User, WorkoutLog } from "@/types";
+import { Badge } from "@/components/ui/badge";
+import DataError from "@/components/DataError";
+import PlannedSetsList from "@/components/PlannedSetsList";
+import { useMyTemplateQuery, useMyTemplatesQuery } from "@/services/routineTemplates.queries";
+import type { RoutineAssignmentStatus } from "@/types";
+import { cn } from "@/lib/utils";
 
-type ExerciseDraft = {
-  sets_count: string;
-  reps: string;
-  weight_kg: string;
-  note: string;
+const STATUS_LABEL: Record<RoutineAssignmentStatus, string> = {
+  active: "Activa",
+  alternative: "Alternativa",
 };
 
-function emptyDraft(): ExerciseDraft {
-  return { sets_count: "", reps: "", weight_kg: "", note: "" };
-}
-
-function formatDateTime(value?: string | null) {
-  if (!value) return "Sin registros";
-  return new Date(value).toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
+// Vista del cliente: solo lectura, sin ninguna acción de marcar serie
+// (spec `member-routine-view`, fuera de alcance en `proposal.md`). El plan
+// de series lo calcula el backend por completo — invariante I6, no hay
+// ninguna fórmula de progresión acá.
 export default function UserRoutine() {
-  const [client, setClient] = useState<User | null>(null);
-  const [days, setDays] = useState<RoutineDay[]>([]);
-  const [dayProgress, setDayProgress] = useState<RoutineDayProgress[]>([]);
-  const [logs, setLogs] = useState<WorkoutLog[]>([]);
-  const [selectedDayId, setSelectedDayId] = useState("");
-  const [drafts, setDrafts] = useState<Record<string, ExerciseDraft>>({});
-  const [loading, setLoading] = useState(true);
-  const [savingExerciseId, setSavingExerciseId] = useState<string | null>(null);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | undefined>(undefined);
+  const [selectedDayId, setSelectedDayId] = useState<string | undefined>(undefined);
 
-  const selectedDay = useMemo(
-    () => days.find((day) => day.id === selectedDayId) ?? null,
-    [days, selectedDayId]
-  );
-
-  const selectedDayProgress = useMemo(
-    () => dayProgress.find((item) => item.day_id === selectedDayId) ?? null,
-    [dayProgress, selectedDayId]
-  );
-
-  const activeExercises = useMemo(
-    () =>
-      selectedDay?.exercises
-        .filter((exercise) => exercise.is_active)
-        .sort((left, right) => left.sort_order - right.sort_order) ?? [],
-    [selectedDay]
-  );
+  const {
+    data: assignments,
+    isPending: assignmentsPending,
+    isError: assignmentsError,
+    refetch: refetchAssignments,
+  } = useMyTemplatesQuery();
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const [clientResp, daysResp, overviewResp] = await Promise.all([
-          api.get<User>("/routines/my/profile"),
-          api.get<RoutineDay[]>("/routines/my/days"),
-          api.get<RoutineDayProgress[]>("/routines/my/overview"),
-        ]);
-
-        setClient(clientResp.data);
-        const fetchedDays = daysResp.data ?? [];
-        setDays(fetchedDays);
-        setDayProgress(overviewResp.data ?? []);
-
-        if (fetchedDays.length > 0) {
-          setSelectedDayId(fetchedDays[0].id);
-        }
-      } catch (error) {
-        console.error("Error cargando rutina del usuario", error);
-        toastError(
-          "No se pudo cargar tu rutina",
-          "Intentá nuevamente en unos instantes."
-        );
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (!selectedDayId) return;
-    void refreshDayLogs(selectedDayId);
-  }, [selectedDayId]);
-
-  useEffect(() => {
-    if (!selectedDay) return;
-    const nextDrafts: Record<string, ExerciseDraft> = {};
-    selectedDay.exercises.forEach((exercise) => {
-      nextDrafts[exercise.exercise_id] = drafts[exercise.exercise_id] ?? emptyDraft();
-    });
-    setDrafts(nextDrafts);
-  }, [selectedDay]);
-
-  async function refreshDayLogs(dayId: string) {
-    try {
-      const [logsResp, overviewResp] = await Promise.all([
-        api.get<WorkoutLog[]>("/routines/my/logs", {
-          params: { day_id: dayId, limit: 30 },
-        }),
-        api.get<RoutineDayProgress[]>("/routines/my/overview"),
-      ]);
-      setLogs(logsResp.data ?? []);
-      setDayProgress(overviewResp.data ?? []);
-    } catch (error) {
-      console.error("Error cargando historial", error);
+    if (!selectedAssignmentId && assignments && assignments.length > 0) {
+      setSelectedAssignmentId(assignments[0].id);
     }
-  }
+  }, [assignments, selectedAssignmentId]);
 
-  function updateDraft(exerciseId: string, field: keyof ExerciseDraft, value: string) {
-    setDrafts((current) => ({
-      ...current,
-      [exerciseId]: {
-        ...(current[exerciseId] ?? emptyDraft()),
-        [field]: value,
-      },
-    }));
-  }
+  const {
+    data: template,
+    isPending: templatePending,
+    isError: templateError,
+    refetch: refetchTemplate,
+  } = useMyTemplateQuery(selectedAssignmentId);
 
-  async function saveExerciseLog(exerciseId: string) {
-    if (!selectedDayId) return;
-    const draft = drafts[exerciseId] ?? emptyDraft();
-    setSavingExerciseId(exerciseId);
+  useEffect(() => {
+    setSelectedDayId(undefined);
+  }, [selectedAssignmentId]);
 
-    try {
-      await api.post("/routines/my/logs", {
-        day_id: selectedDayId,
-        exercise_id: exerciseId,
-        sets_count: draft.sets_count ? Number(draft.sets_count) : null,
-        reps: draft.reps ? Number(draft.reps) : null,
-        weight_kg: draft.weight_kg ? Number(draft.weight_kg) : 0,
-        note: draft.note.trim() || null,
-      });
-
-      setDrafts((current) => ({
-        ...current,
-        [exerciseId]: emptyDraft(),
-      }));
-      await refreshDayLogs(selectedDayId);
-      toastSuccess("Registro guardado", "Tu progreso quedó cargado.");
-    } catch (error) {
-      console.error("Error guardando progreso", error);
-      toastError(
-        "No se pudo guardar",
-        "Revisá los datos del ejercicio e intentá nuevamente."
-      );
-    } finally {
-      setSavingExerciseId(null);
+  useEffect(() => {
+    if (!selectedDayId && template && template.days.length > 0) {
+      setSelectedDayId(template.days[0].day_id);
     }
-  }
+  }, [template, selectedDayId]);
 
-  if (loading) {
+  if (assignmentsPending) {
     return (
       <div className="grid min-h-[50vh] place-items-center">
-        <div className="rounded-xl border border-border bg-surface-1 px-5 py-4 text-sm text-muted-foreground">
+        <div className="rounded-xl border border-border bg-surface-1/70 px-5 py-4 text-sm text-muted-foreground">
           Cargando tu rutina...
         </div>
       </div>
     );
   }
+
+  if (assignmentsError) {
+    return (
+      <DataError
+        title="No se pudo cargar tu rutina"
+        description="Intentá nuevamente en unos instantes."
+        onRetry={() => refetchAssignments()}
+      />
+    );
+  }
+
+  const rows = assignments ?? [];
+
+  if (rows.length === 0) {
+    return (
+      <div className="space-y-6">
+        <section className="hero-aura rounded-xl border border-border p-6">
+          <p className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
+            Mi rutina
+          </p>
+          <h1 className="font-display mt-2 text-3xl font-semibold tracking-tight text-foreground">
+            Todavía no tenés una plantilla asignada
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Cuando tu coach te asigne una, la vas a ver reflejada acá.
+          </p>
+        </section>
+      </div>
+    );
+  }
+
+  const selectedDay = template?.days.find((day) => day.day_id === selectedDayId) ?? null;
 
   return (
     <div className="space-y-6">
@@ -174,163 +99,118 @@ export default function UserRoutine() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-label-caps uppercase text-primary-strong">
-              Vista de usuario
+              Mi rutina
             </p>
             <h1 className="font-display mt-2 text-3xl font-semibold tracking-tight text-foreground">
-              Hola {client?.full_name ?? ""}
+              Tu plan de entrenamiento
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Elegí el día, cargá tus ejercicios y mantené tu progreso actualizado.
-            </p>
-          </div>
-
-          <div className="min-w-[240px]">
-            <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-muted-foreground">Día</label>
-            <select
-              className="w-full rounded-md border border-border bg-surface-2/40 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              value={selectedDayId}
-              onChange={(event) => setSelectedDayId(event.target.value)}
-            >
-              {days.map((day) => (
-                <option key={day.id} value={day.id}>
-                  {day.name} · {day.muscle_groups.join(" / ")}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
+
+        {rows.length > 1 ? (
+          <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Elegí una plantilla">
+            {rows.map((assignment) => (
+              <button
+                key={assignment.id}
+                type="button"
+                aria-pressed={assignment.id === selectedAssignmentId}
+                onClick={() => setSelectedAssignmentId(assignment.id)}
+                className={cn(
+                  "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+                  assignment.id === selectedAssignmentId
+                    ? "border-primary/40 bg-primary/15 text-primary-strong"
+                    : "border-border bg-surface-2/30 text-muted-foreground hover:bg-surface-2/60"
+                )}
+              >
+                {assignment.template_name}
+                <Badge variant="outline">{STATUS_LABEL[assignment.status]}</Badge>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-5">
+            <Badge variant="outline">{STATUS_LABEL[rows[0].status]}</Badge>
+          </div>
+        )}
       </section>
 
-      <Card className="border-border bg-surface-1/60 backdrop-blur-xl">
-        <CardHeader className="border-b border-border pb-5">
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <Dumbbell className="h-5 w-5" />
-            Rutina del día
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {selectedDayProgress
-              ? `${selectedDayProgress.log_count} registros en ${selectedDayProgress.day_name}. Último: ${formatDateTime(selectedDayProgress.last_performed_at)}`
-              : "Sin actividad cargada todavía para este día."}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-6">
-          {activeExercises.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border bg-surface-2/20 p-6 text-sm text-muted-foreground">
-              No hay ejercicios activos para este día.
-            </div>
-          ) : (
-            activeExercises.map((exercise) => {
-              const draft = drafts[exercise.exercise_id] ?? emptyDraft();
-              return (
-                <div key={exercise.exercise_id} className="rounded-xl border border-border bg-surface-2/30 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-base font-semibold text-foreground">{exercise.name}</p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                        {exercise.muscle_group}
-                      </p>
-                    </div>
-                    <UserRound className="h-4 w-4 text-muted-foreground" />
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-4">
-                    <Input
-                      type="number"
-                      placeholder="Series"
-                      value={draft.sets_count}
-                      onChange={(event) => updateDraft(exercise.exercise_id, "sets_count", event.target.value)}
-                      className="border-border bg-surface-1/70"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Reps"
-                      value={draft.reps}
-                      onChange={(event) => updateDraft(exercise.exercise_id, "reps", event.target.value)}
-                      className="border-border bg-surface-1/70"
-                    />
-                    <div className="relative">
-                      <Scale className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        placeholder="Kg"
-                        value={draft.weight_kg}
-                        onChange={(event) => updateDraft(exercise.exercise_id, "weight_kg", event.target.value)}
-                        className="border-border bg-surface-1/70 pl-10"
-                      />
-                    </div>
-                    <Input
-                      placeholder="Nota"
-                      value={draft.note}
-                      onChange={(event) => updateDraft(exercise.exercise_id, "note", event.target.value)}
-                      className="border-border bg-surface-1/70"
-                    />
-                  </div>
-
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      type="button"
-                      onClick={() => saveExerciseLog(exercise.exercise_id)}
-                      disabled={savingExerciseId === exercise.exercise_id}
-                    >
-                      <Save className="mr-2 h-4 w-4" />
-                      {savingExerciseId === exercise.exercise_id ? "Guardando..." : "Guardar"}
-                    </Button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="border-border bg-surface-1/60 backdrop-blur-xl">
-        <CardHeader className="border-b border-border pb-5">
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <History className="h-5 w-5" />
-            Historial reciente del día
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="overflow-hidden rounded-xl border border-border">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-surface-2/40 text-left text-label-caps uppercase text-muted-foreground">
-                  <tr>
-                    <th className="border-b border-border px-4 py-3">Fecha</th>
-                    <th className="border-b border-border px-4 py-3">Ejercicio</th>
-                    <th className="border-b border-border px-4 py-3">Series</th>
-                    <th className="border-b border-border px-4 py-3">Reps</th>
-                    <th className="border-b border-border px-4 py-3">Kg</th>
-                    <th className="border-b border-border px-4 py-3">Nota</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-canvas/30">
-                  {logs.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                        Todavía no registraste ejercicios en este día.
-                      </td>
-                    </tr>
-                  ) : (
-                    logs.map((log, index) => (
-                      <tr key={log.id} className={`border-t border-border ${index % 2 ? "bg-surface-2/30" : ""}`}>
-                        <td className="px-4 py-3 text-muted-foreground">{formatDateTime(log.performed_at)}</td>
-                        <td className="px-4 py-3 text-foreground">{log.exercise_name}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{log.sets_count ?? "-"}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{log.reps ?? "-"}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{log.weight_kg}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{log.note || "-"}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+      {templatePending ? (
+        <div className="grid min-h-[30vh] place-items-center">
+          <div className="rounded-xl border border-border bg-surface-1/70 px-5 py-4 text-sm text-muted-foreground">
+            Cargando la plantilla...
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      ) : null}
+
+      {!templatePending && (templateError || !template) ? (
+        <DataError
+          title="No se pudo cargar el plan"
+          description="Intentá nuevamente en unos instantes."
+          onRetry={() => refetchTemplate()}
+        />
+      ) : null}
+
+      {!templatePending && template ? (
+        <>
+          {template.days.length > 1 ? (
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label="Días de la plantilla">
+              {template.days.map((day) => (
+                <button
+                  key={day.day_id}
+                  type="button"
+                  role="tab"
+                  aria-selected={day.day_id === selectedDayId}
+                  onClick={() => setSelectedDayId(day.day_id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+                    day.day_id === selectedDayId
+                      ? "border-primary/40 bg-primary/15 text-primary-strong"
+                      : "border-border bg-surface-2/30 text-muted-foreground hover:bg-surface-2/60"
+                  )}
+                >
+                  {day.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <Card className="border-border bg-surface-1/60 backdrop-blur-xl">
+            <CardHeader className="border-b border-border pb-5">
+              <CardTitle className="flex items-center gap-2 text-foreground">
+                <Dumbbell className="h-5 w-5" />
+                {selectedDay?.name ?? "Sin días"}
+              </CardTitle>
+              {selectedDay && selectedDay.muscle_groups.length > 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {selectedDay.muscle_groups.join(" / ")}
+                </p>
+              ) : null}
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              {!selectedDay || selectedDay.exercises.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-surface-2/20 p-6 text-sm text-muted-foreground">
+                  No hay ejercicios activos para este día.
+                </div>
+              ) : (
+                selectedDay.exercises.map((exercise) => (
+                  <div
+                    key={exercise.exercise_id}
+                    className="rounded-xl border border-border bg-surface-2/30 p-4"
+                  >
+                    <p className="text-base font-semibold text-foreground">{exercise.name}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                      {exercise.muscle_group}
+                    </p>
+                    <div className="mt-3">
+                      <PlannedSetsList plannedSets={exercise.planned_sets} />
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </>
+      ) : null}
     </div>
   );
 }

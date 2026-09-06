@@ -63,6 +63,20 @@ def _live_invitation_for(db: Session, user_id: str) -> Optional[models.MemberInv
     )
 
 
+def _pending_invitation_for(db: Session, user_id: str) -> Optional[models.MemberInvitation]:
+    """`_live_invitation_for` (no completada, no revocada) que además no venció.
+
+    Wrapper delgado en vez de agregarle el filtro a `_live_invitation_for`: esa
+    función la usan la serialización (que necesita ver invitaciones vencidas para
+    distinguir `expired` de `pending`) y el reenvío (que revoca la vencida). Ver
+    design.md, decisión D2.
+    """
+    invitation = _live_invitation_for(db, user_id)
+    if invitation is not None and invitation.expires_at <= datetime.utcnow():
+        return None
+    return invitation
+
+
 def _serialize_user(
     user: models.User,
     *,
@@ -364,6 +378,45 @@ def cancel_membership(
         if payload.cancelled_at
         else datetime.utcnow()
     )
+
+    db.commit()
+    db.refresh(obj)
+    return _serialize_user_single(db, obj)
+
+
+# ---------------------------------------------------------------------------
+# Verificación manual de contacto (`user-management`, design.md D1)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{user_id}/contact/verify", response_model=schemas.UserOut)
+def verify_contact(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    obj = _get_user_or_404(db, user_id)
+    require_can_manage_user(current_user, obj.role)
+
+    pending: List[str] = []
+    if obj.email and not obj.email_verified:
+        pending.append("email")
+    if obj.phone and not obj.phone_verified:
+        pending.append("phone")
+
+    if not pending:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "No hay datos de contacto para verificar",
+        )
+
+    invitation = _pending_invitation_for(db, obj.id)
+    for channel in pending:
+        setattr(obj, f"{channel}_verified", True)
+        if invitation is not None:
+            verified_at_attr = f"{channel}_verified_at"
+            if getattr(invitation, verified_at_attr) is None:
+                setattr(invitation, verified_at_attr, datetime.utcnow())
 
     db.commit()
     db.refresh(obj)

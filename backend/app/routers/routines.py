@@ -67,6 +67,9 @@ def _serialize_manage_exercise(exercise: models.Exercise) -> schemas.RoutineExer
         description=exercise.description,
         is_active=exercise.is_active,
         day_ids=sorted(link.day_id for link in exercise.day_links),
+        base_sets=exercise.base_sets,
+        base_reps=exercise.base_reps,
+        base_weight_kg=exercise.base_weight_kg,
     )
 
 
@@ -137,6 +140,11 @@ def _ensure_seed_data(db: Session) -> None:
                     muscle_group=exercise["muscle_group"],
                     description=exercise.get("description"),
                     is_active=True,
+                    # Base de progresión (add-routine-templates, design D3): solo al
+                    # crear el ejercicio, nunca se pisa la de uno ya existente.
+                    base_sets=exercise.get("base_sets", 3),
+                    base_reps=exercise.get("base_reps", 10),
+                    base_weight_kg=exercise.get("base_weight_kg", 0),
                 )
             )
 
@@ -681,6 +689,9 @@ def create_routine_exercise(
         muscle_group=payload.muscle_group,
         description=payload.description,
         is_active=payload.is_active,
+        base_sets=payload.base_sets,
+        base_reps=payload.base_reps,
+        base_weight_kg=payload.base_weight_kg,
     )
     db.add(exercise)
     db.flush()
@@ -718,6 +729,9 @@ def update_routine_exercise(
     if not exercise:
         raise HTTPException(status_code=404, detail="Ejercicio no encontrado")
 
+    # `model_dump(exclude_unset=True)` + `setattr` ya alcanza para los tres campos
+    # de base (`base_sets`/`base_reps`/`base_weight_kg`, design D3): no necesitan
+    # ningún manejo especial más allá del schema, igual que el resto de los campos.
     updates = payload.model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(exercise, field, value)

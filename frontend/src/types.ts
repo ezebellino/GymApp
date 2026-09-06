@@ -112,6 +112,12 @@ export type RoutineExerciseManage = {
   description?: string | null;
   is_active: boolean;
   day_ids: string[];
+  // Base del ejercicio (series x reps · kg), punto de partida del motor de
+  // progresión (add-routine-templates, design D3). Siempre presente: el
+  // backend la devuelve con default 3/10/0 si no se indicó al crear.
+  base_sets: number;
+  base_reps: number;
+  base_weight_kg: number;
 };
 
 export type RoutineDayProgress = {
@@ -159,4 +165,93 @@ export type UserProgressSummary = {
   best_weight_kg?: number | null;
   top_improvement?: ProgressImprovement | null;
   motivation: string;
+};
+
+// --- add-routine-templates: bloque nuevo (design D12, append) ---------------
+// Espejo de los schemas nuevos de backend/app/schemas.py (bloque final,
+// design D10). El backend de este change corre en paralelo: estos tipos
+// siguen el contrato de design.md al pie de la letra, no una implementación
+// ya existente.
+
+export type ProgressionStrategy =
+  | "constant"
+  | "pyramid"
+  | "inverted"
+  | "drop_set"
+  | "rest_pause";
+
+export type RoutineAssignmentStatus = "active" | "alternative";
+
+export type PlannedSet = {
+  index: number;
+  weight_kg: number;
+  reps: number;
+  note?: string | null; // "20 s" | "al fallo" | null
+};
+
+export type ExerciseBase = {
+  sets: number;
+  reps: number;
+  weight_kg: number;
+};
+
+export type RoutineTemplateSummary = {
+  id: string;
+  name: string;
+  tag: string;
+  day_count: number;
+  assignment_count: number;
+  created_at: string;
+};
+
+export type RoutineTemplateExercise = {
+  exercise_id: string;
+  name: string;
+  muscle_group: string;
+  base: ExerciseBase;
+  is_active: boolean;
+  strategy: ProgressionStrategy;
+  planned_sets: PlannedSet[];
+};
+
+export type RoutineTemplateDay = {
+  day_id: string;
+  name: string;
+  muscle_groups: string[];
+  position: number;
+  exercises: RoutineTemplateExercise[];
+};
+
+export type RoutineTemplateDetail = {
+  id: string;
+  name: string;
+  tag: string;
+  created_at: string;
+  updated_at: string;
+  days: RoutineTemplateDay[];
+};
+
+// Asignación de una plantilla a un Miembro (design D6/D7). La misma forma
+// sirve para el listado del admin (`GET /routines/users/{id}/templates`) y
+// para el propio listado del miembro (`GET /routines/my/templates`, "sin
+// datos de otros" — el backend no expone ahí nada que un Miembro no deba ver
+// de sí mismo).
+export type RoutineAssignment = {
+  id: string;
+  user_id: string;
+  template_id: string;
+  template_name: string;
+  template_tag: string;
+  status: RoutineAssignmentStatus;
+  starts_on?: string | null;
+  created_at: string;
+  adjustments_count: number;
+  last_adjustment: { by_name: string; at: string } | null;
+};
+
+// Detalle de la asignación desde el punto de vista del miembro
+// (`GET /routines/my/templates/{assignment_id}`): la asignación más los días
+// de la plantilla con el plan ya calculado (solo ejercicios activos).
+export type MemberRoutineTemplate = RoutineAssignment & {
+  days: RoutineTemplateDay[];
 };

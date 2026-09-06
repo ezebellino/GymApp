@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  BadgeCheck,
   Calendar,
   Cake,
   Mail,
@@ -18,9 +19,16 @@ import { queryKeys } from "@/services/queryKeys";
 import type { MembershipIndicator, Role } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import DataError from "@/components/DataError";
 import EditUserDialog from "@/components/EditUserDialog";
+import CancelMembershipDialog from "@/components/CancelMembershipDialog";
+import ActivateMembershipDialog from "@/components/ActivateMembershipDialog";
+import InviteUserDialog from "@/components/InviteUserDialog";
+import VerifyContactDialog from "@/components/VerifyContactDialog";
+import MemberTemplatesCard from "@/components/MemberTemplatesCard";
+import { useSessionStore } from "@/stores/session";
+import { canManageUser } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -69,7 +77,17 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleDateString("es-AR");
 }
 
-function InfoRow({ icon: Icon, label, value }: { icon: typeof Mail; label: string; value: string }) {
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+  trailing,
+}: {
+  icon: typeof Mail;
+  label: string;
+  value: string;
+  trailing?: ReactNode;
+}) {
   return (
     <div className="flex items-start gap-3">
       <div className="mt-0.5 rounded-full bg-surface-2/50 p-2 text-muted-foreground">
@@ -78,16 +96,63 @@ function InfoRow({ icon: Icon, label, value }: { icon: typeof Mail; label: strin
       <div>
         <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
         <p className="text-sm font-medium text-foreground">{value}</p>
+        {trailing}
       </div>
     </div>
   );
 }
 
+// Estado de verificación de un canal de contacto (design.md D8 de
+// `move-user-actions-to-detail`). El verde queda deliberadamente fuera: en
+// esta app ya significa "al día con la cuota" (INDICATOR_DOT_CLASS de más
+// arriba); "Verificado" es el estado normal (neutro), "Sin verificar" es el
+// accionable (ámbar).
+function ContactVerificationStatus({
+  value,
+  verified,
+}: {
+  value: string | null | undefined;
+  verified: boolean;
+}) {
+  if (!value) return null;
+
+  if (verified) {
+    return (
+      <div className="mt-1.5">
+        <Badge variant="outline" className="border-border text-muted-foreground">
+          <BadgeCheck className="h-3 w-3" />
+          Verificado
+        </Badge>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-1.5">
+      <Badge
+        variant="outline"
+        className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200"
+      >
+        Sin verificar
+      </Badge>
+    </div>
+  );
+}
+
+type DetailAction =
+  | null
+  | "edit"
+  | "cancel-membership"
+  | "activate-membership"
+  | "invite"
+  | "verify-contact";
+
 export default function UserDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [editOpen, setEditOpen] = useState(false);
+  const viewerRole = useSessionStore((s) => s.role);
+  const [action, setAction] = useState<DetailAction>(null);
 
   const { data: user, isPending, isError, refetch } = useUserQuery(id);
 
@@ -118,6 +183,13 @@ export default function UserDetail() {
   }
 
   const isMemberRole = user.role === "member";
+  const canManage = canManageUser(viewerRole, user.role);
+  const canInvite =
+    canManage && isMemberRole && user.invitation_status !== "access_active";
+  // Espejo exacto de `pending != []` del backend (design D1/D8): la ficha
+  // nunca ofrece una acción que el servidor vaya a rechazar con 409.
+  const hasPendingContact =
+    (!!user.email && !user.email_verified) || (!!user.phone && !user.phone_verified);
 
   return (
     <div className="space-y-6">
@@ -166,7 +238,7 @@ export default function UserDetail() {
             </div>
           </div>
 
-          <Button type="button" onClick={() => setEditOpen(true)}>
+          <Button type="button" onClick={() => setAction("edit")}>
             <PencilLine className="mr-2 h-4 w-4" />
             Editar
           </Button>
@@ -182,8 +254,22 @@ export default function UserDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-5 pt-6 sm:grid-cols-2">
-            <InfoRow icon={Mail} label="Email" value={user.email ?? "Sin cargar"} />
-            <InfoRow icon={Phone} label="Teléfono" value={user.phone ?? "Sin cargar"} />
+            <InfoRow
+              icon={Mail}
+              label="Email"
+              value={user.email ?? "Sin cargar"}
+              trailing={
+                <ContactVerificationStatus value={user.email} verified={user.email_verified} />
+              }
+            />
+            <InfoRow
+              icon={Phone}
+              label="Teléfono"
+              value={user.phone ?? "Sin cargar"}
+              trailing={
+                <ContactVerificationStatus value={user.phone} verified={user.phone_verified} />
+              }
+            />
             <InfoRow
               icon={Cake}
               label="Fecha de nacimiento"
@@ -204,6 +290,13 @@ export default function UserDetail() {
               value={user.height_cm != null ? `${user.height_cm} cm` : "Sin cargar"}
             />
           </CardContent>
+          {canManage && hasPendingContact ? (
+            <CardFooter className="border-t border-border pt-4">
+              <Button type="button" onClick={() => setAction("verify-contact")}>
+                Verificar contacto
+              </Button>
+            </CardFooter>
+          ) : null}
         </Card>
 
         <div className="space-y-6">
@@ -233,6 +326,24 @@ export default function UserDetail() {
                 />
               ) : null}
             </CardContent>
+            {canManage ? (
+              <CardFooter className="border-t border-border pt-4">
+                {user.membership_status === "active" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20"
+                    onClick={() => setAction("cancel-membership")}
+                  >
+                    Dar de baja la membresía
+                  </Button>
+                ) : (
+                  <Button type="button" onClick={() => setAction("activate-membership")}>
+                    {user.membership_status === "none" ? "Activar membresía" : "Reactivar membresía"}
+                  </Button>
+                )}
+              </CardFooter>
+            ) : null}
           </Card>
 
           {isMemberRole ? (
@@ -250,17 +361,58 @@ export default function UserDetail() {
                   value={INVITATION_STATUS_LABEL[user.invitation_status]}
                 />
               </CardContent>
+              {canInvite ? (
+                <CardFooter className="border-t border-border pt-4">
+                  <Button type="button" onClick={() => setAction("invite")}>
+                    {user.invitation_status === "none" ? "Invitar" : "Reenviar invitación"}
+                  </Button>
+                </CardFooter>
+              ) : null}
             </Card>
           ) : null}
+
+          {isMemberRole ? <MemberTemplatesCard user={user} canManage={canManage} /> : null}
         </div>
       </section>
 
-      {editOpen ? (
+      {action === "edit" ? (
         <EditUserDialog
-          open={editOpen}
-          onOpenChange={setEditOpen}
+          open={action === "edit"}
+          onOpenChange={(open) => setAction(open ? "edit" : null)}
           user={user}
           onSuccess={invalidateAfterEdit}
+        />
+      ) : null}
+
+      {action === "cancel-membership" ? (
+        <CancelMembershipDialog
+          open={action === "cancel-membership"}
+          onOpenChange={(open) => setAction(open ? "cancel-membership" : null)}
+          user={user}
+        />
+      ) : null}
+
+      {action === "activate-membership" ? (
+        <ActivateMembershipDialog
+          open={action === "activate-membership"}
+          onOpenChange={(open) => setAction(open ? "activate-membership" : null)}
+          user={user}
+        />
+      ) : null}
+
+      {action === "invite" ? (
+        <InviteUserDialog
+          open={action === "invite"}
+          onOpenChange={(open) => setAction(open ? "invite" : null)}
+          user={user}
+        />
+      ) : null}
+
+      {action === "verify-contact" ? (
+        <VerifyContactDialog
+          open={action === "verify-contact"}
+          onOpenChange={(open) => setAction(open ? "verify-contact" : null)}
+          user={user}
         />
       ) : null}
     </div>

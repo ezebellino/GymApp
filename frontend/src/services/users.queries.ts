@@ -7,6 +7,7 @@ import {
   fetchUsers,
   inviteUser,
   updateUser,
+  verifyUserContact,
   type CreateUserInput,
   type UpdateUserInput,
   type UsersParams,
@@ -82,7 +83,25 @@ export function useActivateMembershipMutation() {
 }
 
 export function useInviteUserMutation() {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (id: string) => inviteUser(id),
+    onSuccess: () => {
+      // Invitar mueve `invitation_status` de `none`/`expired` a `pending`: la
+      // card de la ficha necesita reflejarlo sin recargar (design D4).
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+    },
+  });
+}
+
+export function useVerifyContactMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => verifyUserContact(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+    },
   });
 }

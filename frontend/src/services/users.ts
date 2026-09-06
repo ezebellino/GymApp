@@ -73,3 +73,8 @@ export async function inviteUser(id: string): Promise<InviteUserResult> {
   const { data } = await api.post<InviteUserResult>(`/users/${id}/invitation`, {});
   return data;
 }
+
+export async function verifyUserContact(id: string): Promise<User> {
+  const { data } = await api.post<User>(`/users/${id}/contact/verify`, {});
+  return data;
+}

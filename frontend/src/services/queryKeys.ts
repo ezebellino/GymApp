@@ -29,4 +29,16 @@ export const queryKeys = {
   me: {
     all: ["me"] as const,
   },
+  // add-routine-templates (design D12): dos dominios nuevos.
+  routineTemplates: {
+    all: ["routineTemplates"] as const,
+    list: () => ["routineTemplates", "list"] as const,
+    detail: (id: string) => ["routineTemplates", "detail", id] as const,
+  },
+  routineAssignments: {
+    all: ["routineAssignments"] as const,
+    byUser: (userId: string) => ["routineAssignments", "byUser", userId] as const,
+    my: () => ["routineAssignments", "my"] as const,
+    myDetail: (assignmentId: string) => ["routineAssignments", "myDetail", assignmentId] as const,
+  },
 };

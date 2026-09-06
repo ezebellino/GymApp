@@ -14,7 +14,8 @@ Auth JWT propia (`app/auth.py`, `app/security.py`). Python 3, venv en `backend/.
 app/
   main.py            # entrypoint FastAPI, registra routers y middleware
   routers/           # un router por dominio: auth, clients, payments, attendance,
-                      #   reports, settings, coaches, routines
+                      #   reports, settings, coaches, routines, routine_templates,
+                      #   routine_assignments
   models.py           # modelos SQLAlchemy
   schemas.py           # schemas Pydantic (request/response)
   auth.py, security.py # JWT, hashing, dependencias de auth
@@ -23,6 +24,7 @@ app/
   config.py             # settings (pydantic-settings, lee .env)
   database.py            # engine + sesión SQLAlchemy
   routine_catalog.py      # catálogo estático de ejercicios por grupo muscular/día
+  progression.py           # motor de progresión (add-routine-templates), función pura
 migrations/               # Alembic — versions/ tiene el historial de migraciones
 scripts/                  # utilidades one-off: create_owner, seeds, import CSV, etc.
 ```
@@ -70,12 +72,60 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
     los pagos). Nunca fusionar esa lógica.
 - **CORS**: origins permitidos vienen de `CORS_ORIGINS` en `.env` (coma-separado). Si agregás un
   dominio de frontend nuevo, actualizá `.env.example` y `.env.docker.example` también.
+- **Plantillas de rutina, progresión y asignación** (`routine-templates`, `progression-strategies`,
+  `routine-assignment`, `member-routine-view`, change `add-routine-templates`): capa nueva sobre el
+  catálogo compartido de días/ejercicios que ya existía, sin cambiar su semántica.
+  - `app/progression.py`: función pura `plan_sets(strategy, *, sets, reps, weight_kg) ->
+    list[PlannedSet]` con las cinco estrategias (Constante, Pirámide, Invertida, Drop set,
+    Rest-pause) y sus constantes del sistema (`ROUND_STEP_KG`, `PYRAMID_RATE`, etc., sin endpoint
+    que las escriba). Sin imports de SQLAlchemy ni FastAPI; aritmética con `Decimal` y
+    `ROUND_HALF_UP` explícito (no `round()`, que usa banker's rounding). El plan se calcula
+    **siempre** en el backend, nunca en el frontend.
+  - `app/routers/routine_templates.py` (`/routines/templates`, owner+coach): alta/edición/borrado
+    de plantillas (`RoutineTemplate` + `RoutineTemplateDay`, subconjunto ordenado de
+    `TrainingDay`) y la configuración activo/estrategia por (plantilla, día, ejercicio)
+    (`RoutineTemplateExercise`, filas ralas con fallback a `TrainingDayExercise.is_active` +
+    estrategia Constante cuando no hay fila propia — así un reseed del catálogo
+    (`_ensure_seed_data`) nunca borra la configuración de una plantilla). Nombre único
+    case-insensitive vía columna derivada `name_normalized` (NFC + strip + casefold en Python, no
+    `lower()` de SQL: se comporta distinto en SQLite y Postgres).
+  - `app/routers/routine_assignments.py`: dos routers en el mismo archivo — `router`
+    (`/routines/users/{user_id}/templates`, owner+coach, reusa `require_can_manage_user` de
+    `deps.py`) para asignar/reasignar una plantilla a un Miembro (estado Activa/Alternativa, como
+    máximo una Activa por índice único parcial `ix_routine_assignments_user_active`) y ajustar la
+    base de un ejercicio por cliente con autoría (`RoutineAssignmentBase`); y `my_router`
+    (`/routines/my/templates`, rol member) de solo lectura para "Mi rutina", que resuelve la base
+    con precedencia ajuste-de-cliente → catálogo (`_resolve_base`) y omite los ejercicios
+    inactivos. Dar de baja la membresía de un Miembro **no** oculta ni borra sus asignaciones (esos
+    endpoints no filtran por `membership_status`); asignar una plantilla nueva sí exige membresía
+    activa.
+  - El catálogo de ejercicios (`Exercise`) sumó `base_sets`/`base_reps`/`base_weight_kg` (default
+    3/10/0) al flujo existente de alta/edición (`POST`/`PUT /routines/exercises`, sigue
+    `require_role(owner)`, sin cambio de permiso ni pantalla de alta nueva en el frontend).
+  - **Migración manual en Railway**: la migración `add routine templates` (tablas nuevas +
+    columnas de base en `exercises`) **no** corre sola en el deploy (Railway no ejecuta
+    migraciones automáticamente). Antes de promover el build con este código, aplicar
+    `python -m alembic upgrade head` contra la `DATABASE_URL` de producción (por ejemplo con
+    `railway run` sobre el servicio de backend). Hasta que corra, los endpoints nuevos y también
+    los **existentes** de catálogo de ejercicios fallarían con columna inexistente
+    (`exercises.base_sets`).
 - **Invitación de miembro** (`member-invitation`): `app/notifications.py` define
   `NotificationSender` (`NOTIFICATIONS_BACKEND=log` por default, escribe el link en
   `backend/logs/invitations.log`; `smtp` usa `smtplib` de la stdlib con `SMTP_*` en `.env`, sin
   dependencias nuevas) y `FRONTEND_BASE_URL` arma el link `/invitacion/{channel}/{token}`. El
   WhatsApp **no** tiene integración real: el link se genera y la UI ofrece un botón `wa.me`, igual
   que el patrón ya usado para recordatorios de pago — no hay envío automático.
+- **Verificación manual de contacto** (`user-management`, `move-user-actions-to-detail`):
+  `POST /users/{user_id}/contact/verify` (sin canal, sin body, `routers/users.py:verify_contact`)
+  deja que un Dueño o Coach con permiso de gestión (`require_can_manage_user`) marque a mano,
+  **en una sola acción**, todos los datos de contacto cargados y aún sin verificar (`pending`:
+  `email` si `obj.email` y no `obj.email_verified`, `phone` con el mismo criterio) — 409 "No hay
+  datos de contacto para verificar" si `pending` queda vacía (nada cargado, o todo lo cargado ya
+  verificado), sin escribir nada. Un dato no cargado o ya verificado simplemente se omite: ya no
+  hay 400. Si el usuario tiene una invitación **pendiente** (no vencida: `_pending_invitation_for`,
+  wrapper de `_live_invitation_for` + `expires_at` futuro), también marca en ella cada canal recién
+  verificado (`email_verified_at`/`phone_verified_at`), sin tocar `password_hash`, `completed_at`
+  ni emitir token — no sustituye la verificación por link, es una afirmación del admin.
 - **Logs**: `app/logging_conf.py` escribe a `backend/logs/` (access/app/error). No commitear
   contenido de `logs/` (ya está en `.gitignore`).
 - **Scripts**: son ejecutables sueltos pensados para correrse una vez (seed, import, fix de
@@ -107,7 +157,9 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
   `backend/requirements-dev.txt` junto a pytest.
 - **Tests**: hay suite con pytest en `backend/tests/` (`test_auth.py`, `test_roles.py`,
   `test_health.py`, `test_theme.py`, `test_membership.py`, `test_invitations.py`,
-  `test_payments.py`, `test_dev_seed.py`).
+  `test_contact_verification.py`, `test_payments.py`, `test_dev_seed.py`, `test_progression.py`,
+  `test_exercise_base.py`, `test_routine_templates.py`, `test_routine_assignments.py`,
+  `test_member_routine.py`).
   `test_dev_seed.py` cubre `scripts/seed_dev_users.py`: primera corrida crea los 3 usuarios (uno
   por rol, Miembro con membresía activa), segunda corrida no duplica ni falla, los tres pasan
   `POST /auth/token` + `GET /auth/me` de verdad, y las dos guardas de entorno (`ENVIRONMENT`
@@ -120,7 +172,17 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
   en `get_current_user`, no solo en `POST /auth/token`) y las fechas de baja/reactivación.
   `test_invitations.py` cubre el flujo completo de `member-invitation` (alta, verificación
   independiente de los dos canales, expiración, reenvío, y que una baja posterior a una invitación
-  ya completada vuelve a bloquear el login). `tests/helpers.py` expone `create_user(...)` para
+  ya completada vuelve a bloquear el login). `test_contact_verification.py` cubre
+  `POST /users/{id}/contact/verify` (una sola acción, sin canal): owner verificando los dos datos
+  pendientes de un miembro y coach verificando el suyo, que un teléfono ya verificado no se toca
+  de nuevo (solo el email pendiente), que un teléfono sin cargar no impide verificar el email, el
+  409 sin nada pendiente (ni con ambos ya verificados ni sin ningún dato cargado) sin escribir
+  nada, el 403 de un coach sobre otro coach, el 404 de un usuario inexistente, que marca en la
+  invitación vigente solo los canales recién verificados (no el que ya estaba verificado en el
+  usuario), que tras verificar ambos canales cualquiera de los dos links de invitación habilita
+  `can_set_password`, que sin invitación vigente no crea ninguna fila, que no toca una invitación
+  vencida, y que nunca define `password_hash` ni completa la invitación. `tests/helpers.py` expone
+  `create_user(...)` para
   crear usuarios directo en la base con cualquier rol/`membership_status` — no hay auto-registro
   (`/auth/client-register` se retiró). `test_theme.py` cubre la preferencia de tema por usuario
   (`theme_preference` en `users`, adoptada en `adopt-kinetic-obsidian-theme`): `GET /auth/me`
@@ -147,3 +209,41 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
   - `test_payments.py` cubre alta/lectura/borrado de un pago (`POST`/`GET`/`DELETE /payments`)
     sobre un miembro con membresía activa — la cobertura mínima que exige `make lint` haber
     tocado `app/routers/payments.py` para el gate de `add-verification-gates-to-opsx-flow`.
+  - `test_progression.py` cubre `app/progression.py` con los escenarios numéricos exactos de la
+    spec `progression-strategies`: Constante, los cuatro casos de Pirámide (incluido el piso de 3
+    reps), los tres de Invertida (incluido el piso de 2,5 kg), los dos de Drop set (incluido el
+    redondeo half-up de `1,5 × R` con R impar) y los dos de Rest-pause (incluido el piso de 1 rep),
+    más un caso sintético que demuestra que `round()` de Python (banker's rounding) daría un
+    resultado distinto al `ROUND_HALF_UP` que usa el motor.
+  - `test_exercise_base.py` cubre la base (series × reps · kg) en el flujo existente de
+    `POST`/`PUT /routines/exercises`: crear un ejercicio indicando la base, crear sin indicarla
+    (default 3×10 · 0 kg), editar la base de uno existente, que una base inválida (sets ≤ 0 o
+    peso negativo) responde 422, que un Coach no puede editarla (403, mismo permiso que el resto
+    del endpoint) y que editar la base cambia el plan ya calculado de toda plantilla que incluya
+    ese ejercicio.
+  - `test_routine_templates.py` cubre `routers/routine_templates.py`: alta con días, rechazo sin
+    días, edición de nombre/etiqueta, nombre único ignorando mayúsculas y espacios en los bordes,
+    que quitar y volver a agregar un día conserva la configuración de sus ejercicios, que
+    desactivar un ejercicio conserva su estrategia, que un ejercicio nuevo arranca en Constante,
+    que el mismo ejercicio tiene estrategia propia por plantilla, borrado sin asignaciones,
+    rechazo del borrado con asignaciones (con el conteo en el mensaje), que cambiar la estrategia
+    devuelve el plan recalculado, que un reseed del catálogo no borra la configuración de ninguna
+    plantilla, y que un Miembro no puede listar plantillas (403).
+  - `test_routine_assignments.py` cubre `routers/routine_assignments.py` (`router`): asignar como
+    Activa/Alternativa, que una nueva Activa degrada la anterior, los 409 de membresía dada de
+    baja/nunca activa/rol no-Miembro, que reactivar la membresía habilita asignar, que dar de baja
+    la membresía conserva las asignaciones ya existentes (consultadas desde la ficha del admin),
+    el ajuste de base con autoría y fecha, la asignación sin ajustes, quitar el ajuste (vuelve a
+    la base del catálogo) y quitar una asignación (Alternativa, y que quitar la Activa no
+    promueve ninguna Alternativa).
+  - `test_member_routine.py` cubre `routers/routine_assignments.py` (`my_router`, "Mi rutina"): que
+    un Miembro solo ve sus propias plantillas asignadas, la lista vacía sin asignaciones, que
+    pedir la asignación de otro Miembro responde 404 (no 403, para no filtrar existencia), que el
+    detalle solo trae los días de la plantilla, que un ejercicio desactivado no aparece en el
+    plan, que el plan usa la base ajustada por cliente cuando existe, que un cambio de estrategia
+    del admin se refleja de inmediato, y que un Miembro dado de baja sigue viendo sus plantillas
+    — este último caso, dado que `auth.is_membership_blocking_login` (regla preexistente, fuera
+    de alcance de este change) bloquea con 401 cualquier request de un Miembro dado de baja
+    incluso con un token ya emitido, se verifica con un override de `get_current_user` apuntando
+    directo al Miembro ya dado de baja (mismo patrón que el override de `get_db` de
+    `conftest.py`), en vez de loguearse de nuevo por HTTP.

@@ -233,6 +233,10 @@ class RoutineExerciseCreate(BaseSchema):
     muscle_group: Annotated[str, Field(min_length=1, max_length=40)]
     description: Optional[Annotated[str, Field(max_length=220)]] = None
     is_active: bool = True
+    # --- Base de progresión (add-routine-templates, design D3) --------------
+    base_sets: Annotated[int, Field(ge=1)] = 3
+    base_reps: Annotated[int, Field(ge=1)] = 10
+    base_weight_kg: Annotated[float, Field(ge=0)] = 0
 
     @field_validator("name", "muscle_group", "description", mode="before")
     @classmethod
@@ -248,6 +252,9 @@ class RoutineExerciseUpdate(BaseSchema):
     muscle_group: Optional[Annotated[str, Field(min_length=1, max_length=40)]] = None
     description: Optional[Annotated[str, Field(max_length=220)]] = None
     is_active: Optional[bool] = None
+    base_sets: Optional[Annotated[int, Field(ge=1)]] = None
+    base_reps: Optional[Annotated[int, Field(ge=1)]] = None
+    base_weight_kg: Optional[Annotated[float, Field(ge=0)]] = None
 
     @field_validator("name", "muscle_group", "description", mode="before")
     @classmethod
@@ -265,6 +272,9 @@ class RoutineExerciseManageOut(BaseSchema):
     description: Optional[str] = None
     is_active: bool
     day_ids: list[str]
+    base_sets: int
+    base_reps: int
+    base_weight_kg: float
 
 
 class RoutineDaySelectionUpdate(BaseSchema):
@@ -455,6 +465,178 @@ class InvitationStateOut(BaseSchema):
 
 class InvitationCompleteIn(BaseSchema):
     password: str = Field(min_length=6, max_length=100)
+
+
+# --- add-routine-templates: bloque nuevo (design D10, append) --------------
+# Plantillas de rutina, motor de progresión y asignación a clientes. Bloque
+# delimitado a propósito: aunque otra sesión edite `schemas.py`, el conflicto de
+# merge contra este archivo es nulo o trivial (las únicas ediciones in situ son
+# los tres campos de base de `RoutineExercise*` más arriba, design D3).
+
+ProgressionStrategyLiteral = Literal["constant", "pyramid", "inverted", "drop_set", "rest_pause"]
+RoutineAssignmentStatusLiteral = Literal["active", "alternative"]
+
+
+def _normalize_tag(value):
+    if isinstance(value, str):
+        value = value.strip().upper()
+        return value or ""
+    return value
+
+
+def _unique_day_ids(value: list[str]) -> list[str]:
+    if len(set(value)) != len(value):
+        raise ValueError("day_ids no puede tener ids repetidos")
+    return value
+
+
+class PlannedSetOut(BaseSchema):
+    """Una serie calculada por el motor de progresión (`app/progression.py`)."""
+
+    index: int
+    weight_kg: float
+    reps: int
+    note: Optional[str] = None
+
+
+class ExerciseBaseOut(BaseSchema):
+    sets: int
+    reps: int
+    weight_kg: float
+
+
+class RoutineTemplateExerciseOut(BaseSchema):
+    exercise_id: str
+    name: str
+    muscle_group: str
+    base: ExerciseBaseOut
+    is_active: bool
+    strategy: ProgressionStrategyLiteral
+    planned_sets: list[PlannedSetOut]
+
+
+class RoutineTemplateExerciseUpdate(BaseSchema):
+    """`PUT /routines/templates/{id}/days/{day_id}/exercises/{exercise_id}`."""
+
+    is_active: Optional[bool] = None
+    strategy: Optional[ProgressionStrategyLiteral] = None
+
+
+class RoutineTemplateDayOut(BaseSchema):
+    day_id: str
+    name: str
+    muscle_groups: list[str]
+    position: int
+    exercises: list[RoutineTemplateExerciseOut]
+
+
+class RoutineTemplateSummary(BaseSchema):
+    id: str
+    name: str
+    tag: str
+    day_count: int
+    assignment_count: int
+    created_at: datetime
+
+
+class RoutineTemplateDetail(BaseSchema):
+    id: str
+    name: str
+    tag: str
+    created_at: datetime
+    updated_at: datetime
+    days: list[RoutineTemplateDayOut]
+
+
+class RoutineTemplateCreate(BaseSchema):
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+    tag: Annotated[str, Field(max_length=24)] = ""
+    day_ids: Annotated[list[str], Field(min_length=1)]
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, value):
+        return _strip_or_none(value)
+
+    @field_validator("tag", mode="before")
+    @classmethod
+    def normalize_tag(cls, value):
+        return _normalize_tag(value) if value is not None else ""
+
+    @field_validator("day_ids")
+    @classmethod
+    def validate_day_ids(cls, value):
+        return _unique_day_ids(value)
+
+
+class RoutineTemplateUpdate(BaseSchema):
+    name: Optional[Annotated[str, Field(min_length=1, max_length=120)]] = None
+    tag: Optional[Annotated[str, Field(max_length=24)]] = None
+    day_ids: Optional[Annotated[list[str], Field(min_length=1)]] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, value):
+        return _strip_or_none(value)
+
+    @field_validator("tag", mode="before")
+    @classmethod
+    def normalize_tag(cls, value):
+        return _normalize_tag(value)
+
+    @field_validator("day_ids")
+    @classmethod
+    def validate_day_ids(cls, value):
+        return _unique_day_ids(value) if value is not None else value
+
+
+class LastAdjustmentOut(BaseSchema):
+    by_name: str
+    at: datetime
+
+
+class RoutineAssignmentOut(BaseSchema):
+    id: str
+    user_id: str
+    template_id: str
+    template_name: str
+    template_tag: str
+    status: RoutineAssignmentStatusLiteral
+    starts_on: date
+    created_at: datetime
+    adjustments_count: int
+    last_adjustment: Optional[LastAdjustmentOut] = None
+
+
+class RoutineAssignmentBaseOverrideIn(BaseSchema):
+    exercise_id: str
+    sets: Annotated[int, Field(ge=1)]
+    reps: Annotated[int, Field(ge=1)]
+    weight_kg: Annotated[float, Field(ge=0)]
+
+
+class RoutineAssignmentCreate(BaseSchema):
+    template_id: str
+    status: RoutineAssignmentStatusLiteral
+    starts_on: Optional[date] = None
+    base_overrides: list[RoutineAssignmentBaseOverrideIn] = Field(default_factory=list)
+
+
+class RoutineAssignmentUpdate(BaseSchema):
+    status: RoutineAssignmentStatusLiteral
+
+
+class RoutineAssignmentBaseUpdate(BaseSchema):
+    sets: Annotated[int, Field(ge=1)]
+    reps: Annotated[int, Field(ge=1)]
+    weight_kg: Annotated[float, Field(ge=0)]
+
+
+class MemberRoutineTemplateOut(RoutineAssignmentOut):
+    """`GET /routines/my/templates/{assignment_id}`: la asignación + el plan ya
+    calculado (solo días de la plantilla, y por día solo ejercicios activos)."""
+
+    days: list[RoutineTemplateDayOut]
 
 
 def _bucket_expr(column, bucket: Literal["day", "week", "month"]):

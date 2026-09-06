@@ -22,6 +22,25 @@ class MembershipStatus(str, enum.Enum):
     cancelled = "cancelled"
 
 
+class ProgressionStrategy(str, enum.Enum):
+    """Estrategia de progresión de series (`progression-strategies`).
+
+    Los parámetros numéricos de cada estrategia viven como constantes en
+    `app/progression.py`, no acá: este enum solo identifica cuál usar.
+    """
+
+    constant = "constant"
+    pyramid = "pyramid"
+    inverted = "inverted"
+    drop_set = "drop_set"
+    rest_pause = "rest_pause"
+
+
+class RoutineAssignmentStatus(str, enum.Enum):
+    active = "active"
+    alternative = "alternative"
+
+
 class User(Base):
     """Persona que interactua con la plataforma (Dueño, Coach o Miembro).
 
@@ -166,6 +185,10 @@ class Exercise(Base):
     muscle_group = Column(String, nullable=False, index=True)
     description = Column(String, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
+    # --- Base de progresión (add-routine-templates, design D3) --------------
+    base_sets = Column(Integer, nullable=False, default=3, server_default="3")
+    base_reps = Column(Integer, nullable=False, default=10, server_default="10")
+    base_weight_kg = Column(Float, nullable=False, default=0, server_default="0")
 
     day_links = relationship("TrainingDayExercise", back_populates="exercise", cascade="all, delete-orphan")
     logs = relationship("WorkoutLog", back_populates="exercise", cascade="all, delete-orphan")
@@ -204,6 +227,147 @@ class WorkoutLog(Base):
     user = relationship("User", back_populates="workout_logs", foreign_keys=[user_id])
     day = relationship("TrainingDay", back_populates="logs")
     exercise = relationship("Exercise", back_populates="logs")
+
+
+class RoutineTemplate(Base):
+    """Plantilla de rutina (`routine-templates`): capa sobre el catálogo compartido de
+    días y ejercicios, ver design.md decision D1. No copia días ni ejercicios, solo
+    referencia un subconjunto ordenado de `TrainingDay` vía `RoutineTemplateDay`."""
+
+    __tablename__ = "routine_templates"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    # Derivada en Python (NFC + strip + casefold), no `lower()` de SQL: ver design D1.
+    name_normalized = Column(String, nullable=False)
+    tag = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    days = relationship(
+        "RoutineTemplateDay",
+        cascade="all, delete-orphan",
+        order_by="RoutineTemplateDay.position",
+    )
+    exercise_configs = relationship("RoutineTemplateExercise", cascade="all, delete-orphan")
+    assignments = relationship("RoutineAssignment", back_populates="template")
+
+    __table_args__ = (
+        UniqueConstraint("name_normalized", name="uq_routine_templates_name_normalized"),
+    )
+
+
+class RoutineTemplateDay(Base):
+    """Qué días del catálogo incluye una plantilla y en qué orden (design D1)."""
+
+    __tablename__ = "routine_template_days"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    template_id = Column(String, ForeignKey("routine_templates.id", ondelete="CASCADE"), nullable=False, index=True)
+    day_id = Column(String, ForeignKey("training_days.id", ondelete="CASCADE"), nullable=False, index=True)
+    position = Column(Integer, nullable=False)
+
+    day = relationship("TrainingDay")
+
+    __table_args__ = (
+        UniqueConstraint("template_id", "day_id", name="uq_routine_template_days_template_day"),
+    )
+
+
+class RoutineTemplateExercise(Base):
+    """Configuración (activo + estrategia) de un ejercicio para una plantilla y un día.
+
+    Referencia `(template_id, day_id, exercise_id)` **directo** — sin FK a
+    `RoutineTemplateDay` ni a `TrainingDayExercise` — para que quitar un día de la
+    plantilla no borre esta configuración y para que no la afecte un reseed del
+    catálogo (`_ensure_seed_data`). Ver design.md decision D2, invariantes I1/I9.
+    Filas ralas: solo existe cuando alguien tocó ese ejercicio en esa plantilla.
+    """
+
+    __tablename__ = "routine_template_exercises"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    template_id = Column(String, ForeignKey("routine_templates.id", ondelete="CASCADE"), nullable=False, index=True)
+    day_id = Column(String, ForeignKey("training_days.id", ondelete="CASCADE"), nullable=False, index=True)
+    exercise_id = Column(String, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    strategy = Column(Enum(ProgressionStrategy), nullable=False, default=ProgressionStrategy.constant)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    exercise = relationship("Exercise")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "template_id", "day_id", "exercise_id", name="uq_routine_template_exercises_template_day_exercise"
+        ),
+    )
+
+
+class RoutineAssignment(Base):
+    """Asignación de una plantilla a un Miembro (`routine-assignment`, design D6).
+
+    Como máximo una Activa por usuario, garantizado por el índice único parcial de
+    abajo (no solo por el código del endpoint, invariante I2).
+    """
+
+    __tablename__ = "routine_assignments"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    template_id = Column(String, ForeignKey("routine_templates.id", ondelete="RESTRICT"), nullable=False, index=True)
+    status = Column(Enum(RoutineAssignmentStatus), nullable=False)
+    starts_on = Column(Date, nullable=False, default=date.today)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+    template = relationship("RoutineTemplate", back_populates="assignments")
+    base_overrides = relationship(
+        "RoutineAssignmentBase", cascade="all, delete-orphan", back_populates="assignment"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "template_id", name="uq_routine_assignments_user_template"),
+        Index(
+            "ix_routine_assignments_user_active",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+            # SQLite ignora `postgresql_where` sin este kwarg (ver
+            # `MemberInvitation.ix_member_invitations_user_id_live` más abajo): la
+            # suite corre en SQLite y producción en Postgres, así que hacen falta los
+            # dos dialectos declarados para que el invariante se comporte igual.
+            sqlite_where=text("status = 'active'"),
+        ),
+    )
+
+
+class RoutineAssignmentBase(Base):
+    """Ajuste de base (series × reps · kg) por cliente para un ejercicio de su
+    asignación, con autoría por fila (design D7). Precedencia sobre la base global
+    del catálogo al calcular el plan de ese Miembro (invariante I10)."""
+
+    __tablename__ = "routine_assignment_bases"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    assignment_id = Column(
+        String, ForeignKey("routine_assignments.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    exercise_id = Column(String, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False, index=True)
+    sets = Column(Integer, nullable=False)
+    reps = Column(Integer, nullable=False)
+    weight_kg = Column(Float, nullable=False)
+    adjusted_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    adjusted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    assignment = relationship("RoutineAssignment", back_populates="base_overrides")
+    exercise = relationship("Exercise")
+
+    __table_args__ = (
+        UniqueConstraint("assignment_id", "exercise_id", name="uq_routine_assignment_bases_assignment_exercise"),
+    )
 
 
 class MemberInvitation(Base):

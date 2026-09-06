@@ -29,6 +29,7 @@ const Login = lazy(() => import("./pages/Login"));
 const InvitationAccept = lazy(() => import("./pages/InvitationAccept"));
 const NewCoachPage = lazy(() => import("./pages/NewCoach"));
 const UserDetail = lazy(() => import("./pages/UserDetail"));
+const RoutineTemplateDetail = lazy(() => import("./pages/RoutineTemplateDetail"));
 
 // Widget de cambio de rol, solo en desarrollo (`add-dev-role-switcher`, dec. 1).
 // El ternario va a nivel de módulo a propósito: en `npm run build` Vite
@@ -152,6 +153,14 @@ export default function App() {
                     element={
                       <ProtectedRoute roles={["owner", "coach"]}>
                         <Routines />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/routines/:templateId"
+                    element={
+                      <ProtectedRoute roles={["owner", "coach"]}>
+                        <RoutineTemplateDetail />
                       </ProtectedRoute>
                     }
                   />
