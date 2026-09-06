@@ -46,8 +46,10 @@ iteración posterior.
   asignación completa (con confirmación); quitar la Activa deja al Miembro sin plantilla Activa,
   sin promover automáticamente ninguna Alternativa. Un Miembro sin membresía activa (dada de baja
   o que nunca tuvo alta) no puede recibir nuevas asignaciones, pero las asignaciones que ya tenía
-  se conservan y las sigue viendo en "Mi rutina" — la regla de membresía activa solo condiciona
-  altas nuevas, no las existentes.
+  se conservan intactas y vuelve a verlas en "Mi rutina" en cuanto se reactiva su membresía — la
+  regla de membresía activa solo condiciona altas nuevas, no las existentes. Mientras la membresía
+  está dada de baja, el Miembro no puede acceder a la aplicación por la regla de autenticación
+  vigente, que este change no modifica.
 - La vista del cliente **"Mi rutina"** pasa a mostrar únicamente las plantillas que le fueron
   asignadas: el cliente elige entre ellas, ve los días que incluye la plantilla elegida y, por
   cada ejercicio activo del día, el plan calculado serie por serie (peso × repeticiones, con sus

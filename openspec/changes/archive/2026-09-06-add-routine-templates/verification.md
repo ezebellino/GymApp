@@ -116,5 +116,17 @@ riesgo alto coherente con la tabla de `role-architect`.
    blanco en el camino manual del propio Plan de verificación.
 2. Decidir el hallazgo 2: exponer los overrides por ejercicio en el contrato de la asignación y
    precargarlos, o al menos no enviar campos que el Coach no tocó.
-3. Resolver el hallazgo 3 en la spec (acotar el THEN) o abrir un change para el gate de login; no
-   sincronizar la afirmación actual tal como está.
+3. ~~Resolver el hallazgo 3 en la spec~~ **Resuelto el 2026-09-06 antes del sync**: el Product
+   Owner acotó el escenario "Dar de baja la membresía no quita las asignaciones existentes" en
+   `specs/routine-assignment/spec.md` y el bullet equivalente de `proposal.md`: la asignación se
+   conserva y el Miembro vuelve a verla al reactivarse; mientras está dado de baja no accede a la
+   app por la regla de `auth.py`, fuera de este change. Las specs principales se sincronizaron con
+   esa redacción.
+
+## Decisión de cierre
+
+El usuario decidió commitear, desplegar (commit `b2ae29f`, migración aplicada a mano en Railway
+antes del push, deploy en SUCCESS), sincronizar y archivar con veredicto **PASA CON RESERVAS**,
+quedando abiertas las reservas 1 (pantalla en blanco ante 422 en los diálogos de base) y 2
+("Ajustar base" pisa un ajuste previo) para un fix posterior. Registrado a pedido explícito del
+usuario, saltando el gate de veredicto PASA.

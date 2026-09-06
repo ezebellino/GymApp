@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Asignación de plantillas de rutina a Miembros por parte de un Dueño o Coach: estado Activa (como máximo una por Miembro) o Alternativa, sobreescritura de la base (series × reps · kg) de ejercicios para ese cliente con autoría y fecha, quitar asignaciones y ajustes, y la regla de que solo un Miembro con membresía activa recibe asignaciones nuevas (las existentes se conservan ante una baja). Se ve desde la ficha del usuario, siguiendo el patrón de `user-management`.
+
+## Requirements
 
 ### Requirement: Asignación de una plantilla a un Miembro
 Un Dueño o Coach SHALL poder asignar una plantilla de rutina a un usuario con rol Miembro,
@@ -54,7 +58,7 @@ El sistema SHALL permitir asignar una plantilla únicamente a Miembros con membr
 Miembro cuya membresía esté dada de baja, o que nunca haya tenido una membresía activa, NO SHALL
 poder recibir una nueva asignación de plantilla mientras dure esa condición. Esta condición SHALL
 aplicar únicamente a asignaciones nuevas: una asignación que el Miembro ya tenía SHALL conservarse
-sin cambios cuando pierda la membresía activa, y el Miembro SHALL seguir viéndola en "Mi rutina".
+intacta, sin borrarse ni modificarse, cuando pierda la membresía activa.
 
 #### Scenario: Rechazar la asignación a un Miembro con membresía dada de baja
 - **WHEN** un Dueño intenta asignar una plantilla a un Miembro cuya membresía está dada de baja
@@ -68,8 +72,11 @@ sin cambios cuando pierda la membresía activa, y el Miembro SHALL seguir viénd
 #### Scenario: Dar de baja la membresía no quita las asignaciones existentes
 - **WHEN** un Dueño da de baja la membresía de un Miembro que ya tenía "Fuerza 4 días" asignada
   como Activa
-- **THEN** esa asignación se conserva sin cambios
-- **THEN** el Miembro la sigue viendo en "Mi rutina"
+- **THEN** esa asignación se conserva intacta
+- **THEN** al reactivarse la membresía de ese Miembro, vuelve a verla en "Mi rutina" — mientras la
+  membresía está dada de baja, el Miembro no puede acceder a la aplicación por la regla de
+  autenticación vigente (`backend/app/auth.py`, no modificada por este change), así que no llega a
+  abrir "Mi rutina" en ese estado
 
 ### Requirement: Quitar una asignación
 Un Dueño o Coach SHALL poder quitar, con confirmación, una asignación de plantilla de un Miembro
