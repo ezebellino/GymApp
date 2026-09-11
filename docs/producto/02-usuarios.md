@@ -14,7 +14,7 @@ parte de lo que sigue ya está implementado y con spec; la brecha es chica y con
 | # | Supuesto | Alternativa descartada |
 |---|---|---|
 | U1 | Un `member` **nace con membresía activa** y con su plan asignado (S7 de membresías). No existe "miembro en espera". | Alta sin membresía, activación posterior. |
-| U2 | El **email es obligatorio** para un Miembro nuevo, porque sin email no hay invitación. El celular es obligatorio para poder invitar, pero no para crear el registro. | Ambos opcionales, alta "solo en papel". |
+| U2 | El **email es obligatorio** para un Miembro nuevo porque es el usuario del login e identifica la cuenta (U4). El celular es opcional: sin celular no hay botón de WhatsApp, pero el link de invitación se copia igual. | Ambos opcionales, alta "solo en papel"; login por celular. |
 | U3 | La invitación vence a los **7 días** y se puede reenviar sin límite; cada reenvío invalida el link anterior. | Sin vencimiento. |
 | U4 | El Miembro puede **editar su propio perfil** en el portal: peso, altura, celular. No puede cambiar email (identifica la cuenta) ni fecha de nacimiento. | Perfil solo lectura. |
 | U5 | **Recuperar contraseña** reutiliza el link de invitación: el Dueño lo dispara desde la ficha ("Resetear acceso") y el miembro define una contraseña nueva. No hay "olvidé mi contraseña" autoservicio en el MVP. | Autoservicio por email. |
@@ -35,12 +35,12 @@ ni asistencias que se puedan cruzar.
 ```
  Usuario (User)                                 Invitación (MemberInvitation)
  ┌────────────────────────────────────────┐    ┌──────────────────────────────┐
- │ identidad  nombre, apellido            │    │ token email  / token celular │
+ │ identidad  nombre, apellido            │    │ token único                  │
  │ contacto   email ✔?, celular ✔?        │ 1─*│ vence       +7 días          │
- │ perfil     nacimiento, peso, altura    │    │ email verificado el          │
- │ rol        owner | coach | member      │    │ celular verificado el        │
- │ acceso     contraseña (o ninguna)      │    │ completada el / revocada el  │
- │ membresía  none | active | cancelled   │    └──────────────────────────────┘
+ │ perfil     nacimiento, peso, altura    │    │ completada el / revocada el  │
+ │ rol        owner | coach | member      │    └──────────────────────────────┘
+ │ acceso     contraseña (o ninguna)      │
+ │ membresía  none | active | cancelled   │
  │            desde, dada de baja el      │
  │ plan       (ver 03-membresias)         │
  │ auditoría  creado el, por quién        │
@@ -53,8 +53,8 @@ ni asistencias que se puedan cruzar.
 | **Rol** | Dueño, Coach o Miembro. Define permisos, no si entrena. |
 | **Membresía** | Atributo del usuario: nunca fue (`none`), activa, dada de baja. Independiente del rol. |
 | **Acceso** | Tener contraseña y no estar bloqueado. Un usuario puede existir sin acceso (miembro invitado que todavía no completó). |
-| **Verificación de contacto** | Email y celular se marcan verificados por separado: al abrir el link del canal, o a mano por el Dueño. |
-| **Invitación** | Link único de 7 días que verifica canales y permite definir la contraseña. |
+| **Verificación de contacto** | Email y celular se marcan verificados por separado, a mano por el Dueño cuando ya los comprobó. No hay verificación por link (D11). |
+| **Invitación** | Link único de 7 días que permite definir la contraseña. Se entrega a mano: copiar o WhatsApp. |
 | **Edad** | Derivada de la fecha de nacimiento; no se guarda. |
 
 ## 3. Reglas de negocio
@@ -80,21 +80,18 @@ Dos caminos, según el rol (D4, D10):
    ├─ el Dueño verifica a mano lo que         └─ acceso inmediato
    │  ya comprobó (email y/o celular)
    │
-   └─ "Invitar" → link por email
-                + wa.me prellenado para WhatsApp
+   └─ "Invitar" → link único
+                  el Dueño lo copia, o wa.me prellenado si hay celular
         │
-        ├─ abre link de email   → email verificado
-        ├─ abre link de WhatsApp → celular verificado
-        │
-        └─ ambos verificados → define contraseña → acceso
+        └─ abre el link → define contraseña → acceso
 ```
 
 - Un Miembro **no puede** recibir contraseña al crearlo; solo por invitación.
-- Sin celular cargado no se puede invitar. Sin email tampoco (U2).
+- El sistema no envía el link: lo entrega el Dueño (D11). Sin celular no hay botón de WhatsApp,
+  pero el link se copia igual.
 - Un Miembro con invitación pendiente no puede loguearse aunque adivine credenciales.
 - Reenviar genera un link nuevo y mata el anterior (U3).
-- La ficha muestra el estado: sin acceso, invitación pendiente (con qué canal falta), acceso
-  activo.
+- La ficha muestra el estado: sin acceso, invitación pendiente, acceso activo.
 
 ### 3.3 Membresía y baja
 
@@ -119,12 +116,11 @@ Dos caminos, según el rol (D4, D10):
 
 1. **Alta de miembro.** Usuarios → Nuevo → nombre, apellido, email, celular, plan → crear →
    la ficha ofrece "Invitar".
-2. **Invitar.** Ficha → Invitar → modal con el link de email (copiar) y el botón de WhatsApp
-   → el Dueño lo manda desde su WhatsApp. Estado pasa a "invitación pendiente".
-3. **Aceptar invitación (Miembro).** Abre el link → ve qué canal quedó verificado y cuál
-   falta → con ambos, define contraseña → entra al portal.
+2. **Invitar.** Ficha → Invitar → modal con el link (copiar) y, si hay celular, el botón de
+   WhatsApp → el Dueño lo manda por donde quiera. Estado pasa a "invitación pendiente".
+3. **Aceptar invitación (Miembro).** Abre el link → define contraseña → entra al portal.
 4. **Verificar a mano.** Ficha → Verificar contacto → el Dueño marca email y/o celular que ya
-   comprobó (lo vio en persona). Reduce lo que el miembro tiene que hacer.
+   comprobó (lo vio en persona). Es la única verificación de contacto del MVP (D11).
 5. **Editar.** Ficha → Editar → perfil, contacto, rol (solo Dueño).
 6. **Dar de baja / reactivar.** Ficha → Dar de baja → fecha, confirmación → semáforo rojo.
    Reactivar deshace el bloqueo.
@@ -140,7 +136,7 @@ Dos caminos, según el rol (D4, D10):
 | Registro único con rol y membresía como atributo | Implementado (`User`, `unify-clients-into-users`). | `user-management` |
 | Perfil: nombre, apellido, nacimiento, peso, altura, email, celular; edad derivada | Implementado. | `user-management` |
 | Alta por rol: Miembro sin contraseña, staff con contraseña | Implementado. | `user-management`, `member-invitation` |
-| Invitación por link, doble verificación, 7 días, reenvío, wa.me | Implementado, solo para rol Miembro. | `member-invitation` |
+| Invitación por link, 7 días, reenvío, wa.me | Implementado, solo para rol Miembro, pero con **dos links y verificación por canal**: el MVP lo reduce a un solo link (U-3). | `member-invitation` |
 | Verificación manual de contacto por el Dueño | Implementado. | `member-invitation` |
 | Baja con fecha, sin borrado, bloqueo según rol, reactivación | Implementado. | `user-management` |
 | Listado único con búsqueda, filtros rol/membresía, semáforo | Implementado. | `user-management`, `payment-status-indicator` |
@@ -150,7 +146,7 @@ Dos caminos, según el rol (D4, D10):
 | Perfil propio del Miembro (U4) | No existe; solo puede cambiar su tema. | `session-state` |
 | Resetear acceso (U5) | No existe. Un Dueño puede escribir una contraseña a mano por PATCH. | — |
 | Página "Nuevo coach" separada | Existe, duplica el diálogo de alta. Retirarla es post-MVP (P6). | — |
-| Envío real del email de invitación | Implementado con SMTP estándar, pero el modo por defecto es `log` (deja el link en un archivo, no manda nada). Producción necesita `NOTIFICATIONS_BACKEND=smtp` y credenciales en Railway; confirmar que están cargadas. | `member-invitation` |
+| Envío del email de invitación | Existe (`notifications.py`, modo `log` por defecto, `smtp` opcional). **Se retira**: el MVP no envía emails (D11). | `member-invitation` |
 
 ## 6. Brecha MVP
 
@@ -158,7 +154,7 @@ Dos caminos, según el rol (D4, D10):
 |---|---|---|---|
 | U-1 | Plan obligatorio en el alta de Miembro, visible en ficha y listado. | M1 de membresías | Alta |
 | U-2 | Email obligatorio al crear un Miembro, con mensaje claro (U2). | — | Alta, chica |
-| U-3 | Configurar SMTP en producción (variables en Railway) y verificar que el email de invitación llega. | — | Alta: sin esto la invitación depende de WhatsApp. |
+| U-3 | Invitación con un solo link y sin envío de email: retirar el envío SMTP y la verificación por canal, celular opcional para invitar, corregir los textos del diálogo (D11). | — | Alta: cierra el flujo de acceso tal como va a funcionar. |
 | U-4 | Resetear acceso desde la ficha (U5). | — | Media |
 | U-5 | Mi perfil en el portal del Miembro (U4). | — | Media |
 | U-6 | Confirmación al dar de baja un miembro con pagos futuros (U6). | — | Baja |

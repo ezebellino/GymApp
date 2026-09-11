@@ -71,7 +71,7 @@ Seis módulos más el portal del miembro como capa transversal.
 
 | # | Módulo | Documento | Resumen del alcance MVP |
 |---|---|---|---|
-| 1 | Gestión de usuarios y roles | [02-usuarios.md](02-usuarios.md) | Un registro por persona con rol Dueño/Coach/Miembro. Alta por el Dueño (o Coach para miembros), verificación de email y celular, link de invitación para crear contraseña. Baja lógica, sin borrado físico. |
+| 1 | Gestión de usuarios y roles | [02-usuarios.md](02-usuarios.md) | Un registro por persona con rol Dueño/Coach/Miembro. Alta por el Dueño (o Coach para miembros), link único de invitación para crear contraseña, sin envío de emails (D11). Baja lógica, sin borrado físico. |
 | 2 | Membresías y pagos | [03-membresias-y-pagos.md](03-membresias-y-pagos.md) | CRUD de **planes de membresía** con precio (general, socio del club, jubilado, estudiante, etc.). Cada miembro tiene un plan asignado. Registro de pagos por período con el precio vigente al momento del pago. Historial de precios: cambiar el precio de un plan no altera pagos anteriores. Semáforo al día / en mora / de baja. |
 | 3 | Rutinas y ejercicios | [04-rutinas.md](04-rutinas.md) | CRUD de ejercicios con descripción, video o GIF, grupo muscular y tipo de entrenamiento. Plantillas con nombre, tipo y días propios; cada día planifica grupos musculares y lleva ejercicios con series explícitas (reps · kg). Asignación a miembros (activa / alternativa). El miembro entrena la sesión, ajusta kilos y marca series; su progresión de peso se trackea. |
 | 4 | Asistencias | [05-asistencias.md](05-asistencias.md) | El Dueño marca la asistencia del miembro desde esta app, por búsqueda de nombre, email o teléfono. Historial y calendario por miembro. Solo miembros con membresía activa. El auto check-in del miembro es del MVP móvil; acá solo se deja lista la API. |
@@ -87,17 +87,19 @@ Registro de las decisiones de producto que condicionan los seis documentos. Fech
 | D1 | Admin vs Dueño | Mismo rol. Se mantiene el nombre **Owner / Dueño**. No hay rol Admin. |
 | D2 | Modelo de cuota | Hay **planes de membresía** distintos (CRUD), cada miembro tiene uno asignado. El precio de un plan puede cambiar; los pagos guardan el monto pagado y el plan/precio vigente en ese momento, así el historial no se pierde ni se reescribe. |
 | D3 | Recordatorios de pago | **Fuera del MVP.** Solo el indicador de estado en pantalla. Los campos de recordatorio existentes en configuración se deprecan. |
-| D4 | Alta y acceso | El Dueño crea el usuario. Puede verificar email y celular. El sistema envía un link con el que la persona crea su contraseña y accede. (El Coach puede hacerlo para miembros.) |
+| D4 | Alta y acceso | El Dueño crea el usuario y dispara la invitación: el sistema genera un link único que el Dueño copia o manda por WhatsApp, y con el que la persona crea su contraseña y accede. El sistema no envía nada (D11). (El Coach puede hacerlo para miembros.) |
 | D5 | Check-in | El miembro hará su propio check-in **desde la app móvil** (MVP aparte, D9). En esta app web el **Dueño** marca la asistencia. La API de este MVP debe dejar el endpoint de auto check-in listo para que la app móvil lo consuma. |
 | D6 | Dashboard | **Uno solo**, con bloques condicionales por rol. |
 | D7 | Reportes | La vista Reportes **desaparece como módulo**; el Dashboard absorbe su funcionalidad. |
 | D8 | Rutinas | Lo implementado en `add-routine-templates` es el piso. Encima: CRUD de ejercicios con video, días propios por plantilla con grupos musculares, series explícitas en vez de derivadas por estrategia, y sesión del miembro con progresión de peso. Detalle en `04-rutinas.md`. |
 | D9 | App móvil | **Fuera.** Tiene su propio MVP (`openspec/changes/add-expo-mobile-app`). El portal web responsive es la cara del miembro en este MVP. |
 | D10 | Rol Coach | Coach y Dueño hacen hoy casi lo mismo. **El MVP avanza con Dueño y Miembro.** El Coach conserva los permisos que ya tiene en el código; definir su recorte propio es un gap posterior al MVP. |
+| D11 | Emails | **El MVP no envía emails.** Ningún flujo depende de que llegue un correo: la invitación se entrega a mano (copiar o `wa.me`), no hay recuperación de contraseña autoservicio ni verificación de contacto por link. El email sigue siendo obligatorio para el Miembro porque es el usuario del login. El envío SMTP se retira del código. |
 
 ## 6. Fuera de alcance explícito
 
 - Recordatorios de cobro por WhatsApp, email o cualquier canal (D3).
+- Envío de emails de cualquier tipo: invitación, recuperación de contraseña, avisos (D11).
 - App móvil nativa (D9).
 - Auto check-in del miembro desde esta app web, QR, control de acceso físico. El auto check-in
   lo cubre el MVP móvil; este MVP solo garantiza el endpoint (D5).
@@ -121,7 +123,8 @@ arriba. Esta lista se convierte en changes de OpenSpec; acá solo queda el inven
 | Vista **Reportes** como página y sección de navegación | `frontend/src/pages/Reports.tsx`, `/reports` | D7. | Mover su contenido al Dashboard y retirar la ruta. |
 | Rutina "legacy" por usuario (selección de días por usuario, log por ejercicio con `sets_count`), catálogo fijo de 4 días, base por ejercicio y PDF de progreso | `backend/app/routers/routines.py`, `TrainingDay`, `TrainingDayExercise`, `WorkoutLog`, `Exercise.base_*` | Contradicen el modelo de `04-rutinas.md`: días propios por plantilla, series explícitas, sesión por series. | Reemplazar según la brecha R-2 a R-9 de `04-rutinas.md`. |
 | Página **Nuevo coach** con contraseña a mano | `frontend/src/pages/NewCoach.tsx` | Duplica el diálogo de alta de usuario y contradice D4 (acceso por link). | Unificar en el alta de usuario + invitación. |
-| Endpoints sin verificación de sesión ni rol | `settings` (GET/PUT/PATCH), `payments` (listado y detalle), `attendance` (listado) | Cualquier request sin token los lee o escribe. | Corregir según la matriz de [01-roles-y-permisos.md](01-roles-y-permisos.md). |
+| Envío del email de invitación y verificación de contacto por link | `backend/app/notifications.py`, `NOTIFICATIONS_BACKEND`, `SMTP_*`, tokens por canal de `MemberInvitation` | D11: sin emails, el link se entrega a mano y abrirlo no prueba nada sobre el canal. | Un solo link de invitación; retirar el envío y la verificación por canal. Queda la verificación manual del Dueño. |
+| ~~Endpoints sin verificación de sesión ni rol~~ | `settings` (GET/PUT/PATCH), `payments` (listado y detalle), `attendance` (listado) | Cualquier request sin token los leía o escribía. | Corregido por `secure-staff-endpoints` (2026-09-11), spec `staff-endpoint-authorization`. |
 | README con stack viejo (Supabase, Render, Vercel; roles "Dueño y Coach") | `README.md` | Prod corre en Railway y existe el rol Miembro. | Actualizar al cerrar el MVP. |
 
 ## 8. Criterio de "MVP listo"

@@ -19,7 +19,7 @@ estado para que nadie lo rompa sin querer; su recorte propio se define después 
 |---|---|---|---|
 | **Dueño** | `owner` | Administra el gimnasio. Puede haber varios. | Lo crea otro Dueño con contraseña a mano (hoy). Objetivo: link de invitación, ver §5. |
 | **Coach** | `coach` | Staff. En este MVP equivale al Dueño salvo lo marcado en la matriz. | Lo crea un Dueño con contraseña a mano. Sin cambios en este MVP. |
-| **Miembro** | `member` | Quien entrena y paga la cuota. Usa el portal web y, más adelante, la app móvil. | Lo crea un Dueño (o Coach). Verifica email y celular, recibe link y crea su contraseña. |
+| **Miembro** | `member` | Quien entrena y paga la cuota. Usa el portal web y, más adelante, la app móvil. | Lo crea un Dueño (o Coach), que le pasa un link único de invitación; con él crea su contraseña. Sin emails (D11). |
 
 Reglas de base:
 
@@ -47,7 +47,7 @@ coincide.
 | Crear usuario rol Coach o Dueño | ✅ | ❌ | ❌ | Con contraseña a mano. Pasarlo a invitación queda post-MVP (§5). |
 | Editar datos personales | ✅ | ✅ solo Miembros | 👤 | El Miembro hoy solo puede cambiar su tema; edición del propio perfil no existe. A definir en `02-usuarios.md`. |
 | Cambiar rol | ✅ | ❌ | ❌ | |
-| Verificar email / celular a mano | ✅ | ✅ solo Miembros | ❌ | |
+| Verificar email / celular a mano | ✅ | ✅ solo Miembros | ❌ | Única forma de verificar contacto en el MVP (D11). |
 | Disparar o reenviar invitación | ✅ | ✅ solo Miembros | ❌ | Solo existe para rol Miembro. |
 | Activar / dar de baja membresía | ✅ | ✅ solo Miembros | ❌ | |
 | Eliminar usuario | ❌ | ❌ | ❌ | No existe, y no debe existir. |
@@ -59,7 +59,7 @@ coincide.
 | Crear / editar / desactivar planes de membresía | ✅ | ✅ (hereda, D10) | ❌ | No existe el concepto de plan (D2). |
 | Asignar plan a un miembro | ✅ | ✅ | ❌ | No existe. |
 | Registrar pago | ✅ | ✅ | ❌ | |
-| Ver pagos de un miembro | ✅ | ✅ | 👤 | **Sin verificación de sesión**: el listado y el detalle de pagos responden sin token. El Miembro no tiene vista de sus pagos. |
+| Ver pagos de un miembro | ✅ | ✅ | 👤 | Listado y detalle exigen sesión y rol staff (`staff-endpoint-authorization`). El Miembro recibe 403 hasta que exista "Mi cuota" (M6). |
 | Anular pago | ✅ | ❌ | ❌ | |
 | Ver estado de cuota (semáforo) | ✅ | ✅ | 👤 | El Miembro no lo ve en el portal. |
 
@@ -83,15 +83,15 @@ coincide.
 |---|---|---|---|---|
 | Marcar asistencia de un miembro | ✅ | ✅ | ❌ | |
 | Registrar el propio check-in | ❌ | ❌ | 📱 | **No existe el endpoint.** Lo necesita el MVP móvil; este MVP lo deja listo en la API sin exponerlo en la web (D5). |
-| Ver historial de asistencias | ✅ | ✅ | 👤 | **Sin verificación de sesión** en el listado. El Miembro no tiene vista propia. |
+| Ver historial de asistencias | ✅ | ✅ | 👤 | El listado exige sesión y rol staff (`staff-endpoint-authorization`). El Miembro recibe 403 hasta que exista "Mis asistencias" (A-3). |
 | Borrar un check-in | ✅ | ❌ | ❌ | No existe; a definir si el MVP lo necesita. |
 
 ### 2.5 Configuración del gimnasio
 
 | Acción | Dueño | Coach | Miembro | Hoy en código |
 |---|---|---|---|---|
-| Ver configuración pública (nombre, contacto, medios de pago) | ✅ | ✅ | ✅ | El frontend la usa para la marca en toda la app. |
-| Editar configuración | ✅ | ✅ (hereda, D10) | ❌ | **Sin verificación de sesión ni rol**: GET/PUT/PATCH responden sin token. |
+| Ver configuración pública (nombre, contacto, medios de pago) | ✅ | ✅ | ✅ | Exige sesión de cualquier rol, no es anónima (`staff-endpoint-authorization`). El frontend la usa para la marca en toda la app. |
+| Editar configuración | ✅ | ✅ (hereda, D10) | ❌ | PUT y PATCH exigen rol Dueño o Coach (`staff-endpoint-authorization`). |
 
 ### 2.6 Dashboard (Seguimiento)
 
@@ -142,23 +142,24 @@ Flujo del MVP para el **Miembro**, que es el usuario que el sistema da de alta t
 
 ```
  Dueño (o Coach)
-   │ crea el usuario con nombre, rol Miembro, email, celular
+   │ crea el usuario con nombre, rol Miembro, email (usuario del login), celular opcional
    ▼
  Usuario sin contraseña ── el Dueño puede marcar email y/o celular como verificados a mano
    │ "Invitar"
    ▼
- Link único (por email, y wa.me prellenado para mandar por WhatsApp)
-   │ la persona abre el link → verifica el canal que faltaba
+ Link único ── el Dueño lo copia, o lo manda con wa.me prellenado si hay celular
+   │ la persona abre el link
    ▼
- Define contraseña ── recién con ambos canales verificados
+ Define contraseña
    │
    ▼
  Login habilitado
 ```
 
-Este flujo ya existe (`member-invitation`). Dueño y Coach se siguen creando con contraseña a
-mano por un Dueño; unificarlos en la invitación queda post-MVP junto con el recorte del Coach
-(D10), y ahí se decide si al staff le alcanza con verificar email.
+Este flujo existe en `member-invitation`, pero con dos links (email y WhatsApp) y verificación
+por canal; el MVP lo reduce a un solo link sin envío de email (D11, brecha U-3 de
+`02-usuarios.md`). Dueño y Coach se siguen creando con contraseña a mano por un Dueño;
+unificarlos en la invitación queda post-MVP junto con el recorte del Coach (D10).
 
 Falta en el MVP: **recuperar contraseña**. Hoy no hay forma de resetearla sin que un Dueño la
 escriba a mano. Propuesta: reutilizar el mismo mecanismo de link.
@@ -167,7 +168,7 @@ escriba a mano. Propuesta: reutilizar el mismo mecanismo de link.
 
 | # | Brecha | Módulo | Prioridad |
 |---|---|---|---|
-| P1 | Endpoints de configuración, pagos y asistencias sin verificación de sesión | 05, 02, 04 | Alta: es seguridad. |
+| P1 | ~~Endpoints de configuración, pagos y asistencias sin verificación de sesión~~ Cerrada por `secure-staff-endpoints` (2026-09-11). | 05, 02, 04 | Alta: es seguridad. |
 | P2 | Endpoint de auto check-in del miembro (API lista para la app móvil, sin UI web) | 04 | Media: lo necesita el MVP móvil. |
 | P3 | Recuperar contraseña | 01 | Media. |
 | P4 | Vistas propias del Miembro: mi cuota, mis asistencias | 02, 04 | Media, define el valor del portal. |

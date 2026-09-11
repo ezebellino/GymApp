@@ -149,7 +149,7 @@ ese período, es un cambio a S3 y hay que decirlo ahora.
 | KPIs | Totales, promedio, por método, por canal y serie temporal de pagos por rango de fechas (Dueño y Coach). | Sin spec; consumidos por Dashboard y Reportes. |
 | Anular pago | Existe, solo Dueño. | — |
 | Portal del miembro | No ve pagos ni estado. | — |
-| Seguridad | Listado y detalle de pagos responden **sin token**. | Brecha P1 |
+| Seguridad | Listado y detalle exigen sesión y rol Dueño o Coach; anular sigue solo Dueño. | `staff-endpoint-authorization` |
 | Recordatorios | Mensaje, alias y días de gracia en Configuración. **Se deprecan** (D3). | `app-settings-state` |
 
 ## 6. Brecha MVP
@@ -161,7 +161,7 @@ En orden de implementación sugerido. Cada ítem es un change de OpenSpec.
 | M1 | Planes de membresía con historial de precios: entidad, CRUD, migración que crea "General" desde `default_fee` y lo asigna a todos los miembros. | — | Alta |
 | M2 | Plan del miembro: obligatorio en el alta, cambio desde la ficha, visible en listado y ficha. | M1 | Alta |
 | M3 | El pago toma el precio del plan: precarga desde el plan del miembro, guarda plan y precio de referencia. | M2 | Alta |
-| M4 | Endpoints de pagos exigen sesión y rol (parte de P1). | — | Alta |
+| M4 | ~~Endpoints de pagos exigen sesión y rol (parte de P1).~~ Cerrada por `secure-staff-endpoints` (2026-09-11). | — | Alta |
 | M5 | Deprecar `default_fee`, `late_fee_grace_days` y los campos de recordatorio de Configuración, con su UI. | M3 | Media |
 | M6 | "Mi cuota" en el portal del miembro: plan, estado, historial. | M3 | Media |
 | M7 | Filtro por estado de cuota en el listado de usuarios y lista de morosos en el Dashboard (se detalla en `07-dashboard.md`). | M3 | Media |

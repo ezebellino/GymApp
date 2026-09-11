@@ -22,7 +22,7 @@ el nombre en código difiere, va entre paréntesis. Orden alfabético.
 | **Estrategia de progresión** (`ProgressionStrategy`) | Regla (Constante, Pirámide, Invertida, Drop set, Rest-pause) que genera series desde una base. En el MVP, generador opcional del editor. | 04 |
 | **Evolución** | Sección del Dashboard con series por rango y granularidad. Reemplaza a Reportes. | 07 |
 | **Grupo muscular** | Lista fija: Pecho, Espalda, Hombros, Bíceps, Tríceps, Antebrazo, Core, Glúteos, Cuádriceps, Isquios, Gemelos, Cuerpo completo. | 04 |
-| **Invitación** (`MemberInvitation`) | Link único de 7 días que verifica email y celular y permite definir contraseña. | 02 |
+| **Invitación** (`MemberInvitation`) | Link único de 7 días, entregado a mano por el Dueño, que permite definir contraseña. | 02 |
 | **Membresía** (`membership_status`) | Atributo del usuario: nunca fue (`none`), activa, dada de baja. Independiente del rol. | 01, 02 |
 | **Miembro** (`member`) | Rol de quien entrena y paga. Usa el portal. | 01 |
 | **Pago** (`Payment`) | Registro de que un miembro pagó un período: monto, método, canal, plan y precio de referencia. | 03 |
@@ -38,4 +38,4 @@ el nombre en código difiere, va entre paréntesis. Orden alfabético.
 | **Sesión** | Una vez que el miembro entrena un día de su plantilla: series realizadas y si la completó. | 04 |
 | **Staff** | Dueño y Coach, en conjunto. | 01 |
 | **Tipo de entrenamiento** | Lista fija: Fuerza, Hipertrofia, Resistencia, Cardio, Movilidad, Funcional, Rehabilitación. Clasifica ejercicios y plantillas. | 04 |
-| **Verificación de contacto** | Marca de que el email o el celular son reales: por abrir el link del canal, o a mano por el Dueño. | 02 |
+| **Verificación de contacto** | Marca de que el email o el celular son reales, puesta a mano por el Dueño. | 02 |

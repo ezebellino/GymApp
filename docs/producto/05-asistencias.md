@@ -75,7 +75,7 @@ Alimenta el dolor 3 de la visión (la foto del día) y el seguimiento de adheren
 | Qué | Cómo está hoy | Spec |
 |---|---|---|
 | Check-in por staff, por id o búsqueda, solo membresía activa | Implementado. Guarda el coach si lo hizo un Coach; si lo hizo un Dueño no guarda quién. | Sin spec propia. |
-| Listado con búsqueda, filtro por miembro y rango, paginado | Implementado. **Responde sin token** (P1). | — |
+| Listado con búsqueda, filtro por miembro y rango, paginado | Implementado. Exige sesión y rol Dueño o Coach. | `staff-endpoint-authorization` |
 | Calendario en la ficha del miembro | Implementado. | `user-management` (mención) |
 | Check-in rápido y "Check-ins de hoy" en el Dashboard | Implementado. | `dashboard-view` |
 | Reporte de asistencias por día/semana/mes y detalle diario | Implementado en Reportes, solo Dueño. Pasa al Dashboard (D7). | — |
@@ -89,7 +89,7 @@ Alimenta el dolor 3 de la visión (la foto del día) y el seguimiento de adheren
 
 | # | Brecha | Depende de | Prioridad |
 |---|---|---|---|
-| A-1 | Listado de asistencias exige sesión y rol (parte de P1). | — | Alta |
+| A-1 | ~~Listado de asistencias exige sesión y rol (parte de P1).~~ Cerrada por `secure-staff-endpoints` (2026-09-11). | — | Alta |
 | A-2 | Endpoint de auto check-in del miembro, sin UI web (P2, A4). Registrar siempre quién hizo el check-in, incluido el Dueño. | — | Media |
 | A-3 | "Mis asistencias" en el portal: calendario y racha. | — | Media |
 | A-4 | Un check-in por día con aviso de duplicado (A1). | — | Media, chica |

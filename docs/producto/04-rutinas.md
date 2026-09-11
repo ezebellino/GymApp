@@ -183,7 +183,7 @@ En orden de implementación sugerido.
 
 | # | Brecha | Depende de | Prioridad |
 |---|---|---|---|
-| R-1 | Verificar y archivar `add-routine-templates` tal como está. | — | Alta, es el piso. |
+| R-1 | ~~Verificar y archivar `add-routine-templates` tal como está.~~ Archivado 2026-09-06. | — | Alta, es el piso. |
 | R-2 | Catálogo de ejercicios completo: CRUD con pantalla de alta, video/GIF por URL, grupo muscular de lista fija, tipos de entrenamiento, desactivación. Deprecar la base. | R-1 | Alta |
 | R-3 | Días propios de la plantilla con grupos musculares planificados; retirar el catálogo fijo de días. Migración: cada plantilla existente copia sus días del catálogo. | R-1 | Alta |
 | R-4 | Editor de series explícitas por ejercicio del día (agregar, quitar, reordenar, reps · kg). Estrategias como generador opcional. Tipo de plantilla. | R-3 | Alta |

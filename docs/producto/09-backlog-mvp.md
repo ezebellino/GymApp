@@ -26,18 +26,18 @@ al final el Dashboard que junta todo.
  DB-1 KPI fijo     M3 pago con         R-5 carga actual    A-3 Mis           DB-5 spec       R-9 PDF
  U-2 email            precio           R-6 sesión             asistencias                    README
     obligatorio    U-1 plan en alta    A-2 auto check-in   C-3 El gimnasio
- U-3 SMTP prod                            (API)            R-7 Mi progreso
+ U-3 invitación                           (API)            R-7 Mi progreso
 ```
 
 ## Fase 0 · Cerrar y asegurar
 
 | # | Ítem | Módulo | Depende de | Change |
 |---|---|---|---|---|
-| P1 | Configuración, pagos y asistencias exigen sesión y rol (agrupa M4, A-1, C-1) | 02, 04, 05 | — | |
-| R-1 | Verificar y archivar `add-routine-templates` tal como está | 04 | — | `add-routine-templates` (verificar + archivar) |
+| P1 | ~~Configuración, pagos y asistencias exigen sesión y rol (agrupa M4, A-1, C-1)~~ | 02, 04, 05 | — | `secure-staff-endpoints`, archivado 2026-09-11 |
+| R-1 | ~~Verificar y archivar `add-routine-templates` tal como está~~ | 04 | — | `add-routine-templates`, archivado 2026-09-06 |
 | DB-1 | Retirar el KPI fijo "Rutina base 4 días" | 07 | — | |
 | U-2 | Email obligatorio al crear un Miembro | 02 | — | |
-| U-3 | SMTP configurado en Railway; el email de invitación llega | 02 | — | operativo, sin change |
+| U-3 | Invitación con un solo link, sin envío de email ni verificación por canal (D11). Arrastra los 6 hallazgos menores aceptados en `secure-staff-endpoints` (ver su `verification.md` archivado): invalidar la query de ajustes al iniciar sesión, y 5 mejoras de tests de auth y del interceptor HTTP. | 02 | — | |
 
 ## Fase 1 · Membresías y planes
 

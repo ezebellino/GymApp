@@ -69,7 +69,7 @@ es sobre todo **quitar** cosas que otras decisiones dejaron obsoletas.
 |---|---|---|
 | Identidad, contacto, horario, medios de pago, alias, notas, mensaje operativo | Implementado, con previsualización y resumen de datos faltantes en Ajustes. | `app-settings-state`, `settings-view` |
 | Propagación inmediata y persistencia | Implementado (store compartido + servidor manda). | `app-settings-state` |
-| Endpoints GET / PUT / PATCH | **Responden sin token ni rol** (P1). | — |
+| Endpoints GET / PUT / PATCH | El GET exige sesión de cualquier rol; PUT y PATCH, rol Dueño o Coach. | `staff-endpoint-authorization` |
 | Cuota base, días de gracia, mensaje y fecha de recordatorio | Existen y se editan en Ajustes. **A deprecar.** | `app-settings-state` |
 | Preferencia de tema global | Existe en el modelo; el tema ya es por usuario. **A deprecar.** | `session-state` |
 | Datos del gimnasio visibles al miembro | No hay sección en el portal. | — |
@@ -79,7 +79,7 @@ es sobre todo **quitar** cosas que otras decisiones dejaron obsoletas.
 
 | # | Brecha | Depende de | Prioridad |
 |---|---|---|---|
-| C-1 | Endpoints de configuración exigen sesión; escritura solo staff (parte de P1). | — | Alta |
+| C-1 | ~~Endpoints de configuración exigen sesión; escritura solo staff (parte de P1).~~ Cerrada por `secure-staff-endpoints` (2026-09-11). | — | Alta |
 | C-2 | Deprecar cuota base, gracia, recordatorios y tema global: modelo, API y UI de Ajustes. | M3 de membresías | Media |
 | C-3 | Sección "El gimnasio" en el portal del miembro y alias en "Mi cuota" (C5). | M6 | Media |
 | C-4 | Validar al menos un medio de pago habilitado. | — | Baja, chica |
