@@ -45,3 +45,15 @@ export function navItemsForRole(role: Role): NavItem[] {
     return true;
   });
 }
+
+// Única definición de "vista pública" del repo (`secure-staff-endpoints`, dec. D5):
+// antes el mismo par de prefijos vivía copiado inline en `App.jsx` y faltaba en
+// `lib/http.ts`, así que agregar una vista pública nueva se arreglaba en un lado y
+// se rompía en el otro. La consumen `App.jsx` (split de layout autenticado/público)
+// y `lib/http.ts` (para no toastear "sesión expirada" con un 401 de fondo en estas
+// rutas).
+export const PUBLIC_ROUTE_PREFIXES = ["/login", "/invitacion"];
+
+export function isPublicPath(pathname: string): boolean {
+  return PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}

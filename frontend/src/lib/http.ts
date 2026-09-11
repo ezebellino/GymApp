@@ -1,6 +1,7 @@
 import axios from "axios";
 import { toastError } from "./toast";
 import { useSessionStore } from "@/stores/session";
+import { isPublicPath } from "./navigation";
 
 const apiBaseURL =
   import.meta.env.VITE_API_URL ??
@@ -25,16 +26,24 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-api.interceptors.response.use(
-  (r) => r,
-  async (error) => {
-    if (error?.response?.status === 401) {
-      toastError("Sesión expirada", "Volvé a iniciar sesión.");
-      useSessionStore.getState().logout();
-      window.location.href = "/login";
+export async function handleResponseError(error: unknown) {
+  if ((error as { response?: { status?: number } })?.response?.status === 401) {
+    // En una vista pública (login, invitación) no desloguea ni redirige: el
+    // propio flujo de login llama a la API justo después de `setSession`, y un
+    // `logout()` disparado por un 401 rezagado de otra petición borraría la
+    // sesión recién creada (dec. D6 de `secure-staff-endpoints`). El token
+    // inválido que pueda quedar en `localStorage` lo sobrescribe el próximo
+    // login; no es este interceptor el que lo limpia.
+    if (isPublicPath(window.location.pathname)) {
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
+    toastError("Sesión expirada", "Volvé a iniciar sesión.");
+    useSessionStore.getState().logout();
+    window.location.href = "/login";
   }
-);
+  return Promise.reject(error);
+}
+
+api.interceptors.response.use((r) => r, handleResponseError);
 
 export default api;

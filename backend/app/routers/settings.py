@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from ..auth import get_current_user, require_role
 from ..deps import get_db
-from ..models import AppSettings
+from ..models import AppSettings, UserRole
 from ..schemas import Settings, SettingsBase, SettingsOut, SettingsUpdate
 
-router = APIRouter(prefix="/settings", tags=["settings"])
+router = APIRouter(
+    prefix="/settings",
+    tags=["settings"],
+    dependencies=[Depends(get_current_user)],
+)
 
 DEFAULTS = SettingsBase(
     gym_name="Mini Espacio",
@@ -78,7 +83,11 @@ def get_settings(db: Session = Depends(get_db)):
     return _ensure_settings(db)
 
 
-@router.put("", response_model=SettingsOut)
+@router.put(
+    "",
+    response_model=SettingsOut,
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def put_settings(payload: Settings, db: Session = Depends(get_db)):
     settings = _ensure_settings(db)
 
@@ -90,7 +99,11 @@ def put_settings(payload: Settings, db: Session = Depends(get_db)):
     return settings
 
 
-@router.patch("", response_model=SettingsOut)
+@router.patch(
+    "",
+    response_model=SettingsOut,
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def patch_settings(payload: SettingsUpdate, db: Session = Depends(get_db)):
     settings = _ensure_settings(db)
 

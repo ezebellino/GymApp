@@ -3,11 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchSettings } from "./settings";
 import { queryKeys } from "./queryKeys";
 import { useSettingsStore } from "@/stores/settings";
+import { useSessionStore } from "@/stores/session";
 
 export function useSettingsQuery() {
+  const token = useSessionStore((s) => s.token);
+
   return useQuery({
     queryKey: queryKeys.settings.all,
     queryFn: fetchSettings,
+    // Solo si hay sesion: sin token la llamada seria un 401 seguro (analogo
+    // exacto de `useMeQuery`, `secure-staff-endpoints` dec. D4).
+    enabled: !!token,
   });
 }
 

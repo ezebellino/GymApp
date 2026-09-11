@@ -92,7 +92,11 @@ def create_payment(
     return schemas.PaymentOut.model_validate(obj)
 
 
-@router.get("/", response_model=List[schemas.PaymentOut])
+@router.get(
+    "/",
+    response_model=List[schemas.PaymentOut],
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def list_payments(
     response: Response,
     request: Request,
@@ -142,7 +146,12 @@ def list_payments(
     return items
 
 
-@router.get("/{payment_id}", response_model=schemas.PaymentOut, name="payments:get_one")
+@router.get(
+    "/{payment_id}",
+    response_model=schemas.PaymentOut,
+    name="payments:get_one",
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def get_payment(payment_id: str, db: Session = Depends(get_db)):
     obj = db.get(models.Payment, payment_id)
     if not obj:

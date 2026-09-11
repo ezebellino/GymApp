@@ -10,6 +10,7 @@ import { useSyncSettings } from "./services/settings.queries";
 import { useSyncUserTheme } from "./services/me.queries";
 import { useLegacyRefetchBridge } from "./hooks/useLegacyRefetchBridge";
 import { routeImporters } from "./lib/routePreload";
+import { isPublicPath } from "./lib/navigation";
 import "sileo/styles.css";
 import "./index.css";
 
@@ -53,8 +54,7 @@ function PageLoader() {
 
 export default function App() {
   const location = useLocation();
-  const isAuthRoute =
-    location.pathname.startsWith("/login") || location.pathname.startsWith("/invitacion");
+  const isAuthRoute = isPublicPath(location.pathname);
   const role = useSessionStore((s) => s.role);
   const themeMode = useThemeStore((s) => s.mode);
 

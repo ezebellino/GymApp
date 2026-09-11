@@ -5,14 +5,17 @@ from .. import models, schemas
 from ..deps import get_db
 from ..auth import get_current_user, require_role
 from ..models import UserRole, MembershipStatus
-from ..security import optional_bearer
 from sqlalchemy import func, or_
 from datetime import datetime
 from ..utils import now_ar
 
-router = APIRouter(prefix="/attendance", tags=["attendance"], dependencies=[Depends(optional_bearer)])
+router = APIRouter(prefix="/attendance", tags=["attendance"])
 
-@router.get("/", response_model=List[schemas.AttendanceOut])
+@router.get(
+    "/",
+    response_model=List[schemas.AttendanceOut],
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
 def list_attendance(
     response: Response,
     db: Session = Depends(get_db),
