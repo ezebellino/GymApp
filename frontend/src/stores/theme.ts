@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist, subscribeWithSelector, type PersistStorage, type StorageValue } from "zustand/middleware";
 import { applyThemeMode, normalizeThemeMode, DEFAULT_THEME_MODE, type ThemeMode } from "@/lib/theme";
-import type { AppSettings } from "@/types";
 
 export type ThemeState = {
   mode: ThemeMode;
@@ -15,12 +14,17 @@ const LEGACY_SETTINGS_STORAGE_KEY = "app_settings";
 // puede tener el tema solo dentro del objeto de ajustes (`app_settings`,
 // version anterior de este diseno), nunca en la clave plana nueva. Solo se
 // consulta cuando `app_theme` no existe todavia (dec. 5 y 7 de
-// `openspec/changes/adopt-kinetic-obsidian-theme/design.md`).
+// `openspec/changes/adopt-kinetic-obsidian-theme/design.md`). `theme_preference`
+// ya no existe en `AppSettings` (`simplify-settings-view`, design D4/trampa),
+// asi que el parse tipa su propia forma minima en vez de castear al tipo
+// compartido.
+type LegacySettingsWithTheme = { theme_preference?: string | null };
+
 function readLegacySettingsTheme(): ThemeMode | null {
   try {
     const raw = localStorage.getItem(LEGACY_SETTINGS_STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<AppSettings>;
+    const parsed = JSON.parse(raw) as LegacySettingsWithTheme;
     return parsed.theme_preference ? normalizeThemeMode(parsed.theme_preference) : null;
   } catch {
     return null;

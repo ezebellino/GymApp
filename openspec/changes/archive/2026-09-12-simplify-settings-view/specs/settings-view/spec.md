@@ -1,11 +1,15 @@
-## Purpose
+## REMOVED Requirements
 
-Vista de Ajustes (`/settings`): formularios editables de configuración del negocio, agrupados en
-cuatro cards por sección (Negocio, Contacto, Cobro, Operación) distribuidas en una grilla de dos
-columnas, sin cards puramente informativas/redundantes y sin columna de previsualización. El tema
-visual ya no es parte de esta vista (se movió al shell autenticado, ver capability `app-shell`).
+### Requirement: Cards de previsualización con acción real
+**Reason**: Se revierte la decisión anterior. Las cards de la columna derecha ("Vista previa del
+negocio", "Resumen rápido") no se salvan agregándoles un botón o link de acción: se eliminan por
+completo junto con la columna derecha, porque siguen repitiendo en texto datos que ya son
+editables en el formulario, sea cual sea su nivel de interactividad.
+**Migration**: No aplica migración de datos. En UI, el botón "Ver recordatorio en WhatsApp", el
+link "Completar WhatsApp" y la función `focusWhatsappField` que les daba soporte se eliminan sin
+reemplazo; el formulario de la izquierda pasa a ser la única fuente de esos datos en la vista.
 
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Sin cards informativas redundantes
 La vista de Ajustes SHALL NOT mostrar ninguna card puramente informativa que repita en texto lo
@@ -20,13 +24,7 @@ una card de solo lectura.
 - **THEN** no ve las 3 InfoCard, ni la card "Contexto operativo" junto al título, ni las cards
   "Vista previa del negocio" ni "Resumen rápido"
 
-### Requirement: Formularios de Ajustes sin cambios funcionales
-La edición y guardado de la configuración del negocio (negocio, contacto, cobro, operación) SHALL
-seguir funcionando igual que antes de este cambio.
-
-#### Scenario: Guardar cambios
-- **WHEN** el Dueño edita un campo y hace click en "Guardar cambios"
-- **THEN** el sistema persiste la configuración vía `PUT /settings` como antes
+## ADDED Requirements
 
 ### Requirement: Formulario de Ajustes en grilla de dos columnas con cards por sección
 La vista de Ajustes SHALL presentar el formulario agrupando los campos en cuatro secciones
@@ -39,9 +37,9 @@ izquierda, Contacto en la columna derecha, y Operación a lo ancho completo deba
 columnas; por debajo de `xl` las cuatro cards se apilan en una sola columna. Ninguna columna SHALL
 quedar desproporcionadamente más larga que la otra en el layout de dos columnas. Cada campo SHALL
 mostrar únicamente su label, sin texto de ayuda debajo. El botón "Guardar cambios" SHALL ubicarse
-en una barra de acción al pie del formulario. Que las secciones usen `Card` no reintroduce las
-cards de previsualización eliminadas: "Vista previa del negocio" y "Resumen rápido" no existen en
-la vista.
+en una barra de acción al pie del formulario. Que las secciones vuelvan a usar `Card` no reintroduce
+las cards de previsualización eliminadas: "Vista previa del negocio" y "Resumen rápido" siguen sin
+existir en la vista (ver `## REMOVED Requirements`).
 
 #### Scenario: Grilla de dos columnas en pantallas grandes
 - **WHEN** el usuario navega a `/settings` en una pantalla de ancho `xl` o mayor

@@ -4,7 +4,7 @@ Módulo 5 del MVP. Define qué datos del gimnasio se configuran, quién los edit
 propagan al resto de la app. Es el módulo más simple y el más completo en el código; la brecha
 es sobre todo **quitar** cosas que otras decisiones dejaron obsoletas.
 
-Última revisión: 2026-09-06. Estado: borrador 1, con supuestos a confirmar.
+Última revisión: 2026-09-12. Estado: borrador 1, con supuestos a confirmar.
 
 ---
 
@@ -34,7 +34,7 @@ es sobre todo **quitar** cosas que otras decisiones dejaron obsoletas.
  ├── Operación        mensaje operativo (recepción y portal)
  └── Moneda           texto informativo (C4)
 
- Se deprecan (D2, D3, tema por usuario):
+ Deprecados y eliminados (2026-09-12):
  ✗ cuota mensual base            → planes de membresía (03)
  ✗ días de gracia                → sin gracia (S2 de membresías)
  ✗ mensaje de recordatorio       → sin recordatorios (D3)
@@ -67,11 +67,11 @@ es sobre todo **quitar** cosas que otras decisiones dejaron obsoletas.
 
 | Qué | Cómo está hoy | Spec |
 |---|---|---|
-| Identidad, contacto, horario, medios de pago, alias, notas, mensaje operativo | Implementado, con previsualización y resumen de datos faltantes en Ajustes. | `app-settings-state`, `settings-view` |
+| Identidad, contacto, horario, medios de pago, alias, notas, mensaje operativo | Implementado en Ajustes. | `app-settings-state`, `settings-view` |
 | Propagación inmediata y persistencia | Implementado (store compartido + servidor manda). | `app-settings-state` |
 | Endpoints GET / PUT / PATCH | El GET exige sesión de cualquier rol; PUT y PATCH, rol Dueño o Coach. | `staff-endpoint-authorization` |
-| Cuota base, días de gracia, mensaje y fecha de recordatorio | Existen y se editan en Ajustes. **A deprecar.** | `app-settings-state` |
-| Preferencia de tema global | Existe en el modelo; el tema ya es por usuario. **A deprecar.** | `session-state` |
+| Cuota base, días de gracia, mensaje y fecha de recordatorio | Eliminados del modelo, la API y la UI (`simplify-settings-view`). | `app-settings-state` |
+| Preferencia de tema global | Eliminada del modelo, la API y la UI (`simplify-settings-view`); el tema ya es por usuario. | `session-state` |
 | Datos del gimnasio visibles al miembro | No hay sección en el portal. | — |
 | Al menos un medio de pago habilitado | No se valida. | — |
 
@@ -80,7 +80,7 @@ es sobre todo **quitar** cosas que otras decisiones dejaron obsoletas.
 | # | Brecha | Depende de | Prioridad |
 |---|---|---|---|
 | C-1 | ~~Endpoints de configuración exigen sesión; escritura solo staff (parte de P1).~~ Cerrada por `secure-staff-endpoints` (2026-09-11). | — | Alta |
-| C-2 | Deprecar cuota base, gracia, recordatorios y tema global: modelo, API y UI de Ajustes. | M3 de membresías | Media |
+| C-2 | ~~Deprecar cuota base, gracia, recordatorios y tema global: modelo, API y UI de Ajustes.~~ Cerrada por `simplify-settings-view` (2026-09-12). | M3 de membresías | Media |
 | C-3 | Sección "El gimnasio" en el portal del miembro y alias en "Mi cuota" (C5). | M6 | Media |
 | C-4 | Validar al menos un medio de pago habilitado. | — | Baja, chica |
 | C-5 | Link a Planes de membresía desde Ajustes (C3). | M1 | Baja |

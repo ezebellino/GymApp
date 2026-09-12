@@ -107,9 +107,7 @@ export type AppSettings = {
   // (`/auth/me`, `stores/theme.ts`), no del negocio. Este campo de
   // `app_settings` queda sin uso (ver adopt-kinetic-obsidian-theme, dec. 6.5);
   // se mantiene con tipo laxo solo para no romper el `GET /settings` viejo.
-  theme_preference?: string | null;
   currency: string;
-  default_fee: number;
   address: string | null;
   contact_email: string | null;
   contact_phone: string | null;
@@ -117,9 +115,6 @@ export type AppSettings = {
   business_hours: string | null;
   payment_alias: string | null;
   payment_notes: string | null;
-  payment_reminder_message: string | null;
-  payment_reminder_last_sent_at: string | null;
-  late_fee_grace_days: number;
   allow_cash: boolean;
   allow_transfer: boolean;
   onboarding_message: string | null;

@@ -23,7 +23,6 @@ export function defaultPayloadFor(url: string): unknown {
     return {
       gym_name: APP_NAME,
       admin_name: "Admin de Test",
-      default_fee: 30000,
     };
   }
   // Los endpoints de reportes/KPIs devuelven un objeto, no una lista.

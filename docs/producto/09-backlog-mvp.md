@@ -4,7 +4,7 @@ Todas las brechas de los documentos 01 a 07, consolidadas y ordenadas en fases. 
 convierte en un change de OpenSpec (`/opsx:propose`); la columna Change se completa cuando
 existe. Cuando un change se archiva, el ítem se tacha acá y en su doc de módulo.
 
-Última revisión: 2026-09-06.
+Última revisión: 2026-09-12.
 
 ---
 
@@ -86,7 +86,7 @@ al final el Dashboard que junta todo.
 
 | # | Ítem | Módulo | Depende de | Change |
 |---|---|---|---|---|
-| M5 | Deprecar cuota base, días de gracia y recordatorios: modelo, API y Ajustes (agrupa C-2) | 03, 06 | M3 | |
+| M5 | Deprecar cuota base, días de gracia y recordatorios: modelo, API y Ajustes (agrupa ~~C-2~~) | 03, 06 | M3 | `simplify-settings-view` |
 | C-4 | Validar al menos un medio de pago habilitado | 06 | — | (mismo change que M5) |
 | C-5 | Link a Planes desde Ajustes | 06 | M1 | (mismo change que M5) |
 | R-9 | Retirar PDF y resumen viejo de progreso | 04 | R-7 | |

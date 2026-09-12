@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from decimal import Decimal
 from typing import Optional, Literal, Annotated
 from uuid import UUID
 
@@ -11,14 +10,12 @@ from pydantic import (
     EmailStr,
     ConfigDict,
     field_validator,
-    field_serializer,
     model_validator,
 )
 
 
 Role = Literal["owner", "coach", "member"]
 ThemeMode = Literal["dark", "light"]
-ThemePreference = Literal["dark-gold", "dark-copper", "dark-olive"]
 MembershipStatusLiteral = Literal["none", "active", "cancelled"]
 MembershipIndicator = Literal["none", "up_to_date", "overdue", "suspended"]
 InvitationStatus = Literal["none", "pending", "expired", "access_active"]
@@ -443,9 +440,7 @@ class UserProgressSummary(BaseSchema):
 class SettingsBase(BaseSchema):
     gym_name: Annotated[str, Field(min_length=1, max_length=100)]
     admin_name: Optional[Annotated[str, Field(max_length=120)]] = None
-    theme_preference: Optional[ThemePreference] = "dark-gold"
     currency: Annotated[str, Field(min_length=1, max_length=10)]
-    default_fee: Annotated[Decimal, Field(ge=0)]
     address: Optional[Annotated[str, Field(max_length=200)]] = None
     contact_email: Optional[EmailStr] = None
     contact_phone: Optional[Annotated[str, Field(max_length=30)]] = None
@@ -453,9 +448,6 @@ class SettingsBase(BaseSchema):
     business_hours: Optional[Annotated[str, Field(max_length=160)]] = None
     payment_alias: Optional[Annotated[str, Field(max_length=120)]] = None
     payment_notes: Optional[Annotated[str, Field(max_length=280)]] = None
-    payment_reminder_message: Optional[Annotated[str, Field(max_length=500)]] = None
-    payment_reminder_last_sent_at: Optional[datetime] = None
-    late_fee_grace_days: Annotated[int, Field(ge=0, le=60)] = 5
     allow_cash: bool = True
     allow_transfer: bool = True
     onboarding_message: Optional[Annotated[str, Field(max_length=280)]] = None
@@ -470,7 +462,6 @@ class SettingsBase(BaseSchema):
         "business_hours",
         "payment_alias",
         "payment_notes",
-        "payment_reminder_message",
         "onboarding_message",
         mode="before",
     )
@@ -489,10 +480,6 @@ class SettingsBase(BaseSchema):
             return value or None
         return value
 
-    @field_serializer("default_fee")
-    def serialize_decimal(self, value: Decimal, _info):
-        return float(value)
-
 
 class Settings(SettingsBase):
     pass
@@ -501,9 +488,7 @@ class Settings(SettingsBase):
 class SettingsUpdate(BaseSchema):
     gym_name: Optional[Annotated[str, Field(min_length=1, max_length=100)]] = None
     admin_name: Optional[Annotated[str, Field(max_length=120)]] = None
-    theme_preference: Optional[ThemePreference] = None
     currency: Optional[Annotated[str, Field(min_length=1, max_length=10)]] = None
-    default_fee: Optional[Annotated[Decimal, Field(ge=0)]] = None
     address: Optional[Annotated[str, Field(max_length=200)]] = None
     contact_email: Optional[EmailStr] = None
     contact_phone: Optional[Annotated[str, Field(max_length=30)]] = None
@@ -511,9 +496,6 @@ class SettingsUpdate(BaseSchema):
     business_hours: Optional[Annotated[str, Field(max_length=160)]] = None
     payment_alias: Optional[Annotated[str, Field(max_length=120)]] = None
     payment_notes: Optional[Annotated[str, Field(max_length=280)]] = None
-    payment_reminder_message: Optional[Annotated[str, Field(max_length=500)]] = None
-    payment_reminder_last_sent_at: Optional[datetime] = None
-    late_fee_grace_days: Optional[Annotated[int, Field(ge=0, le=60)]] = None
     allow_cash: Optional[bool] = None
     allow_transfer: Optional[bool] = None
     onboarding_message: Optional[Annotated[str, Field(max_length=280)]] = None

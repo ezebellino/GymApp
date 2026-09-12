@@ -12,17 +12,14 @@ const SETTINGS_STORAGE_KEY = "app_settings";
 
 // Valores por defecto del negocio: unico lugar del repo donde vive esta
 // constante (antes de este change estaba copiada, con drift, en Settings.tsx,
-// Footer.tsx y Payments.tsx). Es la version completa (coincide con el seed del
-// backend); Settings.tsx conserva su propia copia porque no se migra a este
-// store (dec. 12 / dec. 15 del design: solo cambia su persistencia).
+// Footer.tsx y Payments.tsx). Coincide con el seed del backend. Desde
+// `simplify-settings-view`, `Settings.tsx` la importa de aca en vez de tener
+// su propia copia: tras podar los 5 campos deprecados, las dos constantes
+// quedaban identicas (design D9).
 export const DEFAULT_SETTINGS: AppSettings = {
   gym_name: APP_NAME,
   admin_name: "Fabian Aguirre (Manga)",
-  // Legacy/deprecado (ver types.ts): valor sin uso, se conserva solo porque
-  // coincide con el seed del backend.
-  theme_preference: null,
   currency: "ARS",
-  default_fee: 30000,
   address: "Av. San Martin 325 - Dolores",
   contact_email: "owner@miniespacio.com",
   contact_phone: "11 5555 5555",
@@ -31,10 +28,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   payment_alias: "MINI.ESPACIO.GYM",
   payment_notes:
     "Aceptamos efectivo y transferencia. Confirmar pagos con comprobante.",
-  payment_reminder_message:
-    "Hola {client_name}, te recordamos con cariño la cuota mensual de {gym_name}. El valor actual es {amount} y contamos con {grace_days} días de tolerancia para abonarla. Podés transferir al alias {payment_alias}. Si ya pagaste, podés ignorar este mensaje. ¡Gracias!",
-  payment_reminder_last_sent_at: null,
-  late_fee_grace_days: 5,
   allow_cash: true,
   allow_transfer: true,
   onboarding_message:
