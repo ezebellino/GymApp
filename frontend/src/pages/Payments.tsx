@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CreditCard, Search } from "lucide-react";
+import { Ban, CreditCard, Search } from "lucide-react";
 import { usePaymentsQuery, usePaymentsSummaryQuery, useDeletePaymentMutation } from "@/services/payments.queries";
 import type { PaymentMethod } from "@/services/payments";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -12,6 +12,7 @@ import Pagination from "@/components/Pagination";
 import DataError from "@/components/DataError";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 import PaymentDialog from "@/components/PaymentDialog";
+import RowActionButton from "@/components/RowActionButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -357,14 +358,12 @@ export default function Payments() {
                       </TableCell>
                       <TableCell className="px-4 py-2">
                         {isOwner ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
+                          <RowActionButton
+                            icon={Ban}
+                            label="Anular"
+                            tone="destructive"
                             onClick={() => setAction({ type: "delete", payment })}
-                          >
-                            Anular
-                          </Button>
+                          />
                         ) : null}
                       </TableCell>
                     </TableRow>

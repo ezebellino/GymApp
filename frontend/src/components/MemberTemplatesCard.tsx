@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutTemplate } from "lucide-react";
+import { LayoutTemplate, SlidersHorizontal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import DataError from "@/components/DataError";
 import AssignTemplateDialog from "@/components/AssignTemplateDialog";
 import RemoveAssignmentDialog from "@/components/RemoveAssignmentDialog";
 import AdjustExerciseBaseDialog from "@/components/AdjustExerciseBaseDialog";
+import RowActionButton from "@/components/RowActionButton";
 import { useUserAssignmentsQuery } from "@/services/routineTemplates.queries";
 import { formatDate } from "@/lib/utils";
 import type { RoutineAssignment, RoutineAssignmentStatus, User } from "@/types";
@@ -76,50 +77,47 @@ export default function MemberTemplatesCard({ user, canManage }: Props) {
             </p>
           ) : null}
 
-          {!isPending && !isError &&
-            assignments.map((assignment) => (
-              <div
-                key={assignment.id}
-                className="space-y-2 rounded-xl border border-border bg-surface-2/20 p-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">
-                      {assignment.template_name}
-                    </span>
-                    <Badge variant="outline" className={STATUS_BADGE_CLASS[assignment.status]}>
-                      {STATUS_LABEL[assignment.status]}
-                    </Badge>
-                  </div>
-                  {canManage ? (
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setAdjustingAssignment(assignment)}
-                      >
-                        Ajustar base
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20"
-                        onClick={() => setRemovingAssignment(assignment)}
-                      >
-                        Quitar
-                      </Button>
+          {!isPending && !isError && assignments.length > 0 ? (
+            <ul className="list-none space-y-3">
+              {assignments.map((assignment) => (
+                <li
+                  key={assignment.id}
+                  className="space-y-2 rounded-xl border border-border bg-surface-2/20 p-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground">
+                        {assignment.template_name}
+                      </span>
+                      <Badge variant="outline" className={STATUS_BADGE_CLASS[assignment.status]}>
+                        {STATUS_LABEL[assignment.status]}
+                      </Badge>
                     </div>
-                  ) : null}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {assignment.adjustments_count === 0 || !assignment.last_adjustment
-                    ? "Sin ajustes"
-                    : `Ajustada por ${assignment.last_adjustment.by_name} el ${formatDate(assignment.last_adjustment.at)}`}
-                </p>
-              </div>
-            ))}
+                    {canManage ? (
+                      <div className="flex gap-2">
+                        <RowActionButton
+                          icon={SlidersHorizontal}
+                          label="Ajustar base"
+                          onClick={() => setAdjustingAssignment(assignment)}
+                        />
+                        <RowActionButton
+                          icon={Trash2}
+                          label="Quitar"
+                          tone="destructive"
+                          onClick={() => setRemovingAssignment(assignment)}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {assignment.adjustments_count === 0 || !assignment.last_adjustment
+                      ? "Sin ajustes"
+                      : `Ajustada por ${assignment.last_adjustment.by_name} el ${formatDate(assignment.last_adjustment.at)}`}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </CardContent>
 
         {canAssign ? (

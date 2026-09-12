@@ -94,6 +94,45 @@ completo con acciones).
 
 - **UI**: usar componentes de `src/components/ui` (shadcn) antes de crear uno nuevo desde cero.
   Ver la skill `shadcn` en `.agents/skills/` para patrones de composición/estilos/formularios.
+- **Acciones por fila en tablas: icono fijo, nunca texto** (`unify-row-action-icons`, capability
+  `data-table-row-actions`). Toda acción de fila se renderiza con
+  `components/RowActionButton.tsx` — **no** con un `<Button size="sm">` con texto adentro. El
+  icono es el que identifica la acción; el texto vive solo en el nombre accesible. El mapeo es
+  **cerrado**: una acción nueva reusa el icono de su familia, no estrena uno.
+
+  | Acción | Icono (`lucide-react`) | `tone` | `label` (= `aria-label`) |
+  |---|---|---|---|
+  | Ver / Mostrar detalle | `Eye` | `neutral` | `"Ver"` |
+  | Editar | `PencilLine` | `neutral` | `"Editar"` |
+  | Agregar precio | `CircleDollarSign` | `neutral` | `"Agregar precio"` |
+  | Ajustar base | `SlidersHorizontal` | `neutral` | `"Ajustar base"` |
+  | Anular / Desactivar | `Ban` | `destructive` | `"Anular"` / `"Desactivar"` |
+  | Reactivar | `RotateCcw` | `neutral` | `"Reactivar"` |
+  | Quitar / Borrar / Eliminar | `Trash2` | `destructive` | `"Quitar"` / `"Borrar"` |
+
+  Reglas que van con el mapeo:
+  - **`Ban` es uno solo para "Anular" y "Desactivar"**: son la misma operación (sacar de
+    circulación sin borrar). Lo que las distingue es el `label`, no el icono.
+  - **El `label` es el verbo solo**, nunca `` `Editar ${nombre}` ``. En una tabla todas las filas
+    comparten nombre accesible: los tests **no** pueden hacer
+    `getByRole("button", { name: "Editar" })` global — usan el helper `getRowByText(...)` de
+    `src/test/renderWithProviders.tsx` y después `within(row).getByRole(...)`.
+  - **Verbos distintos sobre el mismo icono se conservan**: "Borrar" un ejercicio y "Quitar" una
+    asignación comparten `Trash2` porque no son la misma operación (una destruye, la otra
+    desvincula).
+  - **El par activo/inactivo es un toggle**: `Ban` cuando la fila está activa, `RotateCcw` cuando
+    no. Se elige por el `is_active` de la fila, no por dos botones simultáneos.
+  - **`RowActionButton` tiene API cerrada a propósito** (`icon`, `label`, `tone`,
+    `disabledReason`, `onClick`): no acepta `className`, `variant` ni `children`. Si una acción
+    necesita escaparse del patrón, no es una acción de fila. Ahí viven también el `rounded-full`,
+    el tinte destructivo (con sus variantes `dark:`, sin las cuales el fondo lo pisa el `outline`)
+    y el `event.stopPropagation()` que evita que el click dispare además el handler de una fila
+    clickeable.
+  - **`disabledReason` deshabilita y explica a la vez**: el `title` pasa a ser el motivo en vez
+    del verbo (caso "No se puede desactivar el último plan activo").
+  - **Fuera de alcance**: los botones de **cabecera de página** (`RoutineTemplateDetail.tsx`)
+    conservan icono + texto, y los controles que no son botones de acción (un `Switch` dentro de
+    una card) no entran en esta convención.
 - **Datos del servidor (TanStack Query)**: las llamadas a la API van en `src/services/`, nunca
   directo en componentes de página. El patrón, para que la vista que sigue lo copie sin volver a
   discutir estructura:

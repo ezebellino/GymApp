@@ -5,6 +5,7 @@ import api from "@/lib/http";
 import Payments from "../Payments";
 import {
   fireEvent,
+  getRowByText,
   renderWithProviders,
   screen,
   waitFor,
@@ -191,7 +192,8 @@ describe("vista de Pagos", () => {
     renderPayments();
 
     expect(await screen.findByText("Ana Gomez")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Anular" })).toBeNull();
+    const row = getRowByText("Ana Gomez");
+    expect(within(row).queryByRole("button", { name: "Anular" })).toBeNull();
   });
 
   it("anula un pago como Dueno tras confirmar", async () => {
@@ -205,7 +207,8 @@ describe("vista de Pagos", () => {
     renderPayments();
 
     await screen.findByText("Ana Gomez");
-    fireEvent.click(screen.getByRole("button", { name: "Anular" }));
+    const row = getRowByText("Ana Gomez");
+    fireEvent.click(within(row).getByRole("button", { name: "Anular" }));
 
     const dialogHeading = await screen.findByRole("heading", { name: "Anular pago" });
     const dialog = dialogHeading.closest("dialog") as HTMLElement;

@@ -3,7 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import api from "@/lib/http";
 
 import Users from "../Users";
-import { fireEvent, renderWithProviders, screen, within } from "../../test/renderWithProviders";
+import {
+  fireEvent,
+  getRowByText,
+  renderWithProviders,
+  screen,
+  within,
+} from "../../test/renderWithProviders";
 import type { User } from "@/types";
 
 vi.mock("@/lib/http", async () => {
@@ -267,7 +273,8 @@ describe("vista de Usuarios", () => {
     );
 
     await screen.findByText("Ana Gomez");
-    fireEvent.click(screen.getByRole("button", { name: /^ver perfil de ana gomez$/i }));
+    const row = getRowByText("Ana Gomez");
+    fireEvent.click(within(row).getByRole("button", { name: "Ver" }));
 
     expect(await screen.findByText("Ficha de u-1")).toBeInTheDocument();
   });

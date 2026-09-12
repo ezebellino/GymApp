@@ -2,7 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import api from "@/lib/http";
 
 import MemberTemplatesCard from "../MemberTemplatesCard";
-import { fireEvent, renderWithProviders, screen, waitFor, within } from "../../test/renderWithProviders";
+import {
+  fireEvent,
+  getRowByText,
+  renderWithProviders,
+  screen,
+  waitFor,
+  within,
+} from "../../test/renderWithProviders";
 import type { RoutineAssignment, User } from "@/types";
 
 vi.mock("@/lib/http", async () => {
@@ -128,7 +135,8 @@ describe("card de plantillas asignadas en la ficha del usuario", () => {
     renderWithProviders(<MemberTemplatesCard user={makeUser({})} canManage />);
 
     await screen.findByText("Fuerza 4 días");
-    fireEvent.click(screen.getByRole("button", { name: "Quitar" }));
+    const row = getRowByText("Fuerza 4 días", "li");
+    fireEvent.click(within(row).getByRole("button", { name: "Quitar" }));
 
     const dialog = await screen.findByRole("dialog", { hidden: true });
     expect(within(dialog).getByText(/vas a quitar/i)).toBeInTheDocument();
@@ -139,5 +147,19 @@ describe("card de plantillas asignadas en la ficha del usuario", () => {
     await waitFor(() => {
       expect(api.delete).toHaveBeenCalledWith("/routines/users/u-1/templates/a-1");
     });
+  });
+
+  it("ofrece ajustar base y quitar como icon-buttons en cada asignacion", async () => {
+    mockAssignments([makeAssignment({ id: "a-1", template_name: "Fuerza 4 días" })]);
+
+    renderWithProviders(<MemberTemplatesCard user={makeUser({})} canManage />);
+
+    await screen.findByText("Fuerza 4 días");
+    const row = getRowByText("Fuerza 4 días", "li");
+    const adjustButton = within(row).getByRole("button", { name: "Ajustar base" });
+    const removeButton = within(row).getByRole("button", { name: "Quitar" });
+
+    expect(adjustButton.textContent).toBe("");
+    expect(removeButton.textContent).toBe("");
   });
 });

@@ -11,6 +11,7 @@ import MembershipDot, { INDICATOR_DOT_CLASS, INDICATOR_LABEL } from "@/component
 import EditUserDialog from "@/components/EditUserDialog";
 import CreateUserDialog from "@/components/CreateUserDialog";
 import DataError from "@/components/DataError";
+import RowActionButton from "@/components/RowActionButton";
 import { useDebounce } from "../hooks/useDebounce";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -363,29 +364,19 @@ export default function Users() {
                       </TableCell>
                       <TableCell className="px-4 py-2">
                         <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon-sm"
-                            aria-label={`Ver perfil de ${user.full_name}`}
-                            title={`Ver perfil de ${user.full_name}`}
+                          <RowActionButton
+                            icon={Eye}
+                            label="Ver"
                             onClick={() => navigate(`/users/${user.id}`)}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon-sm"
-                            aria-label={`Editar ${user.full_name}`}
-                            title={`Editar ${user.full_name}`}
+                          />
+                          <RowActionButton
+                            icon={PencilLine}
+                            label="Editar"
                             onClick={() => {
                               setSelectedUserId(user.id);
                               setEditUserOpen(true);
                             }}
-                          >
-                            <PencilLine className="h-3.5 w-3.5" />
-                          </Button>
+                          />
                         </div>
                       </TableCell>
                     </TableRow>

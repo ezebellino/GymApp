@@ -273,7 +273,9 @@ height and page-level scroll. Four zones, top to bottom, all inside that Card:
   while the body scrolls, sitting on the opaque `--table-head` band (see "5." above) so scrolled
   rows never show through. Column headers use `label-caps` in muted slate, weight 700, same as
   any other data table. Per-row actions are `rounded-full` icon-buttons, each with an accessible
-  name. Below `lg` the table keeps only its horizontal swipe-to-scroll (see Breakpoints, Mobile).
+  name. The icon for each action is **fixed, not chosen per view** — see the closed mapping in
+  [frontend/AGENTS.md](../../frontend/AGENTS.md#convenciones) ("Acciones por fila en tablas"),
+  implemented once in `frontend/src/components/RowActionButton.tsx`. Below `lg` the table keeps only its horizontal swipe-to-scroll (see Breakpoints, Mobile).
 - **Single pagination footer:** exactly one pagination control, below the table — range ("Showing
   X-Y of Z") on the left and page-size selector + prev/next + "page X / Y" on the right, both in
   the same row from `sm` up. Repeating the total from the header's count pill is an accepted

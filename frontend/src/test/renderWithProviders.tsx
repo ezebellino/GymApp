@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -52,6 +52,20 @@ export function renderWithProviders(
       </MemoryRouter>
     ),
   });
+}
+
+// Patrón canónico de test para acciones de fila (design.md D5 de
+// unify-row-action-icons): resuelve el contenedor de fila a partir de un
+// texto visible en ella, en vez de queries globales por verbo que se
+// ambiguan apenas hay más de una fila.
+export function getRowByText(text: string | RegExp, selector = "tr"): HTMLElement {
+  const row = screen.getByText(text).closest(selector);
+  if (!row) {
+    throw new Error(
+      `getRowByText: no se encontró un contenedor "${selector}" para ${String(text)}`
+    );
+  }
+  return row as HTMLElement;
 }
 
 export * from "@testing-library/react";

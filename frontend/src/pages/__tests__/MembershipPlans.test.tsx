@@ -2,7 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import api from "@/lib/http";
 
 import MembershipPlans from "../MembershipPlans";
-import { fireEvent, renderWithProviders, screen, waitFor, within } from "../../test/renderWithProviders";
+import {
+  fireEvent,
+  getRowByText,
+  renderWithProviders,
+  screen,
+  waitFor,
+  within,
+} from "../../test/renderWithProviders";
 import type { MembershipPlan } from "@/types";
 
 vi.mock("@/lib/http", async () => {
@@ -84,7 +91,8 @@ describe("vista de Planes", () => {
     renderWithProviders(<MembershipPlans />, { route: "/plans" });
     await screen.findByText("Estudiante");
 
-    fireEvent.click(screen.getByRole("button", { name: `Agregar precio a ${plan.name}` }));
+    const row = getRowByText(plan.name);
+    fireEvent.click(within(row).getByRole("button", { name: "Agregar precio" }));
     const heading = await screen.findByRole("heading", { name: `Agregar precio a ${plan.name}` });
     const dialog = heading.closest("dialog") as HTMLElement;
     const amountInput = dialog.querySelector('input[type="number"]') as HTMLInputElement;
@@ -111,8 +119,30 @@ describe("vista de Planes", () => {
     renderWithProviders(<MembershipPlans />, { route: "/plans" });
     await screen.findByText("Estudiante");
 
-    const deactivateButton = await screen.findByRole("button", { name: "Desactivar" });
+    const row = getRowByText("Estudiante");
+    const deactivateButton = within(row).getByRole("button", { name: "Desactivar" });
     expect(deactivateButton).toBeDisabled();
+    expect(deactivateButton).toHaveAttribute(
+      "title",
+      "No se puede desactivar el último plan activo"
+    );
+  });
+
+  it("muestra Reactivar en vez de Desactivar en la fila de un plan inactivo", async () => {
+    const plan = makePlan({ is_active: false });
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url === "/membership-plans/") {
+        return jsonResponse([plan], 1);
+      }
+      return jsonResponse({});
+    });
+
+    renderWithProviders(<MembershipPlans />, { route: "/plans" });
+    await screen.findByText("Estudiante");
+
+    const row = getRowByText("Estudiante");
+    expect(within(row).getByRole("button", { name: "Reactivar" })).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "Desactivar" })).toBeNull();
   });
 
   it("habilita desactivar con dos planes activos aunque falte X-Total-Count (hallazgo 9)", async () => {

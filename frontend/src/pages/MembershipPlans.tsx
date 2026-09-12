@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { BadgeDollarSign, CircleDollarSign, PencilLine, Search } from "lucide-react";
+import { BadgeDollarSign, Ban, CircleDollarSign, PencilLine, RotateCcw, Search } from "lucide-react";
 import {
   useDeactivateMembershipPlanMutation,
   useActivateMembershipPlanMutation,
@@ -11,6 +11,7 @@ import type { MembershipPlan } from "@/types";
 import ListPageLayout from "@/components/ListPageLayout";
 import Pagination from "@/components/Pagination";
 import DataError from "@/components/DataError";
+import RowActionButton from "@/components/RowActionButton";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 import CreateMembershipPlanDialog from "@/components/CreateMembershipPlanDialog";
 import EditMembershipPlanDialog from "@/components/EditMembershipPlanDialog";
@@ -307,50 +308,34 @@ export default function MembershipPlans() {
                       </TableCell>
                       <TableCell className="px-4 py-2">
                         <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon-sm"
-                            aria-label={`Editar ${plan.name}`}
-                            title={`Editar ${plan.name}`}
+                          <RowActionButton
+                            icon={PencilLine}
+                            label="Editar"
                             onClick={() => setAction({ type: "edit", plan })}
-                          >
-                            <PencilLine className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon-sm"
-                            aria-label={`Agregar precio a ${plan.name}`}
-                            title={`Agregar precio a ${plan.name}`}
+                          />
+                          <RowActionButton
+                            icon={CircleDollarSign}
+                            label="Agregar precio"
                             onClick={() => setAction({ type: "new-price", plan })}
-                          >
-                            <CircleDollarSign className="h-3.5 w-3.5" />
-                          </Button>
+                          />
                           {plan.is_active ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={isLastActive}
-                              title={
+                            <RowActionButton
+                              icon={Ban}
+                              label="Desactivar"
+                              tone="destructive"
+                              disabledReason={
                                 isLastActive
                                   ? "No se puede desactivar el último plan activo"
                                   : undefined
                               }
                               onClick={() => setAction({ type: "deactivate", plan })}
-                            >
-                              Desactivar
-                            </Button>
+                            />
                           ) : (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
+                            <RowActionButton
+                              icon={RotateCcw}
+                              label="Reactivar"
                               onClick={() => setAction({ type: "activate", plan })}
-                            >
-                              Reactivar
-                            </Button>
+                            />
                           )}
                         </div>
                       </TableCell>
