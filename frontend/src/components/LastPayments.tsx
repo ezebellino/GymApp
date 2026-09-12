@@ -67,7 +67,7 @@ export default function LastPayments({ clientId, limit = 3 }: Props) {
             {String(p.period_month).padStart(2, "0")}/{p.period_year}
             <span className="text-muted-foreground">
               {" "}
-              · {p.method ?? "—"}
+              · {p.plan?.name ?? "Sin plan"} · {p.method ?? "—"}
               {p.method === "transfer" && p.method_channel
                 ? ` (${p.method_channel})`
                 : ""}

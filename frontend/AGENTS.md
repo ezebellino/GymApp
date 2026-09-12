@@ -131,7 +131,7 @@ completo con acciones).
   `user_role`, `app_settings`, `app_theme`) en vez del wrapper `{state,version}` que usaría
   `createJSONStorage` — **deuda declarada, con fecha de vencimiento**: es un shim de compatibilidad
   (dec. 8 de `design.md` de `adopt-tanstack-query-zustand`) para no desloguear a nadie en el
-  deploy y para que los lectores fuera de alcance de `localStorage` (`NewPaymentDialog`,
+  deploy y para que los lectores fuera de alcance de `localStorage` (el "pago rápido" de
   `UserCard`, el propio `Settings.tsx`) sigan funcionando sin tocarlos. El siguiente change que
   toque estos stores puede pasar al `persist` default y migrar las claves de una sola vez.
   - **Ajustes: un único escritor.** `useSettingsStore.setSettings(next)` es la única vía para
@@ -153,12 +153,18 @@ completo con acciones).
     shell que ven los tres roles — Dueño, Coach y portal cliente), aplica al instante y dispara el
     `PATCH` sin bloquear la UI si falla. Ver `docs/design/design.md` y
     `openspec/changes/adopt-kinetic-obsidian-theme/` para el detalle de decisiones.
-  - **Puente temporal `"payments:created"`**: `NewPaymentDialog` y `UserCard` (fuera de alcance de
-    la migración a Query) siguen emitiendo ese evento tras cobrar. `useLegacyRefetchBridge()`
-    (`src/hooks/useLegacyRefetchBridge.ts`, montado una vez en `App.jsx`) es el **único oyente** en
-    todo el repo y lo traduce a `invalidateQueries({ queryKey: queryKeys.payments.all })` — dec. 13
-    de ese `design.md`. Se borra entero cuando esos diálogos migren a `useMutation`; no agregues
-    un segundo oyente ni un nuevo emisor de este evento.
+  - **Puente temporal `"payments:created"`**: el "pago rápido" de `UserCard` (`api.post` directo,
+    sin `useMutation` — eso sigue sin migrar; `rebuild-payments-with-plan-pricing` sí le cambió el
+    payload, que ya no manda `default_fee`, y le agregó el selector de métodos habilitados en
+    Configuración) sigue emitiendo ese evento tras cobrar. `PaymentDialog` (el diálogo reusable de
+    alta de pago, D5.2 de ese `design.md` — reemplazó a `NewPaymentDialog`, eliminado) también lo
+    emite pese a ya invalidar por `useCreatePaymentMutation`, por si algún otro oyente legacy lo
+    necesita.
+    `useLegacyRefetchBridge()` (`src/hooks/useLegacyRefetchBridge.ts`, montado una vez en
+    `App.jsx`) es el **único oyente** en todo el repo y lo traduce a
+    `invalidateQueries({ queryKey: queryKeys.payments.all })`. Se borra entero cuando el pago
+    rápido de `UserCard` migre a `useMutation`; no agregues un segundo oyente ni un nuevo emisor
+    de este evento.
 - **Login: un único camino.** `services/auth.ts` (red: `requestToken` con el reintento único ante
   timeout, `fetchMeWithToken` con `Authorization` explícito porque el store todavía no tiene el
   token, y `signIn` que compone las dos y devuelve `{ accessToken, me }`) + `hooks/useSignIn.ts`
@@ -439,4 +445,22 @@ completo con acciones).
     `services/routineTemplates.ts` vía `vi.mock("@/lib/http")` (patrón `apiMock.ts`), sin backend.
     Los diálogos siempre montados condicionalmente (nunca `open={false}` con el componente
     presente) evitan que `getByRole("dialog", { hidden: true })` encuentre más de un `<dialog>` —
-    ver la nota de `MemberTemplatesCard.tsx` en "Rutinas" arriba.
+    ver la nota de `MemberTemplatesCard.tsx` en "Rutinas" arriba. Suma de
+    `rebuild-payments-with-plan-pricing`: `pages/__tests__/Payments.test.tsx` reescrito sobre la
+    vista nueva (plan y monto de cada pago en la tabla, "Sin plan" para un pago sin foto, los
+    indicadores del período desde `usePaymentsSummaryQuery`, filtro combinado de período y
+    método, el botón "Planes" conservado, la acción "Anular" oculta para un Coach y disponible
+    para el Dueño tras confirmar), `components/__tests__/PaymentDialog.test.tsx` (precarga el
+    monto con el precio vigente del plan, precarga el precio vigente al registrar y no el del
+    período cubierto, bloquea el alta y ofrece "Asignar plan" si el miembro no tiene plan, solo
+    ofrece los métodos habilitados en Configuración, omite el monto del payload si no se editó),
+    la task de `pages/__tests__/UserDetail.test.tsx` que abre el diálogo desde la ficha de un
+    miembro activo, y la de `pages/__tests__/Dashboard.test.tsx` que confirma que la facturación
+    del mes sigue sumando bien con pagos que ya traen `plan`. Corrección de `verify` (gate
+    FALLA): `components/__tests__/PaymentDialog.test.tsx` suma el caso "conserva el monto editado
+    si la prop user cambia de identidad con el dialogo abierto" (`amount`/`amountEdited` se
+    resetean siempre juntos, en el mismo efecto — antes se desincronizaban si `user` llegaba con
+    un objeto nuevo mientras el diálogo estaba abierto) y `components/__tests__/UserCard.test.tsx`
+    es un archivo nuevo que cubre el cobro rápido respetando `allow_cash`/`allow_transfer` de
+    Configuración (ambos habilitados ofrece los dos, uno solo ofrece solo ese, ninguno oculta el
+    cobro rápido entero).

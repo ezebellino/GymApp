@@ -29,6 +29,21 @@ export function defaultPayloadFor(url: string): unknown {
   if (url.includes("/reports")) {
     return {};
   }
+  // `GET /payments/summary` (`rebuild-payments-with-plan-pricing`, D3.4)
+  // devuelve un objeto, no una lista: hay que chequearlo ANTES del genérico
+  // `/payments` de `EMPTY_LIST_ROUTES` (si no, `startsWith("/payments")`
+  // también lo matchea y devuelve `[]`).
+  if (url.startsWith("/payments/summary")) {
+    return {
+      period_year: 0,
+      period_month: 0,
+      payments_count: 0,
+      amount_sum: 0,
+      members_active: 0,
+      members_paid: 0,
+      members_pending: 0,
+    };
+  }
   // Listados: si devolviera `undefined`, los useEffect de montaje de Dashboard y
   // Settings revientan haciendo `.map`.
   if (EMPTY_LIST_ROUTES.some((route) => url.startsWith(route))) {

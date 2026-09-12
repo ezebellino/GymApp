@@ -1,5 +1,9 @@
 import type { UsersParams } from "./users";
-import type { PaymentsParams, PeriodRange as PaymentsPeriodRange } from "./payments";
+import type {
+  PaymentsParams,
+  PeriodRange as PaymentsPeriodRange,
+  PaymentsPeriod,
+} from "./payments";
 import type { AttendanceParams, PeriodRange as AttendancePeriodRange } from "./attendance";
 import type { MembershipPlansParams } from "./membershipPlans";
 
@@ -18,6 +22,9 @@ export const queryKeys = {
     all: ["payments"] as const,
     list: (params: PaymentsParams) => ["payments", "list", params] as const,
     kpis: (period: PaymentsPeriodRange) => ["payments", "kpis", period] as const,
+    // `rebuild-payments-with-plan-pricing` (D5.5): único lugar que escribe
+    // esta key.
+    summary: (period: PaymentsPeriod) => ["payments", "summary", period] as const,
   },
   attendance: {
     all: ["attendance"] as const,

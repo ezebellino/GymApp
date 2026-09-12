@@ -69,6 +69,15 @@ export type MembershipPlanSummary = {
 // contacto sin pedirlo aparte.
 export type EmbeddedUser = Pick<User, "id" | "first_name" | "last_name" | "full_name" | "email" | "phone" | "role">;
 
+// `rebuild-payments-with-plan-pricing` (D1/D3.2): foto del plan con el que se
+// registró un pago, leída de la propia fila del pago — nunca el plan actual
+// del miembro. `null` solo para pagos anteriores a la migración (D2/D4).
+export type PaymentPlanRef = {
+  id: string | null;
+  name: string;
+  reference_amount: number | null;
+};
+
 export type Payment = {
   id: string;
   user_id: string;
@@ -80,6 +89,7 @@ export type Payment = {
   period_month: number;
   period_year: number;
   created_at: string; // ISO
+  plan: PaymentPlanRef | null;
 };
 
 export type Attendance = {

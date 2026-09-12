@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   CalendarClock,
@@ -12,18 +12,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type {
-  AppSettings,
   Payment,
   Role,
   User,
   UserProgressSummary,
 } from "@/types";
-import NewPaymentDialog from "./NewPaymentDialog";
+import PaymentDialog from "./PaymentDialog";
 import AttendanceCalendar from "./AttendanceCalendar";
 import LastPayments from "./LastPayments";
 import EditUserDialog from "./EditUserDialog";
 import api from "@/lib/http";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { useSettingsStore } from "@/stores/settings";
+import type { PaymentMethod } from "@/services/payments";
 
 type Props = {
   viewerRole: Role;
@@ -56,47 +57,41 @@ export default function UserCard({
 
   const [openPayment, setOpenPayment] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
-  const [defaultFee, setDefaultFee] = useState(30000);
   const [quickPaying, setQuickPaying] = useState(false);
   const [downloadingReport, setDownloadingReport] = useState(false);
   const [sharingReport, setSharingReport] = useState(false);
-  const [quickPaymentMethod, setQuickPaymentMethod] = useState<"cash" | "transfer">("cash");
+
+  // Cobro rápido limitado a los métodos habilitados en Configuración, igual
+  // que `PaymentDialog.tsx` (corrección `verification.md` hallazgo 2): con
+  // uno solo habilitado se ofrece solo ese, y sin ninguno no se ofrece el
+  // cobro rápido.
+  const allowCash = useSettingsStore((s) => s.settings.allow_cash);
+  const allowTransfer = useSettingsStore((s) => s.settings.allow_transfer);
+  const allowedQuickMethods = useMemo<PaymentMethod[]>(
+    () => [
+      ...(allowCash ? (["cash"] as const) : []),
+      ...(allowTransfer ? (["transfer"] as const) : []),
+    ],
+    [allowCash, allowTransfer]
+  );
+  const [quickPaymentMethod, setQuickPaymentMethod] = useState<PaymentMethod | "">(
+    allowedQuickMethods[0] ?? ""
+  );
 
   useEffect(() => {
-    let cancelled = false;
+    if (quickPaymentMethod && allowedQuickMethods.includes(quickPaymentMethod)) return;
+    setQuickPaymentMethod(allowedQuickMethods[0] ?? "");
+  }, [allowedQuickMethods, quickPaymentMethod]);
 
-    (async () => {
-      try {
-        const { data } = await api.get<AppSettings>("/settings");
-        if (!cancelled) {
-          setDefaultFee(Number(data?.default_fee) || 30000);
-        }
-      } catch {
-        const raw = localStorage.getItem("app_settings");
-        if (!raw || cancelled) return;
-        try {
-          const parsed = JSON.parse(raw);
-          if (!cancelled) {
-            setDefaultFee(Number(parsed?.default_fee) || 30000);
-          }
-        } catch {
-          // ignore parse errors
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  async function handleQuickPayment(method: "cash" | "transfer") {
+  async function handleQuickPayment(method: PaymentMethod) {
     setQuickPaying(true);
     try {
       const now = new Date();
+      // `amount` se omite (`rebuild-payments-with-plan-pricing`, D3.1): el
+      // backend cobra el precio de referencia vigente del plan del miembro,
+      // ya no `AppSettings.default_fee`.
       await api.post("/payments", {
         user_id: client.id,
-        amount: defaultFee,
         method,
         method_channel: null,
         note: "Cobro rapido de cuota mensual",
@@ -606,41 +601,38 @@ export default function UserCard({
             Crear pago
           </Button>
 
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className={
-                quickPaymentMethod === "cash"
-                  ? "border-primary/30 bg-primary/10 text-primary-strong"
-                  : "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70"
-              }
-              onClick={() => setQuickPaymentMethod("cash")}
-            >
-              Efectivo
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className={
-                quickPaymentMethod === "transfer"
-                  ? "border-primary/30 bg-primary/10 text-primary-strong"
-                  : "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70"
-              }
-              onClick={() => setQuickPaymentMethod("transfer")}
-            >
-              Transferencia
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => handleQuickPayment(quickPaymentMethod)}
-              disabled={quickPaying}
-            >
-              {quickPaying
-                ? "Cobrando..."
-                : `Cobro rapido $${defaultFee.toLocaleString("es-AR")}`}
-            </Button>
-          </div>
+          {allowedQuickMethods.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {allowedQuickMethods.length > 1
+                ? allowedQuickMethods.map((methodOption) => (
+                    <Button
+                      key={methodOption}
+                      size="sm"
+                      variant="outline"
+                      className={
+                        quickPaymentMethod === methodOption
+                          ? "border-primary/30 bg-primary/10 text-primary-strong"
+                          : "border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70"
+                      }
+                      onClick={() => setQuickPaymentMethod(methodOption)}
+                    >
+                      {methodLabel(methodOption)}
+                    </Button>
+                  ))
+                : null}
+              <Button
+                size="sm"
+                onClick={() => quickPaymentMethod && handleQuickPayment(quickPaymentMethod)}
+                disabled={quickPaying || !quickPaymentMethod}
+              >
+                {quickPaying
+                  ? "Cobrando..."
+                  : allowedQuickMethods.length === 1
+                    ? `Cobro rapido (${methodLabel(allowedQuickMethods[0])})`
+                    : "Cobro rapido (precio del plan)"}
+              </Button>
+            </div>
+          ) : null}
 
           <Button
             size="sm"
@@ -675,12 +667,10 @@ export default function UserCard({
         </div>
       </CardContent>
 
-      <NewPaymentDialog
+      <PaymentDialog
         open={openPayment}
         onOpenChange={setOpenPayment}
-        clientId={client.id}
-        clientName={client.full_name}
-        defaultFee={defaultFee}
+        user={client}
         onSuccess={onRefresh}
       />
       <EditUserDialog

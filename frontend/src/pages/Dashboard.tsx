@@ -26,6 +26,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useUsersSearchQuery } from "@/services/search.queries";
 import { useCheckinMutation } from "@/services/attendance.queries";
 import { useCreatePaymentMutation } from "@/services/payments.queries";
+import type { PaymentMethod } from "@/services/payments";
 import { useCreateUserMutation } from "@/services/users.queries";
 import DataError from "@/components/DataError";
 
@@ -99,14 +100,52 @@ export default function Dashboard() {
   const paymentResults = paymentsSearch.data ?? [];
   const searchingPayments = paymentsSearch.isFetching;
   const createPaymentMutation = useCreatePaymentMutation();
-  const [quickPaymentMethod, setQuickPaymentMethod] = useState<"cash" | "transfer">("cash");
-  const defaultFee = useSettingsStore((s) => s.settings.default_fee);
+  // Cobro rápido limitado a los métodos habilitados en Configuración, igual
+  // que `PaymentDialog`/`UserCard` (corrección `verification.md`, segunda
+  // pasada, hallazgo 2): el bloque "Cobrar cuota" del Dashboard era el
+  // tercer cliente de alta de pagos que nadie había migrado.
+  const allowCash = useSettingsStore((s) => s.settings.allow_cash);
+  const allowTransfer = useSettingsStore((s) => s.settings.allow_transfer);
+  const allowedQuickPaymentMethods = useMemo<PaymentMethod[]>(
+    () => [
+      ...(allowCash ? (["cash"] as const) : []),
+      ...(allowTransfer ? (["transfer"] as const) : []),
+    ],
+    [allowCash, allowTransfer]
+  );
+  const [quickPaymentMethod, setQuickPaymentMethod] = useState<PaymentMethod | "">(
+    allowedQuickPaymentMethods[0] ?? ""
+  );
+  useEffect(() => {
+    if (quickPaymentMethod && allowedQuickPaymentMethods.includes(quickPaymentMethod)) return;
+    setQuickPaymentMethod(allowedQuickPaymentMethods[0] ?? "");
+  }, [allowedQuickPaymentMethods, quickPaymentMethod]);
   const gymName = useSettingsStore((s) => s.settings.gym_name);
   const adminName = useSettingsStore((s) => s.settings.admin_name) ?? "";
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const createClientMutation = useCreateUserMutation();
+
+  const selectedPaymentClient =
+    paymentResults.find((client) => client.id === paymentClientId) ??
+    clientResults.find((client) => client.id === paymentClientId);
+  const paymentPlan = selectedPaymentClient?.membership_plan;
+  // Mismo criterio que `PaymentDialog`/`UserCard` (corrección
+  // `verification.md`, segunda pasada, hallazgo 2): sin plan o sin precio
+  // vigente, no se ofrece el cobro rápido.
+  const paymentClientHasNoPlan = Boolean(selectedPaymentClient) && !paymentPlan;
+  const paymentClientHasNoPrice =
+    Boolean(selectedPaymentClient) &&
+    Boolean(paymentPlan) &&
+    paymentPlan?.current_amount == null;
+  const paymentReferenceAmount = paymentPlan?.current_amount ?? null;
+  const canSubmitQuickPayment =
+    Boolean(paymentClientId) &&
+    !paymentClientHasNoPlan &&
+    !paymentClientHasNoPrice &&
+    Boolean(quickPaymentMethod) &&
+    allowedQuickPaymentMethods.length > 0;
 
   function openPaymentReminder(client: User) {
     if (!client.phone) return;
@@ -157,19 +196,21 @@ export default function Dashboard() {
 
   async function doQuickPayment(e?: FormEvent<HTMLFormElement>) {
     e?.preventDefault();
-    if (!paymentQuery && !paymentClientId) return;
+    if (!canSubmitQuickPayment) return;
 
-    const selectedClient =
-      paymentResults.find((client) => client.id === paymentClientId) ??
-      clientResults.find((client) => client.id === paymentClientId);
-    const clientName = selectedClient?.full_name || paymentQuery.trim() || "el cliente";
+    const clientName = selectedPaymentClient?.full_name || paymentQuery.trim() || "el cliente";
+    const method = quickPaymentMethod as PaymentMethod;
 
     try {
       const now = new Date();
       await createPaymentMutation.mutateAsync({
         user_id: paymentClientId,
-        amount: defaultFee,
-        method: quickPaymentMethod,
+        // `amount` se omite (igual que el cobro rápido de `UserCard`,
+        // `rebuild-payments-with-plan-pricing` D3.1): el backend cobra el
+        // precio de referencia vigente del plan del miembro, ya no
+        // `AppSettings.default_fee` (corrección `verification.md`, segunda
+        // pasada, hallazgo 2).
+        method,
         method_channel: null,
         note: "Cobro rapido de cuota mensual",
         period_month: now.getMonth() + 1,
@@ -181,7 +222,7 @@ export default function Dashboard() {
 
       toastSuccess(
         "Pago rapido registrado",
-        `Se registró la cuota vigente de ${clientName} por ${quickPaymentMethod === "cash" ? "efectivo" : "transferencia"}.`
+        `Se registró la cuota vigente de ${clientName} por ${method === "cash" ? "efectivo" : "transferencia"}.`
       );
     } catch (error: any) {
       console.error(error);
@@ -530,46 +571,63 @@ export default function Dashboard() {
                 ) : null}
               </div>
 
-              <div className="rounded-xl border border-primary/20 bg-primary/10 px-4 py-3">
-                <p className="text-label-caps uppercase text-muted-foreground">
-                  Cuota vigente
-                </p>
-                <p className="mt-1 text-xl font-semibold text-foreground">
-                  {nfARS.format(defaultFee)}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Se registra para el mes actual con el método que selecciones.
-                </p>
-              </div>
+              {!selectedPaymentClient ? (
+                <div className="rounded-xl border border-border bg-canvas/60 px-4 py-3">
+                  <p className="text-sm text-muted-foreground">
+                    Seleccioná un cliente para ver su cuota vigente.
+                  </p>
+                </div>
+              ) : paymentClientHasNoPlan ? (
+                <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                  <p role="alert" className="text-sm text-amber-700 dark:text-amber-200">
+                    Este cliente no tiene un plan asignado.
+                  </p>
+                </div>
+              ) : paymentClientHasNoPrice ? (
+                <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                  <p role="alert" className="text-sm text-amber-700 dark:text-amber-200">
+                    El plan de este cliente no tiene un precio vigente.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-primary/20 bg-primary/10 px-4 py-3">
+                  <p className="text-label-caps uppercase text-muted-foreground">
+                    Cuota vigente
+                  </p>
+                  <p className="mt-1 text-xl font-semibold text-foreground">
+                    {nfARS.format(paymentReferenceAmount ?? 0)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Se registra para el mes actual con el método que selecciones.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="text-xs text-muted-foreground">Método rápido</label>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setQuickPaymentMethod("cash")}
-                    className={
-                      quickPaymentMethod === "cash"
-                        ? "border-primary/30 bg-primary/10 text-primary-strong"
-                        : outlineButtonClass
-                    }
-                  >
-                    Efectivo
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setQuickPaymentMethod("transfer")}
-                    className={
-                      quickPaymentMethod === "transfer"
-                        ? "border-primary/30 bg-primary/10 text-primary-strong"
-                        : outlineButtonClass
-                    }
-                  >
-                    Transferencia
-                  </Button>
-                </div>
+                {allowedQuickPaymentMethods.length === 0 ? (
+                  <p role="alert" className="mt-2 text-sm text-destructive">
+                    No hay métodos de pago habilitados en Configuración.
+                  </p>
+                ) : (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {allowedQuickPaymentMethods.map((methodOption) => (
+                      <Button
+                        key={methodOption}
+                        type="button"
+                        variant="outline"
+                        onClick={() => setQuickPaymentMethod(methodOption)}
+                        className={
+                          quickPaymentMethod === methodOption
+                            ? "border-primary/30 bg-primary/10 text-primary-strong"
+                            : outlineButtonClass
+                        }
+                      >
+                        {methodLabel(methodOption)}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between gap-3 pt-2">
@@ -578,7 +636,7 @@ export default function Dashboard() {
                 </span>
                 <Button
                   type="submit"
-                  disabled={createPaymentMutation.isPending || !paymentClientId}
+                  disabled={createPaymentMutation.isPending || !canSubmitQuickPayment}
                 >
                   <CreditCard size={16} className="mr-2" />
                   {createPaymentMutation.isPending ? "Registrando..." : "Cobrar cuota"}

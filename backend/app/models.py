@@ -214,6 +214,20 @@ class Payment(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
+    # --- Foto de plan (`rebuild-payments-with-plan-pricing`, design D1) ------
+    # Las tres columnas de abajo son una FOTO INMUTABLE del plan y precio vigentes
+    # al momento del alta (invariante I2): ningún camino de escritura las toca
+    # después de crear el pago. Son nullable únicamente porque los pagos
+    # anteriores a esta migración no tienen foto (sin backfill, design D4) — de
+    # acá en adelante todo pago creado por la API las trae completas (invariante
+    # I5). No confundir `plan_amount_at_payment` (precio de referencia sugerido)
+    # con `amount` (lo efectivamente pagado, que puede diferir por un descuento).
+    membership_plan_id = Column(
+        String, ForeignKey("membership_plans.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    plan_name_at_payment = Column(String, nullable=True)
+    plan_amount_at_payment = Column(Integer, nullable=True)
+
     __table_args__ = (
         UniqueConstraint("user_id", "period_month", "period_year", name="uq_payment_period"),
         Index("ix_payments_method", "method"),

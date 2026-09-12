@@ -5,7 +5,15 @@ from uuid import UUID
 
 from sqlalchemy import func
 
-from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator, field_serializer
+from pydantic import (
+    BaseModel,
+    Field,
+    EmailStr,
+    ConfigDict,
+    field_validator,
+    field_serializer,
+    model_validator,
+)
 
 
 Role = Literal["owner", "coach", "member"]
@@ -178,16 +186,56 @@ class PaymentBase(BaseSchema):
 
 
 class PaymentCreate(PaymentBase):
-    pass
+    # `amount` opcional (`rebuild-payments-with-plan-pricing`, design D3.1): omitido o
+    # `null` ⇒ el backend usa el precio de referencia vigente del plan del miembro.
+    # Presente ⇒ se guarda tal cual (descuento/corrección puntual). Se redeclara acá
+    # (no en `PaymentBase`) para no aflojar el contrato de `PaymentOut`, que sigue
+    # exigiendo `amount` en la respuesta.
+    amount: Annotated[Optional[float], Field(default=None, ge=0)] = None
+
+    # Corrección `verification.md` hallazgo 3 (deuda preexistente): `method_channel`
+    # es un sub-canal de "transfer" (mercadopago, cuentadni, etc.); con `method="cash"`
+    # no tiene sentido y antes se aceptaba sin validar (podía quedar un efectivo con
+    # canal "Mercado Pago" en `/payments/reports/by_channel`).
+    @model_validator(mode="after")
+    def _method_channel_solo_con_transfer(self) -> "PaymentCreate":
+        if self.method != "transfer" and self.method_channel is not None:
+            raise ValueError("method_channel solo es válido cuando method es 'transfer'")
+        return self
+
+
+class PaymentPlanRef(BaseSchema):
+    """Foto del plan con el que se registró un pago (D1, D3.2): se arma desde las
+    columnas de la propia fila de `Payment`, nunca desde el plan actual del miembro."""
+
+    id: Optional[str] = None
+    name: str
+    reference_amount: Optional[int] = None
 
 
 class PaymentOut(PaymentBase):
     id: UUID
     created_at: datetime
     user: Optional[UserSummary] = None
+    # `None` solo para pagos anteriores a la migración de la foto (D2/D4, invariante
+    # I5): de acá en adelante todo pago creado por la API trae `plan`.
+    plan: Optional[PaymentPlanRef] = None
 
     class Config:
         from_attributes = True
+
+
+class PaymentsPeriodSummaryOut(BaseSchema):
+    """`GET /payments/summary` (D3.4): indicadores de un período mes/año — no
+    confundir con `/payments/reports/kpis`, que agrega por `created_at`."""
+
+    period_year: int
+    period_month: int
+    payments_count: int
+    amount_sum: float
+    members_active: int
+    members_paid: int
+    members_pending: int
 
 
 class UserPaymentStatus(BaseSchema):

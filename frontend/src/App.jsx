@@ -69,8 +69,9 @@ export default function App() {
   // primer render (caché local); esto lo actualiza apenas responde
   // `/auth/me`, que es la fuente autoritativa.
   useSyncUserTheme();
-  // TODO(change siguiente): borrar junto con `NewPaymentDialog`/`UserCard`
-  // cuando pasen a `useCreatePaymentMutation` (dec. 13).
+  // TODO(change siguiente): borrar cuando el "pago rápido" de `UserCard`
+  // (`api.post` directo, `rebuild-payments-with-plan-pricing` D5.3) pase a
+  // `useCreatePaymentMutation` (dec. 13 de `adopt-tanstack-query-zustand`).
   useLegacyRefetchBridge();
 
   return (

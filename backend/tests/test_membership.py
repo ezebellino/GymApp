@@ -50,6 +50,7 @@ def test_membresia_activa_sin_pagos_es_overdue(client, owner_user, auth_header, 
 
 def test_ultimo_pago_del_periodo_actual_es_up_to_date(client, owner_user, auth_header, db_session):
     member = _create_member(db_session)
+    assign_plan_to_member(db_session, member)
     cur_month, cur_year = current_period()
     _add_payment(client, auth_header(OWNER_EMAIL), member.id, cur_month, cur_year)
 
@@ -61,6 +62,7 @@ def test_ultimo_pago_del_periodo_actual_es_up_to_date(client, owner_user, auth_h
 
 def test_ultimo_pago_de_un_periodo_anterior_es_overdue(client, owner_user, auth_header, db_session):
     member = _create_member(db_session)
+    assign_plan_to_member(db_session, member)
     cur_month, cur_year = current_period()
     prev_month = 12 if cur_month == 1 else cur_month - 1
     prev_year = cur_year - 1 if cur_month == 1 else cur_year
@@ -76,6 +78,7 @@ def test_membresia_dada_de_baja_es_suspended_aunque_este_al_dia(
     client, owner_user, auth_header, db_session
 ):
     member = _create_member(db_session)
+    assign_plan_to_member(db_session, member)
     cur_month, cur_year = current_period()
     _add_payment(client, auth_header(OWNER_EMAIL), member.id, cur_month, cur_year)
 
@@ -101,6 +104,7 @@ def test_un_pago_nuevo_actualiza_el_indicador_sin_cache(
     client, owner_user, auth_header, db_session
 ):
     member = _create_member(db_session)
+    assign_plan_to_member(db_session, member)
     headers = auth_header(OWNER_EMAIL)
 
     before = client.get(f"/users/{member.id}", headers=headers)
@@ -184,6 +188,7 @@ def test_baja_de_membresia_de_un_coach_no_bloquea_su_login(client, owner_user, d
 
 def test_historial_sigue_existiendo_tras_la_baja(client, owner_user, auth_header, db_session):
     member = _create_member(db_session, email="con-historial@example.com")
+    assign_plan_to_member(db_session, member)
     headers = auth_header(OWNER_EMAIL)
     cur_month, cur_year = current_period()
     _add_payment(client, headers, member.id, cur_month, cur_year)

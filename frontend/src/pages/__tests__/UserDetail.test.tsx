@@ -641,6 +641,34 @@ describe("ficha de detalle de un usuario", () => {
     });
   });
 
+  describe("registrar pago desde la ficha (rebuild-payments-with-plan-pricing)", () => {
+    it("abre el dialogo de pago desde la ficha de un miembro activo", async () => {
+      seedRole("owner");
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url === "/users/u-1") {
+          return jsonResponse(
+            makeUser({
+              membership_status: "active",
+              membership_plan: { id: "plan-1", name: "Estudiante", current_amount: 20000 },
+              plan_since: "2026-01-01",
+            })
+          );
+        }
+        return jsonResponse({});
+      });
+
+      renderAt("/users/u-1");
+      await screen.findByRole("heading", { name: "Ana Gomez" });
+
+      fireEvent.click(screen.getByRole("button", { name: "Registrar pago" }));
+
+      const dialog = await screen.findByRole("dialog", { hidden: true });
+      expect(within(dialog).getByRole("heading", { name: "Registrar pago" })).toBeInTheDocument();
+      const amountInput = dialog.querySelector('input[type="number"]') as HTMLInputElement;
+      expect(amountInput.value).toBe("20000");
+    });
+  });
+
   describe("permisos de gestion segun rol del viewer", () => {
     it("un coach no ve acciones de gestion en la ficha de otro coach", async () => {
       seedRole("coach");

@@ -8,6 +8,7 @@ from .. import models, schemas
 from ..deps import get_db
 from ..auth import get_current_user, require_role
 from ..models import UserRole, MembershipStatus
+from .membership_plans import current_price_for
 import logging
 
 log = logging.getLogger("request")
@@ -31,6 +32,26 @@ def _bucket_expr(col, bucket: Literal["day", "week", "month"]):
     return func.date_trunc("month", col)
 
 router = APIRouter(prefix="/payments", tags=["payments"])
+
+
+def _plan_ref(payment: models.Payment) -> Optional[schemas.PaymentPlanRef]:
+    """Arma la foto de plan de un pago desde las columnas de su propia fila
+    (`rebuild-payments-with-plan-pricing`, D1/D3.2) — sin `join` ni query extra
+    (invariante I6). `None` para los pagos anteriores a la migración (D4), que no
+    tienen foto."""
+    if payment.plan_name_at_payment is None:
+        return None
+    return schemas.PaymentPlanRef(
+        id=payment.membership_plan_id,
+        name=payment.plan_name_at_payment,
+        reference_amount=payment.plan_amount_at_payment,
+    )
+
+
+def _to_payment_out(payment: models.Payment) -> schemas.PaymentOut:
+    out = schemas.PaymentOut.model_validate(payment)
+    out.plan = _plan_ref(payment)
+    return out
 
 @router.post(
     "/",
@@ -58,6 +79,14 @@ def create_payment(
             status.HTTP_400_BAD_REQUEST,
             "El usuario no tiene una membresía activa",
         )
+    # Miembro sin plan no admite pagos (`rebuild-payments-with-plan-pricing`, D2):
+    # el orden de chequeos del alta es 404 -> membresía -> plan -> período (D2).
+    if target.membership_plan_id is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "El miembro no tiene un plan asignado. Asignale un plan desde su ficha "
+            "antes de registrar el pago",
+        )
 
     # Regla: 1 pago por usuario/mes
     exists = (
@@ -72,16 +101,36 @@ def create_payment(
     if exists:
         raise HTTPException(status.HTTP_409_CONFLICT, "Payment for this period already exists")
 
+    # La foto de plan y precio la resuelve el servidor, siempre, con el precio
+    # vigente HOY (no el del período que se paga — límite explícito de S3, D2). El
+    # payload nunca puede aportarla (invariante I4): `PaymentCreate` no declara esos
+    # campos.
+    prices = current_price_for(db, [target.membership_plan_id])
+    price = prices.get(target.membership_plan_id)
+    if price is None:
+        # Defensivo (D2): inalcanzable por la API (todo plan tiene un precio con
+        # `effective_from <= hoy`), solo posible si alguien cargó datos a mano.
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "El plan del miembro no tiene un precio vigente",
+        )
+
+    # `amount` omitido o `null` -> se cobra el precio de referencia del plan (D3.1).
+    amount = payload.amount if payload.amount is not None else float(price.amount)
+
     # Crear el pago usando el user_id como str
     obj = models.Payment(
         user_id=user_id_str,
-        amount=payload.amount,
+        amount=amount,
         method=payload.method,
         method_channel=payload.method_channel,
         note=payload.note,
         period_month=payload.period_month,
         period_year=payload.period_year,
         created_by_user_id=user.id,
+        membership_plan_id=target.membership_plan_id,
+        plan_name_at_payment=target.membership_plan.name,
+        plan_amount_at_payment=price.amount,
     )
     db.add(obj)
     db.commit()
@@ -89,7 +138,7 @@ def create_payment(
 
     loc = request.url_for("payments:get_one", payment_id=obj.id)
     response.headers["Location"] = str(loc)
-    return schemas.PaymentOut.model_validate(obj)
+    return _to_payment_out(obj)
 
 
 @router.get(
@@ -103,6 +152,9 @@ def list_payments(
     db: Session = Depends(get_db),
     user_id: Optional[str] = None,   # sigue disponible
     q: Optional[str] = Query(None, description="nombre, email o teléfono"),
+    period_month: Optional[int] = Query(None, ge=1, le=12),
+    period_year: Optional[int] = Query(None, ge=2020, le=2100),
+    method: Optional[Literal["cash", "transfer"]] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
@@ -130,6 +182,13 @@ def list_payments(
             )
         )
 
+    if period_month is not None:
+        query = query.filter(models.Payment.period_month == period_month)
+    if period_year is not None:
+        query = query.filter(models.Payment.period_year == period_year)
+    if method is not None:
+        query = query.filter(models.Payment.method == method)
+
     total = query.with_entities(func.count(models.Payment.id)).scalar()
     response.headers["X-Total-Count"] = str(total)
 
@@ -143,7 +202,60 @@ def list_payments(
         .limit(limit)
         .all()
     )
-    return items
+    return [_to_payment_out(item) for item in items]
+
+
+@router.get(
+    "/summary",
+    response_model=schemas.PaymentsPeriodSummaryOut,
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
+def payments_summary(
+    db: Session = Depends(get_db),
+    period_year: int = Query(..., ge=2020, le=2100),
+    period_month: int = Query(..., ge=1, le=12),
+):
+    """Indicadores del período para la vista Pagos (D3.4): a diferencia de
+    `/reports/kpis` (que agrega por `created_at`), acá se agrupa por el período que
+    cubre el pago. Tres queries agregadas, sin traer filas."""
+    payments_count, amount_sum = (
+        db.query(
+            func.count(models.Payment.id),
+            func.coalesce(func.sum(models.Payment.amount), 0.0),
+        )
+        .filter(
+            models.Payment.period_year == period_year,
+            models.Payment.period_month == period_month,
+        )
+        .one()
+    )
+
+    members_active = (
+        db.query(func.count(models.User.id))
+        .filter(models.User.membership_status == MembershipStatus.active)
+        .scalar()
+    )
+
+    members_paid = (
+        db.query(func.count(func.distinct(models.User.id)))
+        .join(models.Payment, models.Payment.user_id == models.User.id)
+        .filter(
+            models.User.membership_status == MembershipStatus.active,
+            models.Payment.period_year == period_year,
+            models.Payment.period_month == period_month,
+        )
+        .scalar()
+    )
+
+    return schemas.PaymentsPeriodSummaryOut(
+        period_year=period_year,
+        period_month=period_month,
+        payments_count=int(payments_count),
+        amount_sum=float(amount_sum),
+        members_active=int(members_active),
+        members_paid=int(members_paid),
+        members_pending=int(members_active) - int(members_paid),
+    )
 
 
 @router.get(
@@ -156,7 +268,7 @@ def get_payment(payment_id: str, db: Session = Depends(get_db)):
     obj = db.get(models.Payment, payment_id)
     if not obj:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Payment not found")
-    return obj
+    return _to_payment_out(obj)
 
 @router.delete("/{payment_id}", status_code=status.HTTP_204_NO_CONTENT,
                dependencies=[Depends(require_role(UserRole.owner))])

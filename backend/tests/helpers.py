@@ -84,21 +84,30 @@ def create_plan(client, headers, *, name="General", description=None, amount=150
     return response.json()
 
 
-def assign_plan_to_member(db_session, member):
+def assign_plan_to_member(db_session, member, *, amount=10000, name=None):
     """Asigna un plan directo en la base, sin pasar por la API (sin `client`/
     `headers` a mano). Reactivar la membresía exige plan (`membership-plans`,
     invariante I2); tests que no ejercitan esa regla de por sí necesitan uno
     igual para poder activar/reactivar. Hallazgo 10 de verification.md: antes
-    vivía copiado en `test_membership.py` y `test_routine_assignments.py`."""
+    vivía copiado en `test_membership.py` y `test_routine_assignments.py`.
+
+    Devuelve el `MembershipPlan` creado (`rebuild-payments-with-plan-pricing`,
+    tarea 3.1): los tests de la foto de plan lo necesitan para agregarle un
+    precio nuevo, renombrarlo o desactivarlo después del alta de un pago."""
+    plan_name = name or f"Plan {member.id}"
     plan = models.MembershipPlan(
-        name=f"Plan {member.id}", name_normalized=f"plan {member.id}", is_active=True
+        name=plan_name, name_normalized=plan_name.strip().casefold(), is_active=True
     )
     db_session.add(plan)
     db_session.flush()
-    db_session.add(models.MembershipPlanPrice(plan_id=plan.id, amount=10000, effective_from=date.today()))
+    db_session.add(
+        models.MembershipPlanPrice(plan_id=plan.id, amount=amount, effective_from=date.today())
+    )
     # I12: las tres columnas de plan se escriben siempre juntas — ningún
     # camino de la API deja `plan_since` en `NULL` con plan asignado, así que
     # este helper tampoco (hallazgo 4 de la segunda pasada de verification.md).
     member.membership_plan_id = plan.id
     member.plan_since = date.today()
     db_session.commit()
+    db_session.refresh(plan)
+    return plan

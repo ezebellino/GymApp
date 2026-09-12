@@ -25,6 +25,7 @@ import EditUserDialog from "@/components/EditUserDialog";
 import CancelMembershipDialog from "@/components/CancelMembershipDialog";
 import ActivateMembershipDialog from "@/components/ActivateMembershipDialog";
 import ChangeMembershipPlanDialog from "@/components/ChangeMembershipPlanDialog";
+import PaymentDialog from "@/components/PaymentDialog";
 import InviteUserDialog from "@/components/InviteUserDialog";
 import VerifyContactDialog from "@/components/VerifyContactDialog";
 import MemberTemplatesCard from "@/components/MemberTemplatesCard";
@@ -159,6 +160,7 @@ type DetailAction =
   | "cancel-membership"
   | "activate-membership"
   | "change-plan"
+  | "register-payment"
   | "invite"
   | "verify-contact";
 
@@ -379,6 +381,11 @@ export default function UserDetail() {
                     {user.membership_plan ? "Cambiar plan" : "Asignar plan"}
                   </Button>
                 ) : null}
+                {user.membership_status === "active" ? (
+                  <Button type="button" variant="outline" onClick={() => setAction("register-payment")}>
+                    Registrar pago
+                  </Button>
+                ) : null}
               </CardFooter>
             ) : null}
           </Card>
@@ -442,6 +449,18 @@ export default function UserDetail() {
           open={action === "change-plan"}
           onOpenChange={(open) => setAction(open ? "change-plan" : null)}
           user={user}
+        />
+      ) : null}
+
+      {action === "register-payment" ? (
+        <PaymentDialog
+          open={action === "register-payment"}
+          onOpenChange={(open) => setAction(open ? "register-payment" : null)}
+          user={user}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
+            queryClient.invalidateQueries({ queryKey: queryKeys.users.detail(user.id) });
+          }}
         />
       ) : null}
 

@@ -15,13 +15,14 @@ import {
 } from "./users";
 import { queryKeys } from "./queryKeys";
 
-export function useUsersQuery(params: UsersParams) {
+export function useUsersQuery(params: UsersParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.users.list(params),
     queryFn: () => fetchUsers(params),
     // Evita que la tabla parpadee al paginar o tipear en el buscador: se
     // mantiene la pagina anterior mientras llega la nueva (dec. 4).
     placeholderData: keepPreviousData,
+    enabled: options?.enabled ?? true,
   });
 }
 

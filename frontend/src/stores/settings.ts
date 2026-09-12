@@ -48,8 +48,10 @@ type PersistedSettings = Pick<SettingsState, "settings">;
 // PersistStorage a medida sobre la clave plana `app_settings` que ya existe
 // (mismo shim de compatibilidad que `stores/session.ts`, ver dec. 8): el
 // objeto `AppSettings` se guarda tal cual, sin el envoltorio `{state,version}`
-// del `createJSONStorage` default, para que los lectores fuera de alcance
-// (`NewPaymentDialog`, `UserCard`) lo sigan parseando sin tocarlos.
+// del `createJSONStorage` default. `NewPaymentDialog` y el lector de
+// `UserCard` que parseaban esta clave a mano se retiraron en
+// `rebuild-payments-with-plan-pricing` (D5.3); se mantiene el shim por si
+// queda algún otro lector fuera de alcance.
 const settingsStorage: PersistStorage<PersistedSettings> = {
   getItem: (): StorageValue<PersistedSettings> | null => {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);

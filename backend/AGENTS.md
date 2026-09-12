@@ -207,8 +207,23 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
     `Settings` falla con `SettingsError`. Usá formato JSON o no la setees.
   - Hay una skill `python-testing-patterns` en `.agents/skills/` con patrones de pytest.
   - `test_payments.py` cubre alta/lectura/borrado de un pago (`POST`/`GET`/`DELETE /payments`)
-    sobre un miembro con membresía activa — la cobertura mínima que exige `make lint` haber
-    tocado `app/routers/payments.py` para el gate de `add-verification-gates-to-opsx-flow`.
+    y la foto de plan/precio de `rebuild-payments-with-plan-pricing` (design D1-D4, invariantes
+    I1-I9): que el alta congela el plan y el precio vigente del miembro al momento de registrar
+    (no el del período cubierto), que sin `amount` usa el precio de referencia y que con
+    `amount` editado guarda lo pagado y la referencia por separado, que el payload no puede
+    aportar plan/precio propios (el servidor los ignora), el `400` de miembro sin plan asignado y
+    el de membresía dada de baja, que un período futuro se acepta y que un segundo pago del mismo
+    período responde `409`, que el listado tolera pagos previos sin foto ("Sin plan") y que
+    renombrar/reprecio/desactivar el plan no reescribe pagos ya registrados, los filtros nuevos de
+    `GET /payments` (período + método), `GET /payments/summary` (cobrado/pagados/pendientes del
+    período, `403` para un Miembro) y que los 4 endpoints de reportes siguen sumando lo
+    efectivamente pagado (`Payment.amount`), no la referencia. Corrección de `verify` (gate
+    FALLA): `test_alta_con_method_cash_y_method_channel_responde_422` (un `model_validator` en
+    `PaymentCreate` rechaza `method_channel` con `method="cash"`, deuda preexistente),
+    `test_anular_pago_recalcula_el_indicador_de_cuota_a_mora` (invariante I9: `DELETE /payments`
+    deja el indicador de cuota del miembro en `overdue`, sin persistir nada) y
+    `test_cambiar_el_plan_del_miembro_no_cambia_la_foto_del_pago_ya_registrado` (`POST
+    /users/{id}/plan` después del alta no toca la foto del pago).
   - `test_progression.py` cubre `app/progression.py` con los escenarios numéricos exactos de la
     spec `progression-strategies`: Constante, los cuatro casos de Pirámide (incluido el piso de 3
     reps), los tres de Invertida (incluido el piso de 2,5 kg), los dos de Drop set (incluido el

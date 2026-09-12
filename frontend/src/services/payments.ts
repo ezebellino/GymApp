@@ -2,9 +2,16 @@ import api from "@/lib/http";
 import type { Payment } from "@/types";
 import { readTotalCount, type PaginatedResult } from "./pagination";
 
+export type PaymentMethod = "cash" | "transfer";
+
 export type PaymentsParams = {
   q?: string;
   user_id?: string;
+  // `rebuild-payments-with-plan-pricing` (D3.3): filtros nuevos, todos
+  // opcionales y combinables con los existentes.
+  period_month?: number;
+  period_year?: number;
+  method?: PaymentMethod;
   limit?: number;
   offset?: number;
 };
@@ -31,10 +38,36 @@ export async function fetchPaymentsKpis(period: PeriodRange): Promise<PaymentsKp
   return data;
 }
 
+// `rebuild-payments-with-plan-pricing` (D3.4): indicadores de un período
+// mes/año, distinto de `/reports/kpis` que agrega por `created_at`.
+export type PaymentsPeriod = { period_year: number; period_month: number };
+
+export type PaymentsPeriodSummary = {
+  period_year: number;
+  period_month: number;
+  payments_count: number;
+  amount_sum: number;
+  members_active: number;
+  members_paid: number;
+  members_pending: number;
+};
+
+export async function fetchPaymentsSummary(
+  period: PaymentsPeriod,
+): Promise<PaymentsPeriodSummary> {
+  const { data } = await api.get<PaymentsPeriodSummary>("/payments/summary", {
+    params: period,
+  });
+  return data;
+}
+
 export type CreatePaymentInput = {
   user_id: string;
-  amount: number;
-  method: "cash" | "transfer" | null;
+  // Opcional (D3.1): omitido o `undefined` -> el backend usa el precio de
+  // referencia vigente del plan del miembro. `JSON.stringify` omite las
+  // claves `undefined`, así que no viaja en el payload.
+  amount?: number;
+  method: PaymentMethod | null;
   method_channel?: string | null;
   note?: string | null;
   period_month: number;
@@ -44,6 +77,10 @@ export type CreatePaymentInput = {
 export async function createPayment(input: CreatePaymentInput): Promise<Payment> {
   const { data } = await api.post<Payment>("/payments", input);
   return data;
+}
+
+export async function deletePayment(id: string): Promise<void> {
+  await api.delete(`/payments/${id}`);
 }
 
 // Selectores puros compartidos por Pagos y Dashboard (dec. 3/6): hoy
