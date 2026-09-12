@@ -22,6 +22,7 @@ const Dashboard = lazy(routeImporters["/dashboard"]);
 const Users = lazy(routeImporters["/users"]);
 const Payments = lazy(routeImporters["/payments"]);
 const Attendance = lazy(routeImporters["/attendance"]);
+const Tracking = lazy(routeImporters["/tracking"]);
 const Routines = lazy(routeImporters["/routines"]);
 const Reports = lazy(routeImporters["/reports"]);
 const Settings = lazy(routeImporters["/settings"]);
@@ -117,6 +118,14 @@ export default function App() {
                     element={
                       <ProtectedRoute roles={["owner", "coach"]}>
                         <Dashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/tracking"
+                    element={
+                      <ProtectedRoute roles={["owner", "coach"]}>
+                        <Tracking />
                       </ProtectedRoute>
                     }
                   />

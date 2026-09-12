@@ -10,6 +10,7 @@ export const routeImporters: Record<string, () => Promise<unknown>> = {
   "/users": () => import("@/pages/Users"),
   "/payments": () => import("@/pages/Payments"),
   "/attendance": () => import("@/pages/Attendance"),
+  "/tracking": () => import("@/pages/Tracking"),
   "/routines": () => import("@/pages/Routines"),
   "/reports": () => import("@/pages/Reports"),
   "/settings": () => import("@/pages/Settings"),

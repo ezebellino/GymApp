@@ -3,7 +3,8 @@ import {
   CalendarCheck2,
   CreditCard,
   Dumbbell,
-  LayoutDashboard,
+  Home,
+  LineChart,
   Settings,
   Users,
 } from "lucide-react";
@@ -26,10 +27,11 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { to: "/my-routine", label: "Mi rutina", icon: Dumbbell },
+  { to: "/dashboard", label: "Inicio", icon: Home },
   { to: "/routines", label: "Rutinas", icon: Dumbbell },
   { to: "/users", label: "Usuarios", icon: Users },
   { to: "/attendance", label: "Asistencias", icon: CalendarCheck2 },
-  { to: "/dashboard", label: "Seguimiento", icon: LayoutDashboard },
+  { to: "/tracking", label: "Seguimiento", icon: LineChart },
   { to: "/payments", label: "Pagos", icon: CreditCard },
   { to: "/reports", label: "Reportes", icon: BarChart3 },
   { to: "/settings", label: "Ajustes", icon: Settings },
