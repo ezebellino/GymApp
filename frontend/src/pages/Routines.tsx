@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { LayoutTemplate } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Eye, LayoutTemplate } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { useRoutineTemplatesQuery } from "@/services/routineTemplates.queries";
 import type { RoutineTemplateSummary } from "@/types";
 import ListPageLayout from "@/components/ListPageLayout";
 import DataError from "@/components/DataError";
 import CreateRoutineTemplateDialog from "@/components/CreateRoutineTemplateDialog";
+import RowActionButton from "@/components/RowActionButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -73,14 +74,22 @@ export default function Routines() {
         title="Rutinas"
         count={`${total} ${total === 1 ? "plantilla" : "plantillas"}`}
         primaryAction={
-          <Button
-            type="button"
-            aria-label="Crear plantilla"
-            onClick={() => setCreateOpen(true)}
-          >
-            <LayoutTemplate className="h-4 w-4 md:mr-2" />
-            <span className="hidden md:inline">Crear plantilla</span>
-          </Button>
+          <div className="flex gap-2">
+            {/* Entrada al catálogo de ejercicios (S4): botón secundario en el
+                header, no en el Sidebar — mismo patrón que "Planes" desde
+                Payments. */}
+            <Button type="button" variant="outline" asChild>
+              <Link to="/exercises">Ejercicios</Link>
+            </Button>
+            <Button
+              type="button"
+              aria-label="Crear plantilla"
+              onClick={() => setCreateOpen(true)}
+            >
+              <LayoutTemplate className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Crear plantilla</span>
+            </Button>
+          </div>
         }
       >
         <div className="h-full">
@@ -144,18 +153,11 @@ export default function Routines() {
                       {template.assignment_count}
                     </TableCell>
                     <TableCell className="px-4 py-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        aria-label={`Ver plantilla ${template.name}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          navigate(`/routines/${template.id}`);
-                        }}
-                      >
-                        Ver
-                      </Button>
+                      <RowActionButton
+                        icon={Eye}
+                        label="Ver"
+                        onClick={() => navigate(`/routines/${template.id}`)}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

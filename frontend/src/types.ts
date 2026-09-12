@@ -103,10 +103,6 @@ export type Attendance = {
 export type AppSettings = {
   gym_name: string;
   admin_name: string | null;
-  // Legacy/deprecado: el tema pasó a ser una preferencia del usuario
-  // (`/auth/me`, `stores/theme.ts`), no del negocio. Este campo de
-  // `app_settings` queda sin uso (ver adopt-kinetic-obsidian-theme, dec. 6.5);
-  // se mantiene con tipo laxo solo para no romper el `GET /settings` viejo.
   currency: string;
   address: string | null;
   contact_email: string | null;
@@ -123,7 +119,9 @@ export type AppSettings = {
 export type RoutineExerciseOption = {
   exercise_id: string;
   name: string;
-  muscle_group: string;
+  // Opcional (H1): un ejercicio puede no tener grupo muscular asignado
+  // (`exercise-catalog`, grupo 0..1).
+  muscle_group: string | null;
   description?: string | null;
   is_active: boolean;
   sort_order: number;
@@ -138,11 +136,12 @@ export type RoutineDay = {
 };
 
 export type RoutineCatalogGroup = {
-  muscle_group: string;
+  // Optional (H1, corrección de verificación, parte 2): idem RoutineExerciseOption.
+  muscle_group: string | null;
   exercises: Array<{
     id: string;
     name: string;
-    muscle_group: string;
+    muscle_group: string | null;
     description?: string | null;
   }>;
 };
@@ -150,7 +149,7 @@ export type RoutineCatalogGroup = {
 export type RoutineExerciseManage = {
   id: string;
   name: string;
-  muscle_group: string;
+  muscle_group: string | null;
   description?: string | null;
   is_active: boolean;
   day_ids: string[];
@@ -178,7 +177,7 @@ export type WorkoutLog = {
   day_name: string;
   exercise_id: string;
   exercise_name: string;
-  muscle_group: string;
+  muscle_group: string | null;
   sets_count?: number | null;
   reps?: number | null;
   weight_kg: number;
@@ -249,7 +248,7 @@ export type RoutineTemplateSummary = {
 export type RoutineTemplateExercise = {
   exercise_id: string;
   name: string;
-  muscle_group: string;
+  muscle_group: string | null;
   base: ExerciseBase;
   is_active: boolean;
   strategy: ProgressionStrategy;
@@ -296,4 +295,35 @@ export type RoutineAssignment = {
 // de la plantilla con el plan ya calculado (solo ejercicios activos).
 export type MemberRoutineTemplate = RoutineAssignment & {
   days: RoutineTemplateDay[];
+};
+
+// --- add-exercise-catalog: espejo de los schemas nuevos de backend/app/schemas.py ---
+// (`ExerciseOut`/`ExerciseMetaOut`, design D7/D12). Los valores de
+// `MuscleGroup`/`TrainingType` son strings de lista fija (el backend los
+// valida; acá no se redeclara el enum, solo el tipo de dato).
+
+export type MuscleGroup = string;
+export type TrainingType = string;
+export type MediaKind = "file" | "external";
+
+export type Exercise = {
+  id: string;
+  name: string;
+  description?: string | null;
+  muscle_group?: MuscleGroup | null;
+  training_types: TrainingType[];
+  is_active: boolean;
+  external_media_url?: string | null;
+  // Media derivada (design D3/D6): el backend decide la prioridad, la UI
+  // solo lee `media_kind` — no reimplementar la regla acá.
+  media_kind?: MediaKind | null;
+  media_file_url?: string | null;
+  media_content_type?: string | null;
+  media_filename?: string | null;
+  media_size_bytes?: number | null;
+};
+
+export type ExerciseMeta = {
+  muscle_groups: MuscleGroup[];
+  training_types: TrainingType[];
 };

@@ -1,7 +1,10 @@
+from functools import lru_cache
+
 from fastapi import HTTPException, status
 
 from .database import SessionLocal
 from . import models
+from .storage import ObjectStorage, build_storage
 
 
 def get_db():
@@ -13,6 +16,14 @@ def get_db():
         raise
     finally:
         db.close()
+
+
+@lru_cache
+def get_storage() -> ObjectStorage:
+    """Dependencia de storage (`exercise-catalog`, design D8), cacheada sobre la
+    config: una sola instancia por proceso. Overrideable en la suite igual que
+    `get_db` (ver `tests/conftest.py`)."""
+    return build_storage()
 
 
 def require_can_manage_user(

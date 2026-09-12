@@ -151,7 +151,7 @@ export default function RoutineTemplateDetail() {
                       <div>
                         <p className="text-sm font-semibold text-foreground">{exercise.name}</p>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                          {exercise.muscle_group}
+                          {exercise.muscle_group ?? "Sin grupo muscular"}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           Base: {exercise.base.sets} × {exercise.base.reps} · {exercise.base.weight_kg} kg

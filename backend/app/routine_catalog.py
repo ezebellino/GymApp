@@ -2,7 +2,7 @@ TRAINING_DAYS = [
     {
         "id": "day-1",
         "name": "Dia 1",
-        "muscle_groups": ["Pecho", "Triceps"],
+        "muscle_groups": ["Pecho", "Tríceps"],
         "default_active_ids": [
             "chest-bench-press",
             "chest-incline-dumbbell-press",
@@ -15,7 +15,7 @@ TRAINING_DAYS = [
     {
         "id": "day-2",
         "name": "Dia 2",
-        "muscle_groups": ["Espalda", "Biceps"],
+        "muscle_groups": ["Espalda", "Bíceps"],
         "default_active_ids": [
             "back-lat-pulldown",
             "back-single-arm-row",
@@ -41,7 +41,7 @@ TRAINING_DAYS = [
     {
         "id": "day-4",
         "name": "Dia 4",
-        "muscle_groups": ["Piernas"],
+        "muscle_groups": ["Cuádriceps", "Isquios", "Gemelos"],
         "default_active_ids": [
             "legs-back-squat",
             "legs-goblet-squat",
@@ -81,25 +81,25 @@ EXERCISE_LIBRARY = [
     {"id": "back-straight-arm-pulldown", "name": "Pullover en polea alta", "muscle_group": "Espalda",
      **_DEFAULT_BASE},
     # --- Biceps ------------------------------------------------------------
-    {"id": "biceps-barbell-curl", "name": "Curl barra", "muscle_group": "Biceps",
+    {"id": "biceps-barbell-curl", "name": "Curl barra", "muscle_group": "Bíceps",
      "base_sets": 4, "base_reps": 10, "base_weight_kg": 22},  # equivalente a "Curl bíceps barra Z" del prototipo
-    {"id": "biceps-incline-curl", "name": "Curl supinado banco inclinado", "muscle_group": "Biceps", **_DEFAULT_BASE},
-    {"id": "biceps-hammer-curl", "name": "Curl martillo", "muscle_group": "Biceps",
+    {"id": "biceps-incline-curl", "name": "Curl supinado banco inclinado", "muscle_group": "Bíceps", **_DEFAULT_BASE},
+    {"id": "biceps-hammer-curl", "name": "Curl martillo", "muscle_group": "Bíceps",
      "base_sets": 3, "base_reps": 12, "base_weight_kg": 12},  # equivalente directo del prototipo
-    {"id": "biceps-preacher-curl", "name": "Banco Scott", "muscle_group": "Biceps", **_DEFAULT_BASE},
-    {"id": "biceps-concentration-curl", "name": "Concentrado con mancuerna", "muscle_group": "Biceps",
+    {"id": "biceps-preacher-curl", "name": "Banco Scott", "muscle_group": "Bíceps", **_DEFAULT_BASE},
+    {"id": "biceps-concentration-curl", "name": "Concentrado con mancuerna", "muscle_group": "Bíceps",
      **_DEFAULT_BASE},
-    {"id": "biceps-spider-curl", "name": "Spiderman con barra o mancuerna", "muscle_group": "Biceps",
+    {"id": "biceps-spider-curl", "name": "Spiderman con barra o mancuerna", "muscle_group": "Bíceps",
      **_DEFAULT_BASE},
     # --- Triceps -----------------------------------------------------------
-    {"id": "triceps-close-grip-bench", "name": "Press barra angosta", "muscle_group": "Triceps", **_DEFAULT_BASE},
-    {"id": "triceps-pushdown", "name": "Polea alta", "muscle_group": "Triceps",
+    {"id": "triceps-close-grip-bench", "name": "Press barra angosta", "muscle_group": "Tríceps", **_DEFAULT_BASE},
+    {"id": "triceps-pushdown", "name": "Polea alta", "muscle_group": "Tríceps",
      "base_sets": 3, "base_reps": 12, "base_weight_kg": 25},  # equivalente a "Extensión de tríceps en polea"
-    {"id": "triceps-overhead-extension", "name": "Copa", "muscle_group": "Triceps", **_DEFAULT_BASE},
-    {"id": "triceps-skullcrusher", "name": "Frances con barra W", "muscle_group": "Triceps", **_DEFAULT_BASE},
-    {"id": "triceps-dumbbell-french-press", "name": "Frances con mancuernas", "muscle_group": "Triceps",
+    {"id": "triceps-overhead-extension", "name": "Copa", "muscle_group": "Tríceps", **_DEFAULT_BASE},
+    {"id": "triceps-skullcrusher", "name": "Frances con barra W", "muscle_group": "Tríceps", **_DEFAULT_BASE},
+    {"id": "triceps-dumbbell-french-press", "name": "Frances con mancuernas", "muscle_group": "Tríceps",
      **_DEFAULT_BASE},
-    {"id": "triceps-rope-pushdown", "name": "Polea alta con soga", "muscle_group": "Triceps", **_DEFAULT_BASE},
+    {"id": "triceps-rope-pushdown", "name": "Polea alta con soga", "muscle_group": "Tríceps", **_DEFAULT_BASE},
     # --- Hombros -------------------------------------------------------------
     {"id": "shoulders-lateral-raise", "name": "Vuelo lateral", "muscle_group": "Hombros",
      "base_sets": 4, "base_reps": 15, "base_weight_kg": 8},  # equivalente a "Elevaciones laterales" del prototipo
@@ -115,25 +115,25 @@ EXERCISE_LIBRARY = [
      **_DEFAULT_BASE},
     {"id": "shoulders-barbell-shrug", "name": "Encogimientos con barra", "muscle_group": "Hombros", **_DEFAULT_BASE},
     {"id": "shoulders-face-pull", "name": "Face pull", "muscle_group": "Hombros", **_DEFAULT_BASE},
-    # --- Piernas -------------------------------------------------------------
-    {"id": "legs-back-squat", "name": "Sentadilla libre", "muscle_group": "Piernas",
+    # --- Piernas (repartidos entre Cuádriceps/Isquios/Gemelos, exercise-catalog D9) ---
+    {"id": "legs-back-squat", "name": "Sentadilla libre", "muscle_group": "Cuádriceps",
      "base_sets": 5, "base_reps": 5, "base_weight_kg": 70},  # equivalente directo del prototipo
-    {"id": "legs-goblet-squat", "name": "Sentadilla goblet", "muscle_group": "Piernas", **_DEFAULT_BASE},
-    {"id": "legs-leg-extension", "name": "Extensiones", "muscle_group": "Piernas", **_DEFAULT_BASE},
-    {"id": "legs-romanian-deadlift", "name": "Peso muerto rumano", "muscle_group": "Piernas",
+    {"id": "legs-goblet-squat", "name": "Sentadilla goblet", "muscle_group": "Cuádriceps", **_DEFAULT_BASE},
+    {"id": "legs-leg-extension", "name": "Extensiones", "muscle_group": "Cuádriceps", **_DEFAULT_BASE},
+    {"id": "legs-romanian-deadlift", "name": "Peso muerto rumano", "muscle_group": "Isquios",
      "base_sets": 4, "base_reps": 10, "base_weight_kg": 55},  # equivalente directo del prototipo
-    {"id": "legs-box-step-up", "name": "Subidas al cajon", "muscle_group": "Piernas", **_DEFAULT_BASE},
-    {"id": "legs-standing-calf-raise", "name": "Gemelos", "muscle_group": "Piernas",
+    {"id": "legs-box-step-up", "name": "Subidas al cajon", "muscle_group": "Cuádriceps", **_DEFAULT_BASE},
+    {"id": "legs-standing-calf-raise", "name": "Gemelos", "muscle_group": "Gemelos",
      "base_sets": 4, "base_reps": 20, "base_weight_kg": 40},  # equivalente a "Gemelos de pie" del prototipo
-    {"id": "legs-bulgarian-split-squat", "name": "Bulgaras", "muscle_group": "Piernas", **_DEFAULT_BASE},
-    {"id": "legs-walking-lunge", "name": "Estocadas", "muscle_group": "Piernas", **_DEFAULT_BASE},
-    {"id": "legs-leg-press", "name": "Prensa a 45 grados", "muscle_group": "Piernas",
+    {"id": "legs-bulgarian-split-squat", "name": "Bulgaras", "muscle_group": "Cuádriceps", **_DEFAULT_BASE},
+    {"id": "legs-walking-lunge", "name": "Estocadas", "muscle_group": "Cuádriceps", **_DEFAULT_BASE},
+    {"id": "legs-leg-press", "name": "Prensa a 45 grados", "muscle_group": "Cuádriceps",
      "base_sets": 4, "base_reps": 12, "base_weight_kg": 120},  # equivalente a "Prensa 45°" del prototipo
-    {"id": "legs-conventional-deadlift", "name": "Peso muerto convencional", "muscle_group": "Piernas",
+    {"id": "legs-conventional-deadlift", "name": "Peso muerto convencional", "muscle_group": "Isquios",
      **_DEFAULT_BASE},
-    {"id": "legs-leg-curl", "name": "Izquiotibiales en banco", "muscle_group": "Piernas", **_DEFAULT_BASE},
-    {"id": "legs-sissy-squat", "name": "Sissy Squat", "muscle_group": "Piernas", **_DEFAULT_BASE},
-    {"id": "legs-sumo-deadlift", "name": "Sumo", "muscle_group": "Piernas", **_DEFAULT_BASE},
+    {"id": "legs-leg-curl", "name": "Izquiotibiales en banco", "muscle_group": "Isquios", **_DEFAULT_BASE},
+    {"id": "legs-sissy-squat", "name": "Sissy Squat", "muscle_group": "Cuádriceps", **_DEFAULT_BASE},
+    {"id": "legs-sumo-deadlift", "name": "Sumo", "muscle_group": "Isquios", **_DEFAULT_BASE},
     # --- Pecho ---------------------------------------------------------------
     {"id": "chest-bench-press", "name": "Press en banco plano con barra", "muscle_group": "Pecho",
      "base_sets": 4, "base_reps": 8, "base_weight_kg": 45},  # equivalente a "Press banca plano" del prototipo

@@ -20,6 +20,10 @@ TEST_DATABASE_URL = f"sqlite:///{_DB_PATH}"
 # Asignacion directa (no setdefault): una variable exportada en la shell no gana.
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"
+# `exercise-catalog` (design D11): la suite nunca sale a la red. El env var es el
+# primer cinturón (por si algún test se olvida del override de `get_storage`); el
+# override de abajo es el segundo, y el que da visibilidad sobre el contenido.
+os.environ["STORAGE_BACKEND"] = "memory"
 # OJO: no setear CORS_ORIGINS. Es `list[str]` y pydantic-settings intenta parsear
 # JSON en la fuente de entorno antes de que corra el field_validator que soporta el
 # formato coma-separado; exportarla hace fallar el import con SettingsError.
@@ -30,9 +34,10 @@ from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 
 from app import models  # noqa: E402
-from app.deps import get_db  # noqa: E402
+from app.deps import get_db, get_storage  # noqa: E402
 from app.models import Base  # noqa: E402
 from app.main import app  # noqa: E402
+from app.storage import InMemoryObjectStorage  # noqa: E402
 from tests.helpers import (  # noqa: E402
     CLIENT_EMAIL,
     COACH_EMAIL,
@@ -65,6 +70,17 @@ def db_schema():
     app.dependency_overrides[get_db] = _override_get_db
     yield
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def storage():
+    """`InMemoryObjectStorage` fresca por test (design D11), overrideando
+    `get_storage` como se overridea `get_db`. Expuesta como fixture para poder
+    afirmar sobre su contenido: `assert key in storage.objects`."""
+    instance = InMemoryObjectStorage()
+    app.dependency_overrides[get_storage] = lambda: instance
+    yield instance
+    app.dependency_overrides.pop(get_storage, None)
 
 
 @pytest.fixture

@@ -6,6 +6,7 @@ import type {
 } from "./payments";
 import type { AttendanceParams, PeriodRange as AttendancePeriodRange } from "./attendance";
 import type { MembershipPlansParams } from "./membershipPlans";
+import type { ExercisesParams } from "./exercises";
 
 // Único lugar del repo donde se escribe un string de key (dec. 3). Jerarquía
 // [dominio, vista, params] para poder invalidar por prefijo de dominio
@@ -54,5 +55,12 @@ export const queryKeys = {
     all: ["membershipPlans"] as const,
     list: (params: MembershipPlansParams) => ["membershipPlans", "list", params] as const,
     detail: (id: string) => ["membershipPlans", "detail", id] as const,
+  },
+  // add-exercise-catalog (design D12): dominio nuevo.
+  exercises: {
+    all: ["exercises"] as const,
+    list: (params: ExercisesParams) => ["exercises", "list", params] as const,
+    detail: (id: string) => ["exercises", "detail", id] as const,
+    meta: () => ["exercises", "meta"] as const,
   },
 };

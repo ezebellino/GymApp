@@ -82,12 +82,13 @@ vigente, el sistema SHALL rechazar la eliminación indicando cuántos miembros l
 - **THEN** el sistema rechaza la eliminación e indica que 2 miembros la tienen asignada
 
 ### Requirement: Base del ejercicio al crear o editar en el catálogo
-El flujo existente de alta y edición de un ejercicio del catálogo SHALL permitir indicar su base
-(series × reps · kg), acción exclusiva del Dueño sin cambios en ese permiso. Si no se indica al
-crear el ejercicio, el sistema SHALL asignarle una base por defecto de 3 series × 10 repeticiones
-· 0 kg. La UI de este change cubre la edición de la base de un ejercicio existente del catálogo;
-NO SHALL agregar una pantalla de alta de ejercicios nueva — el alta con base sigue disponible solo
-por el endpoint existente, como ya ocurre hoy con el resto de los campos del ejercicio.
+Todo ejercicio del catálogo SHALL tener una base (series × reps · kg), que solo el Dueño puede
+crear o editar, sin cambios en ese permiso. El alta y la edición del resto de los datos del
+ejercicio (nombre, descripción, grupo muscular, tipos de entrenamiento, media y estado
+activo/inactivo) se administran en `exercise-catalog`. Si no se indica una base al crear el
+ejercicio, el sistema SHALL asignarle una base por defecto de 3 series × 10 repeticiones · 0 kg.
+La base sigue editándose desde el detalle de plantilla, no desde la UI del catálogo de
+`exercise-catalog`.
 
 #### Scenario: Crear un ejercicio indicando su base
 - **WHEN** se crea un ejercicio nuevo en el catálogo indicando una base de 4 series × 8
@@ -99,8 +100,8 @@ por el endpoint existente, como ya ocurre hoy con el resto de los campos del eje
 - **THEN** el sistema lo crea con la base por defecto de 3 series × 10 repeticiones · 0 kg
 
 #### Scenario: Un Dueño edita la base de un ejercicio existente desde la UI
-- **WHEN** un Dueño edita, desde la UI del catálogo de ejercicios, un ejercicio existente y le
-  cambia la base a 5 series × 5 repeticiones · 70 kg
+- **WHEN** un Dueño edita, desde el detalle de una plantilla, la base de un ejercicio existente y
+  la cambia a 5 series × 5 repeticiones · 70 kg
 - **THEN** el sistema guarda la nueva base, que pasa a usarse como punto de partida del cálculo de
   progresión para las plantillas que incluyen ese ejercicio (salvo que exista un ajuste de base
   por cliente para un Miembro en particular)

@@ -20,6 +20,30 @@ código ahí:
 
 Ver [README.md](README.md) para contexto de producto, módulos y deploy.
 
+## El proyecto está en BETA: preferí el cambio limpio sobre la compatibilidad
+
+Hay un deploy en Railway y se sube a producción seguido, pero **no hay usuarios finales todavía**.
+Romper producción no tiene costo real. Esto cambia cómo se diseñan los changes:
+
+- **Elegí siempre el modelo correcto, no el compatible.** Si el diseño limpio pide renombrar una
+  columna, partir una entidad, cambiar el contrato de un endpoint o retirar un campo, hacelo. No
+  agregues capas de compatibilidad, campos duplicados ni endpoints en paralelo "por las dudas".
+- **La migración de datos no es un impedimento.** Los datos de producción son de prueba. Una
+  migración puede descartar filas, poner una columna en `NULL` en vez de adivinar un valor, o
+  pedir un reseed. **Migración solo de esquema, sin backfill, es la opción por defecto** — como ya
+  se hizo en `add-membership-plans`. No inventes heurísticas de backfill para no perder datos que
+  a nadie le importan.
+- **Los períodos de deprecación no aplican.** Un endpoint o un campo que deja de tener sentido se
+  retira en el mismo change que lo reemplaza, no en un change de limpieza posterior.
+- **Lo que sí sigue siendo un impedimento** es romper *el código*: que `make lint` o `make test`
+  queden en rojo, o que un change deje el repo a medias entre dos modelos. La libertad es sobre
+  los datos y los contratos, no sobre la calidad.
+- Un change puede declarar riesgo **alto** por tocar el modelo de datos y aun así ser la opción
+  correcta. El riesgo alto pide más tests y una verificación más cuidada, no un diseño más tímido.
+
+Cuando esto deje de ser cierto (primeros usuarios reales), hay que borrar esta sección — y a
+partir de ahí sí valen el backfill, la deprecación gradual y la compatibilidad hacia atrás.
+
 ## Diseño visual
 
 [docs/design/design.md](docs/design/design.md) es la fuente de verdad del tema visual del
@@ -39,7 +63,7 @@ make backend    # solo backend, puerto 8001
 make frontend   # solo frontend
 make migrate    # alembic upgrade head
 make lint       # ruff (backend) + eslint/tsc (frontend), ver bullet Tests
-make docker-up  # stack completo en Docker (db + backend + frontend)
+make docker-up  # stack completo en Docker (db + backend + frontend + minio, media de ejercicios)
 make seed-dev   # crea/actualiza los 3 usuarios de desarrollo (Dueño, Coach, Miembro)
 ```
 

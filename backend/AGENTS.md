@@ -15,14 +15,15 @@ app/
   main.py            # entrypoint FastAPI, registra routers y middleware
   routers/           # un router por dominio: auth, clients, payments, attendance,
                       #   reports, settings, coaches, routines, routine_templates,
-                      #   routine_assignments
+                      #   routine_assignments, exercises
   models.py           # modelos SQLAlchemy
   schemas.py           # schemas Pydantic (request/response)
   auth.py, security.py # JWT, hashing, dependencias de auth
-  deps.py               # dependencias inyectables (DB session, current_user, etc.)
+  deps.py               # dependencias inyectables (DB session, current_user, get_storage, etc.)
   middleware.py         # CORS y middlewares custom
   config.py             # settings (pydantic-settings, lee .env)
   database.py            # engine + sesión SQLAlchemy
+  storage.py               # puerto ObjectStorage (media de ejercicios, add-exercise-catalog)
   routine_catalog.py      # catálogo estático de ejercicios por grupo muscular/día
   progression.py           # motor de progresión (add-routine-templates), función pura
 migrations/               # Alembic — versions/ tiene el historial de migraciones
@@ -109,6 +110,78 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
     `railway run` sobre el servicio de backend). Hasta que corra, los endpoints nuevos y también
     los **existentes** de catálogo de ejercicios fallarían con columna inexistente
     (`exercises.base_sets`).
+- **Catálogo de ejercicios y su media** (`app/routers/exercises.py`, `/exercises`, owner+coach,
+  change `add-exercise-catalog`): CRUD del catálogo (nombre único case/trim-insensitive vía
+  `name_normalized`, mismo patrón que `routine_templates.py`), grupo muscular (`MuscleGroup`,
+  0..1, columna `String` nullable — no `Enum()` de SQLAlchemy, para que Postgres y SQLite se
+  comporten igual) y tipos de entrenamiento (`TrainingType`, 0..n, tabla de asociación
+  `exercise_training_types`), ambos validados contra la lista fija del enum de Python y expuestos
+  al frontend por `GET /exercises/meta`. `POST /routines/exercises` se retiró (sin consumidor,
+  sería un segundo escritor sin esa validación); `PUT /routines/exercises/{id}` sigue vivo pero
+  angosto a la base de progresión (`base_sets`/`base_reps`/`base_weight_kg`).
+  - **Media de un ejercicio**: dos campos independientes y opcionales — `external_media_url`
+    (URL pegada a mano) y archivo propio (`POST/DELETE /exercises/{id}/media`, multipart, hasta
+    `STORAGE_MAX_UPLOAD_BYTES`). Si hay los dos, el archivo propio gana (`media_kind` lo resuelve
+    el backend, la UI no reimplementa la prioridad). Se persiste la **key** del objeto
+    (`media_object_key`), nunca la URL: con bucket privado la URL es prefirmada y efímera. Orden
+    fijo en cualquier reemplazo o borrado: `put_object`/`UPDATE` → `commit` → recién después
+    `delete_object` del objeto viejo, *best effort* (log `WARNING`, nunca un `500` de una
+    operación ya commiteada). Desactivar un ejercicio no toca su objeto de storage.
+  - **Puerto `ObjectStorage`** (`app/storage.py`, `Protocol` con `put_object`, `delete_object`
+    idempotente y `presigned_get_url`): dos implementaciones, `S3ObjectStorage` (boto3;
+    `endpoint_url` configurable sirve igual para MinIO local y para el bucket de Railway en prod)
+    e `InMemoryObjectStorage` (dict en memoria, solo para tests). Se resuelve con la dependencia
+    `get_storage()` de `app/deps.py` (cacheada con `lru_cache` sobre la config), overrideable en
+    tests exactamente igual que `get_db`. `presigned_get_url` no hace red (HMAC local) y cuantiza
+    la expiración a `STORAGE_URL_WINDOW_SECONDS` para que la misma key devuelva la misma URL byte
+    a byte dentro de la ventana (pega en la caché HTTP del `<video>`/`<img>`).
+    `S3ObjectStorage` arma **dos clientes** de boto3 (design D3.1): uno de **operaciones**
+    (`put_object`/`delete_object`) contra `STORAGE_ENDPOINT_URL` (el endpoint con el que el
+    backend habla de verdad) y uno de **firma** (`generate_presigned_url`) contra
+    `STORAGE_PUBLIC_ENDPOINT_URL` (el endpoint que tiene que poder resolver el browser); si los
+    dos coinciden se reusa el mismo cliente. El cliente de firma nunca hace I/O — presignar es
+    HMAC local —, así que da igual que su endpoint sea inalcanzable desde el contenedor. **Nunca**
+    reescribir el host de una URL ya firmada: SigV4 firma `host` dentro de `SignedHeaders` y el
+    resultado es una firma inválida (403 de MinIO/S3).
+  - **Variables `STORAGE_*` en `config.py`** (todas con default, documentadas en
+    `.env.example`/`.env.docker.example`): `STORAGE_BACKEND` (`s3` | `memory`, la suite usa
+    `memory`), `STORAGE_ENDPOINT_URL` (con quién **habla** el backend),
+    `STORAGE_PUBLIC_ENDPOINT_URL` (contra quién se **firma** la URL que ve el browser; default
+    `""` ⇒ cae a `STORAGE_ENDPOINT_URL`), `STORAGE_REGION`, `STORAGE_ACCESS_KEY_ID`,
+    `STORAGE_SECRET_ACCESS_KEY`, `STORAGE_BUCKET`, `STORAGE_MAX_UPLOAD_BYTES` (25 MB),
+    `STORAGE_URL_TTL_SECONDS`, `STORAGE_USE_PATH_STYLE` (MinIO lo necesita) y
+    `STORAGE_URL_WINDOW_SECONDS`.
+
+    **Qué endpoint usa cada entorno (design D3.1)** — Compose es el único donde hablar y firmar
+    difieren, y por lo tanto el único donde hace falta setear `STORAGE_PUBLIC_ENDPOINT_URL`:
+
+    | Entorno | `STORAGE_ENDPOINT_URL` (hablar) | `STORAGE_PUBLIC_ENDPOINT_URL` (firmar) |
+    |---|---|---|
+    | `make dev` (nativo) | `http://localhost:9000` | vacío ⇒ cae al de la izquierda |
+    | `make docker-up` (Compose) | `http://minio:9000` | `http://localhost:9000` |
+    | Railway | endpoint del bucket gestionado | vacío ⇒ cae al de la izquierda |
+
+    En Compose, `http://minio:9000` es el hostname interno de la red que solo el contenedor
+    `backend` puede resolver; sin `STORAGE_PUBLIC_ENDPOINT_URL` ese mismo hostname quedaría
+    embebido en la URL prefirmada y el browser (que corre en el host) no podría cargarla. No hace
+    falta ningún `127.0.0.1 minio` en `/etc/hosts`: la variable resuelve el problema sin tocar la
+    máquina.
+  - **Dependencia nueva `boto3`** (`requirements.txt`, pineada; arrastra `botocore`, `s3transfer`,
+    `jmespath`). `S3ObjectStorage` traduce `ClientError`/`EndpointConnectionError` de boto3 a
+    `502` en la subida y a un log `WARNING` en el borrado — nunca los deja escalar a un `500`
+    genérico.
+  - **La suite corre sin red**: `tests/conftest.py` setea `STORAGE_BACKEND=memory` **antes** de
+    importar `app.*` y overridea `get_storage()` con `InMemoryObjectStorage` (fixture `storage`) —
+    cinturón (variable de entorno) y tirantes (override explícito), mismo patrón que `get_db`.
+    `tests/test_storage.py` además instancia `S3ObjectStorage` con credenciales falsas para
+    probar que `presigned_get_url` firma de verdad (trae `X-Amz-Signature`) sin abrir un socket, y
+    con endpoints interno/público distintos (design D3.1) prueba que firma contra el público y
+    que la URL es idéntica entre dos llamadas dentro de la misma ventana de cuantización.
+- **Infraestructura local de MinIO**: `docker-compose.yml` suma los servicios `minio` (imagen
+  pineada a un `RELEASE.*`, healthcheck contra `/minio/health/live`, puertos 9000 API / 9001
+  consola) y `minio-init` (one-shot con `mc` que crea el bucket `gymapp-media` si no existe, para
+  que `make docker-up` no dependa de un paso manual en la consola). `backend` depende de
+  `minio: {condition: service_healthy}`.
 - **Invitación de miembro** (`member-invitation`): `app/notifications.py` define
   `NotificationSender` (`NOTIFICATIONS_BACKEND=log` por default, escribe el link en
   `backend/logs/invitations.log`; `smtp` usa `smtplib` de la stdlib con `SMTP_*` en `.env`, sin
@@ -159,7 +232,7 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
   `test_health.py`, `test_theme.py`, `test_membership.py`, `test_invitations.py`,
   `test_contact_verification.py`, `test_payments.py`, `test_dev_seed.py`, `test_progression.py`,
   `test_exercise_base.py`, `test_routine_templates.py`, `test_routine_assignments.py`,
-  `test_member_routine.py`).
+  `test_member_routine.py`, `test_storage.py`, `test_exercises.py`, `test_exercise_media.py`).
   `test_dev_seed.py` cubre `scripts/seed_dev_users.py`: primera corrida crea los 3 usuarios (uno
   por rol, Miembro con membresía activa), segunda corrida no duplica ni falla, los tres pasan
   `POST /auth/token` + `GET /auth/me` de verdad, y las dos guardas de entorno (`ENVIRONMENT`
@@ -262,3 +335,9 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
     incluso con un token ya emitido, se verifica con un override de `get_current_user` apuntando
     directo al Miembro ya dado de baja (mismo patrón que el override de `get_db` de
     `conftest.py`), en vez de loguearse de nuevo por HTTP.
+  - `test_exercises.py` cubre `routers/exercises.py` (alta y validación, listas fijas y edición,
+    listado y estado, borrado y el `401`/`403` de los 9 endpoints del router para el delta de
+    `staff-endpoint-authorization`). `test_exercise_media.py` cubre el ciclo de vida del archivo
+    propio (subida, límite de tamaño y formato, reemplazo, prioridad sobre la URL externa, y que
+    un fallo del storage al subir responde `502` sin perder la media anterior) usando la fixture
+    `storage` (`InMemoryObjectStorage`) de `conftest.py`.

@@ -13,7 +13,7 @@ catálogo fijo y las series se derivan de una estrategia; ver §5 y §6.
 
 | # | Supuesto | Alternativa descartada |
 |---|---|---|
-| R1 | El **video o GIF** de un ejercicio es una **URL externa** (YouTube, GIF alojado) que se pega en el formulario. No hay subida de archivos en este MVP. | Upload a un storage propio. |
+| R1 | ~~El **video o GIF** de un ejercicio es una **URL externa** (YouTube, GIF alojado) que se pega en el formulario. No hay subida de archivos en este MVP.~~ Implementado por `add-exercise-catalog`: un ejercicio tiene **los dos** campos, independientes y opcionales — URL externa **y** archivo propio (mp4/gif/jpg/png, hasta 25 MB). Si tiene los dos, el archivo propio tiene prioridad para mostrarse. | Upload a un storage propio. |
 | R2 | **Grupos musculares** y **tipos de entrenamiento** son listas fijas del sistema en el MVP (§2). El Dueño no las edita. | Catálogos administrables. |
 | R3 | Un ejercicio tiene **un** grupo muscular principal (opcional) y **cero o más** tipos de entrenamiento. | Varios grupos por ejercicio. |
 | R4 | La **plantilla es la fuente de la estructura** (días, ejercicios, series con reps y kg de referencia). La asignación a un miembro **no la copia**: la referencia en vivo y guarda solo la **carga actual del miembro** por ejercicio y serie. Si la plantilla cambia, los miembros ven el cambio; conservan sus kilos en los ejercicios que siguen existiendo. | Copiar la plantilla al asignarla (snapshot). |
@@ -41,7 +41,7 @@ Resuelve el dolor 2 de la visión: la rutina deja de vivir en un papel y el prog
  │ Ejercicio                    │        │ nombre       "Fuerza 4 días"       │
  │  nombre                      │        │ tipo         Fuerza                │
  │  descripción                 │        │ días (ordenados)                   │
- │  video / GIF (URL)           │        │  └ Día n                           │
+ │  archivo propio y/o URL      │        │  └ Día n                           │
  │  grupo muscular   (0..1)     │◀──┐    │     grupos musculares planificados │
  │  tipos de entren. (0..n)     │   │    │     ejercicios (ordenados)         │
  │  activo                      │   └────│      └ ejercicio del catálogo      │
@@ -70,7 +70,7 @@ Resuelve el dolor 2 de la visión: la rutina deja de vivir en un papel y el prog
 
 | Concepto | Qué es |
 |---|---|
-| **Ejercicio** | Movimiento del catálogo: nombre, descripción, URL de video o GIF, grupo muscular principal, tipos de entrenamiento. Se desactiva, no se borra, si ya se usó. |
+| **Ejercicio** | Movimiento del catálogo: nombre, descripción, demostración (archivo propio subido y/o URL externa), grupo muscular principal, tipos de entrenamiento. Se desactiva, no se borra, si ya se usó. |
 | **Grupo muscular** | Lista fija (R2). Clasifica ejercicios y describe qué se trabaja cada día. |
 | **Tipo de entrenamiento** | Lista fija (R2). Clasifica ejercicios y plantillas. |
 | **Plantilla de rutina** | Programa con nombre, tipo y días ordenados. Global del gimnasio. |
@@ -86,10 +86,13 @@ Resuelve el dolor 2 de la visión: la rutina deja de vivir en un papel y el prog
 
 - Nombre obligatorio y único (sin distinguir mayúsculas). Descripción, video/GIF, grupo
   muscular y tipos son opcionales.
-- El video o GIF es una URL (R1). El sistema valida que sea una URL y la muestra embebida o
-  como imagen según el tipo.
+- La demostración son **dos campos independientes** (R1): un **archivo propio** (mp4, gif, jpg o
+  png, hasta 25 MB) que se sube al storage del gimnasio, y una **URL externa** que se pega a
+  mano. Puede tener uno, el otro, los dos o ninguno; si tiene los dos, el archivo propio es el
+  que se muestra. El sistema valida que la URL externa sea una URL `http(s)` bien formada.
 - Un ejercicio usado en alguna plantilla o sesión **no se borra**: se desactiva. Desactivado,
-  no se ofrece en el editor, pero las plantillas y sesiones que lo usan lo conservan.
+  no se ofrece en el editor, pero las plantillas y sesiones que lo usan lo conservan. Uno que
+  **nunca se usó** sí se puede borrar definitivamente, para limpiar un típeo del alta.
 - Filtros del catálogo: texto, grupo muscular, tipo, activos/inactivos.
 
 ### 3.2 Plantillas
@@ -170,7 +173,7 @@ un modelo distinto al de este documento. Qué se conserva, qué cambia:
 | Mi rutina | Plantillas asignadas y plan de series calculado, **solo lectura**. | Se conserva la selección; suma video, edición de kg/reps y marcado de series. |
 | Registro | `WorkoutLog` por ejercicio con `sets_count`, reps, kg, nota; propio del miembro y por admin. Selección de días por usuario (legacy). | **Se reemplaza** por sesión con series realizadas. La selección de días por usuario se retira. |
 | Progreso | Resumen numérico y **PDF** de progreso por miembro. | El resumen se rehace sobre sesiones (§3.5). El PDF sale del MVP (R8). |
-| Permisos | Catálogo de ejercicios: solo Dueño. Plantillas y asignación: Dueño y Coach. Sesión: miembro sobre sí mismo. | Sin cambios (D10). |
+| Permisos | Catálogo de ejercicios: solo Dueño. Plantillas y asignación: Dueño y Coach. Sesión: miembro sobre sí mismo. | El Coach también mantiene el catálogo de ejercicios (`add-exercise-catalog`, D10): Dueño y Coach comparten el CRUD completo. Plantillas, asignación y sesión sin cambios. |
 
 **Impacto sobre el change vigente.** `add-routine-templates` es la base sobre la que se
 construye esto, no trabajo perdido: plantillas, asignaciones, Activa/Alternativa y la vista de
@@ -184,7 +187,7 @@ En orden de implementación sugerido.
 | # | Brecha | Depende de | Prioridad |
 |---|---|---|---|
 | R-1 | ~~Verificar y archivar `add-routine-templates` tal como está.~~ Archivado 2026-09-06. | — | Alta, es el piso. |
-| R-2 | Catálogo de ejercicios completo: CRUD con pantalla de alta, video/GIF por URL, grupo muscular de lista fija, tipos de entrenamiento, desactivación. Deprecar la base. | R-1 | Alta |
+| R-2 | ~~Catálogo de ejercicios completo: CRUD con pantalla de alta, video/GIF por URL (y archivo propio), grupo muscular de lista fija, tipos de entrenamiento, desactivación.~~ Implementado por `add-exercise-catalog`. **Deprecar la base** (series × reps · kg del ejercicio) sigue pendiente y pasa a depender de R-4 (editor de series explícitas de la plantilla) — fuera de alcance de `add-exercise-catalog`. | R-1 | Alta |
 | R-3 | Días propios de la plantilla con grupos musculares planificados; retirar el catálogo fijo de días. Migración: cada plantilla existente copia sus días del catálogo. | R-1 | Alta |
 | R-4 | Editor de series explícitas por ejercicio del día (agregar, quitar, reordenar, reps · kg). Estrategias como generador opcional. Tipo de plantilla. | R-3 | Alta |
 | R-5 | Carga actual por miembro y serie en la asignación, inicializada desde la plantilla. Edición por el Dueño desde la ficha. | R-4 | Alta |

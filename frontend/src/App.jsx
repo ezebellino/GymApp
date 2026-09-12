@@ -36,6 +36,11 @@ const RoutineTemplateDetail = lazy(() => import("./pages/RoutineTemplateDetail")
 // desde el botón "Planes" de Payments — mismo tratamiento que UserDetail y
 // RoutineTemplateDetail, sin pasar por `routeImporters`.
 const MembershipPlans = lazy(() => import("./pages/MembershipPlans"));
+// `add-exercise-catalog` (design D12): sin entrada en el Sidebar, se llega
+// desde el botón "Ejercicios" del header de Routines — mismo tratamiento que
+// MembershipPlans, sin pasar por `routeImporters` (esa factory es para las
+// rutas del Sidebar).
+const Exercises = lazy(() => import("./pages/Exercises"));
 
 // Widget de cambio de rol, solo en desarrollo (`add-dev-role-switcher`, dec. 1).
 // El ternario va a nivel de módulo a propósito: en `npm run build` Vite
@@ -183,6 +188,14 @@ export default function App() {
                     element={
                       <ProtectedRoute roles={["owner", "coach"]}>
                         <RoutineTemplateDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/exercises"
+                    element={
+                      <ProtectedRoute roles={["owner", "coach"]}>
+                        <Exercises />
                       </ProtectedRoute>
                     }
                   />

@@ -41,6 +41,26 @@ class Settings(BaseSettings):
     SMTP_FROM: str = ""
     SMTP_FROM_NAME: str = ""
 
+    # Object storage del catálogo de ejercicios (`exercise-catalog`, design D8/D10).
+    # Todas con default: un `.env` viejo sin estas variables no rompe el arranque.
+    # El default apunta al MinIO local de `docker-compose.yml`, que es el entorno de
+    # desarrollo por defecto del repo.
+    STORAGE_BACKEND: str = "s3"  # "s3" | "memory" (la suite usa "memory")
+    STORAGE_ENDPOINT_URL: str = "http://localhost:9000"  # vacío ⇒ AWS S3 real
+    # Contra quién se firma la URL que ve el browser (design D3.1). Vacío ⇒ cae a
+    # `STORAGE_ENDPOINT_URL`. Solo hace falta setearla en Compose, donde el backend
+    # habla con MinIO por el hostname interno de la red (`http://minio:9000`) pero
+    # esa URL prefirmada la resuelve el browser desde el host (`http://localhost:9000`).
+    STORAGE_PUBLIC_ENDPOINT_URL: str = ""
+    STORAGE_REGION: str = "us-east-1"  # MinIO la ignora, SigV4 la exige
+    STORAGE_ACCESS_KEY_ID: str = ""
+    STORAGE_SECRET_ACCESS_KEY: str = ""
+    STORAGE_BUCKET: str = "gymapp-media"
+    STORAGE_MAX_UPLOAD_BYTES: int = 26_214_400  # 25 MB, design D5
+    STORAGE_URL_TTL_SECONDS: int = 3600  # design D3
+    STORAGE_USE_PATH_STYLE: bool = True  # MinIO necesita path-style
+    STORAGE_URL_WINDOW_SECONDS: int = 900  # cuantización de la firma, design D3
+
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def normalize_database_url(cls, value: str) -> str:

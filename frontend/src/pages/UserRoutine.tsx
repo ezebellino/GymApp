@@ -199,7 +199,7 @@ export default function UserRoutine() {
                   >
                     <p className="text-base font-semibold text-foreground">{exercise.name}</p>
                     <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                      {exercise.muscle_group}
+                      {exercise.muscle_group ?? "Sin grupo muscular"}
                     </p>
                     <div className="mt-3">
                       <PlannedSetsList plannedSets={exercise.planned_sets} />

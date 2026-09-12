@@ -62,6 +62,8 @@ src/services/
   auth.ts                    # fetchers puros del login: requestToken (con reintento), fetchMeWithToken, signIn
   routineTemplates.ts         # fetchers de plantillas, base del catálogo y asignaciones (ver "Rutinas" abajo)
   routineTemplates.queries.ts # hooks de esos fetchers, incluido el autosave del chip de estrategia
+  exercises.ts                # fetchers del catálogo de ejercicios, incluida la subida de media (ver abajo)
+  exercises.queries.ts        # hooks: useExercisesQuery, useExerciseMetaQuery (staleTime: Infinity), mutaciones CRUD
 ```
 
 - **`<dominio>.ts`** (fetchers): funciones async puras, reciben un objeto de params tipado, usan
@@ -293,6 +295,23 @@ completo con acciones).
   acción de marcar serie como hecha (spec `member-routine-view`, fuera de alcance). Tests:
   `pages/__tests__/Routines.test.tsx`, `pages/__tests__/RoutineTemplateDetail.test.tsx`,
   `pages/__tests__/UserRoutine.test.tsx` y `components/__tests__/MemberTemplatesCard.test.tsx`.
+- **Ejercicios** (`add-exercise-catalog`): `pages/Exercises.tsx` (`/exercises`, owner/coach,
+  registrada en `App.jsx` con `lazy(() => import("./pages/Exercises"))` **directo**, no por
+  `routeImporters`) es el listado del catálogo, patrón "list page" con búsqueda por nombre
+  (`useDebounce`), filtro de grupo muscular y de tipo de entrenamiento (los dos alimentados por
+  `GET /exercises/meta`, nunca hardcodeados en el frontend — evita el drift con la lista fija del
+  backend) y filtro activo/inactivo/todos, combinables. No tiene entrada en el Sidebar: se entra
+  desde el botón "Ejercicios" del header de `pages/Routines.tsx`. `components/
+  CreateExerciseDialog.tsx`/`EditExerciseDialog.tsx` cubren nombre, descripción, grupo (0..1),
+  tipos (0..n), URL externa y archivo. El alta con archivo es **dos requests** encadenadas
+  (`POST /exercises/` y después `POST /exercises/{id}/media`): si la segunda falla, el ejercicio
+  queda creado igual y el diálogo ofrece reintentar solo la subida, sin perder lo ya guardado. El
+  preview de media (`<video controls preload="metadata">`, `<img>` o link externo) lee `media_kind`
+  del backend **sin reimplementar** la regla de prioridad archivo-propio-sobre-URL-externa — si
+  esa regla cambia, cambia en un solo lugar (el backend). Desactivar/reactivar usan
+  `ConfirmActionDialog`; borrar, ante un `409` de "ejercicio en uso", muestra el motivo y ofrece
+  desactivar en su lugar. Tests: `pages/__tests__/Exercises.test.tsx` y el caso agregado a
+  `pages/__tests__/Routines.test.tsx` ("ofrece la entrada a Ejercicios desde el header").
 - **Nombre de la app**: nunca se escribe literal en un componente. `src/lib/branding.ts`
   exporta `APP_NAME`, que sale de `VITE_APP_NAME` (ver `.env.example`) con `"Gym App"` de
   fallback — un deploy que no defina la variable sigue mostrando un nombre válido. Lo consumen

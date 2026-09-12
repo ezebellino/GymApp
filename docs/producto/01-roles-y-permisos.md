@@ -68,7 +68,7 @@ coincide.
 | Acción | Dueño | Coach | Miembro | Hoy en código |
 |---|---|---|---|---|
 | Ver catálogo de ejercicios | ✅ | ✅ | 👤 los de su rutina | |
-| Crear / editar / desactivar ejercicio del catálogo | ✅ | ❌ | ❌ | Sin pantalla de alta; sin video ni tipos. |
+| Crear / editar / desactivar ejercicio del catálogo | ✅ | ✅ | ❌ | |
 | Crear / editar / eliminar plantilla | ✅ | ✅ | ❌ | |
 | Activar ejercicios y elegir estrategia por plantilla | ✅ | ✅ | ❌ | |
 | Asignar plantilla a un miembro, ajustar base por miembro | ✅ | ✅ | ❌ | |

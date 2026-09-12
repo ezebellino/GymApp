@@ -1,7 +1,7 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
 import textwrap
-from uuid import uuid4
+import unicodedata
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -23,6 +23,15 @@ router = APIRouter(
 log = logging.getLogger("request")
 
 
+def _normalize_exercise_name(name: str) -> str:
+    """NFC + strip + casefold, mismo criterio que `_normalize_name` de
+    `membership_plans.py` (`exercise-catalog`, design D7). Necesario acá porque
+    `Exercise.name_normalized` es NOT NULL + UNIQUE (design D9): todo camino que
+    inserta un `Exercise` tiene que completarla, incluidos los dos que ya existían
+    antes del router nuevo del catálogo (el seed y `POST /routines/exercises`)."""
+    return unicodedata.normalize("NFC", name).strip().casefold()
+
+
 def _require_member(user: models.User) -> models.User:
     """El propio miembro autenticado. Ya no hay un `Client` separado que resolver
     (design.md, decision 5: el miembro *es* el usuario, no hace falta buscar nada)."""
@@ -37,6 +46,70 @@ def _day_ids_for_muscle_group(muscle_group: str) -> list[str]:
         for day in TRAINING_DAYS
         if muscle_group in day["muscle_groups"]
     ]
+
+
+def sync_exercise_day_links(
+    db: Session,
+    exercise_id: str,
+    muscle_group: str | None,
+    *,
+    preserve_active: bool = True,
+) -> None:
+    """Vínculo automático ejercicio↔día del catálogo fijo, derivado del grupo
+    muscular (`_ensure_seed_data` hace lo mismo para el seed). Reusado por
+    `routers/exercises.py` (`exercise-catalog`) para que un ejercicio creado o
+    editado por el router nuevo también sea seleccionable en una plantilla, sin
+    duplicar esta lógica. Un `muscle_group` `None` (o fuera de los catálogos de
+    día) simplemente no genera ningún vínculo nuevo y borra los que ya no
+    correspondan.
+
+    Corrección H2 (verificación): un `PATCH /exercises/{id}` que cambia el grupo
+    muscular llamaba a esta función y borraba el `TrainingDayExercise` del día
+    viejo, aunque ese vínculo ya estuviera referenciado por
+    `RoutineTemplateExercise` (que apunta a `(template_id, day_id, exercise_id)`
+    directo, sin FK a `TrainingDayExercise` — ver `models.py`). La fila de
+    configuración de la plantilla sobrevivía huérfana y el ejercicio
+    desaparecía de "Mi rutina" y del detalle de la plantilla. Un día con uso en
+    alguna plantilla **nunca** se borra acá, sin importar si sigue matcheando
+    el grupo muscular nuevo; sí se agregan los vínculos del grupo nuevo, así
+    que el ejercicio puede terminar en dos días a la vez (el viejo, por la
+    plantilla que ya lo usa; el nuevo, para poder agregarlo a otras)."""
+    desired_day_ids = set(_day_ids_for_muscle_group(muscle_group)) if muscle_group else set()
+    existing_links = (
+        db.query(models.TrainingDayExercise)
+        .filter(models.TrainingDayExercise.exercise_id == exercise_id)
+        .all()
+    )
+    existing_by_day = {link.day_id: link for link in existing_links}
+    used_day_ids = {
+        row.day_id
+        for row in db.query(models.RoutineTemplateExercise.day_id)
+        .filter(models.RoutineTemplateExercise.exercise_id == exercise_id)
+        .distinct()
+    }
+
+    for day_id in desired_day_ids:
+        if day_id in existing_by_day:
+            continue
+
+        sort_order = (
+            db.query(models.TrainingDayExercise)
+            .filter(models.TrainingDayExercise.day_id == day_id)
+            .count()
+            + 1
+        )
+        db.add(
+            models.TrainingDayExercise(
+                day_id=day_id,
+                exercise_id=exercise_id,
+                sort_order=sort_order,
+                is_active=not preserve_active,
+            )
+        )
+
+    for day_id, link in existing_by_day.items():
+        if day_id not in desired_day_ids and day_id not in used_day_ids:
+            db.delete(link)
 
 
 def _serialize_day(day: models.TrainingDay) -> schemas.RoutineDayOut:
@@ -73,45 +146,6 @@ def _serialize_manage_exercise(exercise: models.Exercise) -> schemas.RoutineExer
     )
 
 
-def _sync_exercise_day_links(
-    db: Session,
-    exercise_id: str,
-    muscle_group: str,
-    *,
-    preserve_active: bool = True,
-) -> None:
-    desired_day_ids = set(_day_ids_for_muscle_group(muscle_group))
-    existing_links = (
-        db.query(models.TrainingDayExercise)
-        .filter(models.TrainingDayExercise.exercise_id == exercise_id)
-        .all()
-    )
-    existing_by_day = {link.day_id: link for link in existing_links}
-
-    for day_id in desired_day_ids:
-        if day_id in existing_by_day:
-            continue
-
-        sort_order = (
-            db.query(models.TrainingDayExercise)
-            .filter(models.TrainingDayExercise.day_id == day_id)
-            .count()
-            + 1
-        )
-        db.add(
-            models.TrainingDayExercise(
-                day_id=day_id,
-                exercise_id=exercise_id,
-                sort_order=sort_order,
-                is_active=not preserve_active,
-            )
-        )
-
-    for day_id, link in existing_by_day.items():
-        if day_id not in desired_day_ids:
-            db.delete(link)
-
-
 def _ensure_seed_data(db: Session) -> None:
     existing_days = {item.id: item for item in db.query(models.TrainingDay).all()}
     for index, day in enumerate(TRAINING_DAYS, start=1):
@@ -137,6 +171,7 @@ def _ensure_seed_data(db: Session) -> None:
                 models.Exercise(
                     id=exercise["id"],
                     name=exercise["name"],
+                    name_normalized=_normalize_exercise_name(exercise["name"]),
                     muscle_group=exercise["muscle_group"],
                     description=exercise.get("description"),
                     is_active=True,
@@ -613,7 +648,8 @@ def _collect_progress_snapshot(
 def routine_catalog(db: Session = Depends(get_db)):
     _ensure_seed_data(db)
 
-    groups: dict[str, list[schemas.RoutineCatalogExercise]] = defaultdict(list)
+    # La clave puede ser None: `Exercise.muscle_group` es opcional (design D1).
+    groups: dict[str | None, list[schemas.RoutineCatalogExercise]] = defaultdict(list)
     exercises = (
         db.query(models.Exercise)
         .filter(models.Exercise.is_active.is_(True))
@@ -630,9 +666,15 @@ def routine_catalog(db: Session = Depends(get_db)):
             )
         )
 
+    # `key=lambda item: (item[0] is None, item[0] or "")` (H1): `muscle_group`
+    # puede ser `None` (Exercise.muscle_group nullable, design D1), y comparar
+    # `None` contra `str` explota `sorted()`. Los ejercicios sin grupo quedan
+    # al final.
     return [
         schemas.RoutineCatalogGroup(muscle_group=muscle_group, exercises=items)
-        for muscle_group, items in sorted(groups.items(), key=lambda item: item[0])
+        for muscle_group, items in sorted(
+            groups.items(), key=lambda item: (item[0] is None, item[0] or "")
+        )
     ]
 
 
@@ -670,43 +712,6 @@ def routine_exercises(db: Session = Depends(get_db)):
     return [_serialize_manage_exercise(exercise) for exercise in exercises]
 
 
-@router.post(
-    "/exercises",
-    response_model=schemas.RoutineExerciseManageOut,
-    status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_role(UserRole.owner))],
-)
-def create_routine_exercise(
-    payload: schemas.RoutineExerciseCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_role(UserRole.owner)),
-):
-    _ensure_seed_data(db)
-
-    exercise = models.Exercise(
-        id=f"custom-{uuid4()}",
-        name=payload.name,
-        muscle_group=payload.muscle_group,
-        description=payload.description,
-        is_active=payload.is_active,
-        base_sets=payload.base_sets,
-        base_reps=payload.base_reps,
-        base_weight_kg=payload.base_weight_kg,
-    )
-    db.add(exercise)
-    db.flush()
-    _sync_exercise_day_links(db, exercise.id, exercise.muscle_group, preserve_active=True)
-    db.commit()
-
-    created = (
-        db.query(models.Exercise)
-        .options(joinedload(models.Exercise.day_links))
-        .filter(models.Exercise.id == exercise.id)
-        .first()
-    )
-    return _serialize_manage_exercise(created)
-
-
 @router.put(
     "/exercises/{exercise_id}",
     response_model=schemas.RoutineExerciseManageOut,
@@ -718,6 +723,11 @@ def update_routine_exercise(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_role(UserRole.owner)),
 ):
+    """Achicado a los tres campos de base (`exercise-catalog`, design D7/S2,
+    task 4.13): `name`/`muscle_group`/`description`/`is_active` pasan a ser
+    exclusivos de `PATCH /exercises/{id}`. Sigue vivo (owner-only, sin cambio de
+    permiso) porque `EditExerciseBaseDialog`/`AdjustExerciseBaseDialog` lo
+    consumen y la base de progresión no se toca en este change."""
     _ensure_seed_data(db)
 
     exercise = (
@@ -731,16 +741,10 @@ def update_routine_exercise(
 
     # `model_dump(exclude_unset=True)` + `setattr` ya alcanza para los tres campos
     # de base (`base_sets`/`base_reps`/`base_weight_kg`, design D3): no necesitan
-    # ningún manejo especial más allá del schema, igual que el resto de los campos.
+    # ningún manejo especial más allá del schema.
     updates = payload.model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(exercise, field, value)
-
-    if "muscle_group" in updates:
-        _sync_exercise_day_links(db, exercise.id, exercise.muscle_group, preserve_active=True)
-    if updates.get("is_active") is False:
-        for link in exercise.day_links:
-            link.is_active = False
 
     db.commit()
     refreshed = (

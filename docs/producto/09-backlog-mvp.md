@@ -53,7 +53,7 @@ al final el Dashboard que junta todo.
 
 | # | Ítem | Módulo | Depende de | Change |
 |---|---|---|---|---|
-| R-2 | Catálogo de ejercicios: pantalla de alta, video/GIF por URL, grupo de lista fija, tipos, desactivación; deprecar base | 04 | R-1 | |
+| R-2 | ~~Catálogo de ejercicios: pantalla de alta, video/GIF por URL (y archivo propio), grupo de lista fija, tipos, desactivación~~; deprecar base (pendiente, depende de R-4) | 04 | R-1 | `add-exercise-catalog` |
 | R-3 | Días propios por plantilla con grupos musculares; retirar catálogo fijo de días; migración | 04 | R-1 | |
 | R-4 | Editor de series explícitas; estrategias como generador opcional; tipo de plantilla | 04 | R-3 | |
 | R-5 | Carga actual por miembro y serie; edición por el Dueño | 04 | R-4 | |
@@ -101,7 +101,7 @@ al final el Dashboard que junta todo.
 | P6 | Recorte propio del rol Coach; invitación por link para staff; retirar `NewCoach` | 01 (D10) |
 | — | App móvil: auto check-in con QR o ubicación, Mi rutina nativa | `add-expo-mobile-app` (D9) |
 | — | Recordatorios de cobro | D3 |
-| — | Subida de video/imagen para ejercicios, catálogos administrables de grupos y tipos | 04 (R1, R2) |
+| — | Catálogos administrables de grupos musculares y tipos de entrenamiento | 04 (R2) |
 | — | Planes no mensuales, pagos parciales, prorrateo | 03 (S1, S5) |
 | — | Exportación del Dashboard | 07 (D-6) |
 

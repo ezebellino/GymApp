@@ -3,7 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import api from "@/lib/http";
 
 import Routines from "../Routines";
-import { fireEvent, renderWithProviders, screen, waitFor, within } from "../../test/renderWithProviders";
+import {
+  fireEvent,
+  getRowByText,
+  renderWithProviders,
+  screen,
+  waitFor,
+  within,
+} from "../../test/renderWithProviders";
 import type { RoutineDay, RoutineTemplateSummary } from "@/types";
 
 vi.mock("@/lib/http", async () => {
@@ -83,9 +90,67 @@ describe("vista de Rutinas", () => {
     );
 
     await screen.findByText("Fuerza 4 días");
-    fireEvent.click(screen.getByRole("button", { name: "Ver plantilla Fuerza 4 días" }));
+    const row = getRowByText("Fuerza 4 días");
+    fireEvent.click(row);
 
     expect(await screen.findByText("Detalle de tpl-1")).toBeInTheDocument();
+  });
+
+  it("abre el detalle desde el boton Ver de la fila", async () => {
+    mockGet({
+      "/routines/templates": [makeTemplate({})],
+      "/routines/days": [makeDay({})],
+    });
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/routines" element={<Routines />} />
+        <Route path="/routines/:templateId" element={<div>Detalle de tpl-1</div>} />
+      </Routes>,
+      { route: "/routines" }
+    );
+
+    await screen.findByText("Fuerza 4 días");
+    const row = getRowByText("Fuerza 4 días");
+    fireEvent.click(within(row).getByRole("button", { name: "Ver" }));
+
+    expect(await screen.findByText("Detalle de tpl-1")).toBeInTheDocument();
+  });
+
+  it("muestra la accion Ver de la fila como icon-button sin texto", async () => {
+    mockGet({
+      "/routines/templates": [makeTemplate({})],
+      "/routines/days": [makeDay({})],
+    });
+
+    renderWithProviders(<Routines />, { route: "/routines" });
+
+    await screen.findByText("Fuerza 4 días");
+    const row = getRowByText("Fuerza 4 días");
+    const button = within(row).getByRole("button", { name: "Ver" });
+
+    expect(button).toHaveAccessibleName("Ver");
+    expect(button.textContent).toBe("");
+  });
+
+  it("ofrece la entrada a Ejercicios desde el header", async () => {
+    mockGet({
+      "/routines/templates": [makeTemplate({})],
+      "/routines/days": [makeDay({})],
+    });
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/routines" element={<Routines />} />
+        <Route path="/exercises" element={<div>Catálogo de ejercicios</div>} />
+      </Routes>,
+      { route: "/routines" }
+    );
+
+    await screen.findByText("Fuerza 4 días");
+    fireEvent.click(screen.getByRole("link", { name: "Ejercicios" }));
+
+    expect(await screen.findByText("Catálogo de ejercicios")).toBeInTheDocument();
   });
 
   it("muestra el error del backend cuando el nombre de plantilla ya esta en uso", async () => {

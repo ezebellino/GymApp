@@ -15,6 +15,35 @@ services:
       timeout: 5s
       retries: 10
 
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-04-08T15-41-24Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: gymapp
+      MINIO_ROOT_PASSWORD: gymapp1234
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - gymapp_minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: quay.io/minio/mc:RELEASE.2025-04-08T15-39-49Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 gymapp gymapp1234 &&
+      (mc mb local/gymapp-media || true) &&
+      exit 0
+      "
+
   backend:
     build:
       context: ./backend
@@ -23,6 +52,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      # H11 (verificación): esperar solo a `minio` sano no alcanza — el
+      # bucket todavía no existe hasta que `minio-init` corre y sale. Una
+      # subida disparada en los primeros segundos de `make docker-up` podía
+      # dar 502 contra un bucket inexistente.
+      minio-init:
+        condition: service_completed_successfully
     ports:
       - "8010:8000"
     volumes:
@@ -49,4 +86,5 @@ services:
 
 volumes:
   gymapp_db_data:
+  gymapp_minio_data:
   frontend_node_modules:

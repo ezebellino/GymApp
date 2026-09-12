@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from typing import Optional, Literal, Annotated
+from urllib.parse import urlparse
 from uuid import UUID
 
 from sqlalchemy import func
@@ -12,6 +13,8 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+
+from .models import MuscleGroup, TrainingType
 
 
 Role = Literal["owner", "coach", "member"]
@@ -279,7 +282,10 @@ class RevenueReportItem(BaseSchema):
 class RoutineExerciseOption(BaseSchema):
     exercise_id: str
     name: str
-    muscle_group: str
+    # Optional (H1, corrección de verificación): `Exercise.muscle_group` es
+    # nullable desde `exercise-catalog` (design D1); un ejercicio sin grupo
+    # rompía la serialización acá con un 500.
+    muscle_group: Optional[str] = None
     description: Optional[str] = None
     is_active: bool
     sort_order: int
@@ -296,56 +302,35 @@ class RoutineDayOut(BaseSchema):
 class RoutineCatalogExercise(BaseSchema):
     id: str
     name: str
-    muscle_group: str
+    # Optional (H1, corrección de verificación, parte 2): `Exercise.muscle_group`
+    # es nullable desde `exercise-catalog` (design D1).
+    muscle_group: Optional[str] = None
     description: Optional[str] = None
 
 
 class RoutineCatalogGroup(BaseSchema):
-    muscle_group: str
+    # Optional: agrupa por `exercise.muscle_group`, que puede ser `None` (H1).
+    muscle_group: Optional[str] = None
     exercises: list[RoutineCatalogExercise]
 
 
-class RoutineExerciseCreate(BaseSchema):
-    name: Annotated[str, Field(min_length=1, max_length=120)]
-    muscle_group: Annotated[str, Field(min_length=1, max_length=40)]
-    description: Optional[Annotated[str, Field(max_length=220)]] = None
-    is_active: bool = True
-    # --- Base de progresión (add-routine-templates, design D3) --------------
-    base_sets: Annotated[int, Field(ge=1)] = 3
-    base_reps: Annotated[int, Field(ge=1)] = 10
-    base_weight_kg: Annotated[float, Field(ge=0)] = 0
-
-    @field_validator("name", "muscle_group", "description", mode="before")
-    @classmethod
-    def normalize_strings(cls, value):
-        if isinstance(value, str):
-            value = value.strip()
-            return value or None
-        return value
-
-
 class RoutineExerciseUpdate(BaseSchema):
-    name: Optional[Annotated[str, Field(min_length=1, max_length=120)]] = None
-    muscle_group: Optional[Annotated[str, Field(min_length=1, max_length=40)]] = None
-    description: Optional[Annotated[str, Field(max_length=220)]] = None
-    is_active: Optional[bool] = None
+    """`PUT /routines/exercises/{id}`, achicado a los tres campos de base
+    (`exercise-catalog`, design D7/S2, task 4.13): `name`/`muscle_group`/
+    `description`/`is_active` pasan a ser exclusivos de `PATCH /exercises/{id}`.
+    Sigue owner-only, sin cambio de permiso (la base de progresión no es el
+    catálogo)."""
+
     base_sets: Optional[Annotated[int, Field(ge=1)]] = None
     base_reps: Optional[Annotated[int, Field(ge=1)]] = None
     base_weight_kg: Optional[Annotated[float, Field(ge=0)]] = None
-
-    @field_validator("name", "muscle_group", "description", mode="before")
-    @classmethod
-    def normalize_optional_strings(cls, value):
-        if isinstance(value, str):
-            value = value.strip()
-            return value or None
-        return value
 
 
 class RoutineExerciseManageOut(BaseSchema):
     id: str
     name: str
-    muscle_group: str
+    # Optional (H1, corrección de verificación, parte 2): idem RoutineExerciseOption.
+    muscle_group: Optional[str] = None
     description: Optional[str] = None
     is_active: bool
     day_ids: list[str]
@@ -397,7 +382,8 @@ class WorkoutLogOut(BaseSchema):
     day_name: str
     exercise_id: str
     exercise_name: str
-    muscle_group: str
+    # Optional (H1, corrección de verificación, parte 2): idem RoutineExerciseOption.
+    muscle_group: Optional[str] = None
     sets_count: Optional[int] = None
     reps: Optional[int] = None
     weight_kg: float
@@ -570,7 +556,8 @@ class ExerciseBaseOut(BaseSchema):
 class RoutineTemplateExerciseOut(BaseSchema):
     exercise_id: str
     name: str
-    muscle_group: str
+    # Optional (H1, corrección de verificación, parte 2): idem RoutineExerciseOption.
+    muscle_group: Optional[str] = None
     base: ExerciseBaseOut
     is_active: bool
     strategy: ProgressionStrategyLiteral
@@ -768,3 +755,136 @@ class MembershipPlanOut(BaseSchema):
 
 class MembershipPlanDetail(MembershipPlanOut):
     price_history: list[MembershipPlanPriceOut]
+
+
+# ---------------------------------------------------------------------------
+# Catálogo de ejercicios (`exercise-catalog`, design D1/D2/D6/D7)
+# ---------------------------------------------------------------------------
+
+
+MediaKind = Literal["file", "external"]
+
+
+def _validate_http_url(value: str) -> str:
+    parsed = urlparse(value)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ValueError("La URL debe tener formato http(s) válido")
+    return value
+
+
+class ExerciseBase(BaseSchema):
+    """Nombre obligatorio y no vacío tras `strip` (requirement "Nombre vacío
+    rechazado"); grupo muscular y tipos validados contra las listas fijas
+    (`MuscleGroup`/`TrainingType`, design D1/D2) directo por Pydantic."""
+
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+    description: Optional[Annotated[str, Field(max_length=500)]] = None
+    muscle_group: Optional[MuscleGroup] = None
+    training_types: list[TrainingType] = Field(default_factory=list)
+    external_media_url: Optional[Annotated[str, Field(max_length=500)]] = None
+
+    @field_validator("name", "description", "external_media_url", mode="before")
+    @classmethod
+    def strip_strings(cls, value):
+        return _strip_or_none(value)
+
+    @field_validator("name")
+    @classmethod
+    def name_not_blank(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("El nombre no puede estar vacío")
+        return value
+
+    @field_validator("external_media_url")
+    @classmethod
+    def validate_external_media_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        return _validate_http_url(value)
+
+    @field_validator("training_types")
+    @classmethod
+    def dedupe_training_types(cls, value: list[TrainingType]) -> list[TrainingType]:
+        seen: list[TrainingType] = []
+        for item in value:
+            if item not in seen:
+                seen.append(item)
+        return seen
+
+
+class ExerciseCreate(ExerciseBase):
+    pass
+
+
+class ExerciseUpdate(BaseSchema):
+    """Todos los campos opcionales (`PATCH`, exclude_unset). `training_types`
+    reemplaza el set completo cuando se envía (design D7), no se mergea."""
+
+    name: Optional[Annotated[str, Field(min_length=1, max_length=120)]] = None
+    description: Optional[Annotated[str, Field(max_length=500)]] = None
+    muscle_group: Optional[MuscleGroup] = None
+    training_types: Optional[list[TrainingType]] = None
+    external_media_url: Optional[Annotated[str, Field(max_length=500)]] = None
+
+    @field_validator("name", "description", "external_media_url", mode="before")
+    @classmethod
+    def strip_strings(cls, value):
+        return _strip_or_none(value)
+
+    @field_validator("name")
+    @classmethod
+    def name_not_blank(cls, value: Optional[str]) -> Optional[str]:
+        # H3 (verificación): antes solo rechazaba una `str` en blanco, pero
+        # `strip_strings` ya convirtió `"   "` en `None` antes de llegar acá, así
+        # que ese caso pasaba de largo (y `{"name": null}` explícito, también).
+        # `name` es NOT NULL en `Exercise`: un `PATCH` que lo manda a `None`
+        # tiene que ser 422, no un 500 en `_normalize_name(None)` del router.
+        # Nota: si el campo no viene en el payload, Pydantic no corre este
+        # validador (comportamiento estándar de v2 sin `validate_default`), así
+        # que un `PATCH` que omite `name` sigue sin verse afectado.
+        if value is None or not value.strip():
+            raise ValueError("El nombre no puede estar vacío")
+        return value
+
+    @field_validator("external_media_url")
+    @classmethod
+    def validate_external_media_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        return _validate_http_url(value)
+
+    @field_validator("training_types")
+    @classmethod
+    def dedupe_training_types(cls, value: Optional[list[TrainingType]]) -> Optional[list[TrainingType]]:
+        if value is None:
+            return value
+        seen: list[TrainingType] = []
+        for item in value:
+            if item not in seen:
+                seen.append(item)
+        return seen
+
+
+class ExerciseOut(BaseSchema):
+    id: str
+    name: str
+    description: Optional[str] = None
+    muscle_group: Optional[MuscleGroup] = None
+    training_types: list[TrainingType] = Field(default_factory=list)
+    is_active: bool
+    external_media_url: Optional[str] = None
+    # --- Media derivada (design D3/D6): el backend decide la prioridad, la UI
+    # solo lee `media_kind` --------------------------------------------------
+    media_kind: Optional[MediaKind] = None
+    media_file_url: Optional[str] = None
+    media_content_type: Optional[str] = None
+    media_filename: Optional[str] = None
+    media_size_bytes: Optional[int] = None
+
+
+class ExerciseMetaOut(BaseSchema):
+    """`GET /exercises/meta`: única fuente de verdad de las listas fijas,
+    derivada directo de los enums de Python (design D7)."""
+
+    muscle_groups: list[MuscleGroup]
+    training_types: list[TrainingType]

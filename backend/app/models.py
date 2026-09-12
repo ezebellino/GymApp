@@ -41,6 +41,41 @@ class RoutineAssignmentStatus(str, enum.Enum):
     alternative = "alternative"
 
 
+class MuscleGroup(str, enum.Enum):
+    """Grupo muscular de lista fija del catálogo de ejercicios (`exercise-catalog`,
+    design D1). El valor es la etiqueta en español con tildes; el nombre del
+    miembro es el identificador en inglés, convención del repo. La columna
+    `Exercise.muscle_group` sigue siendo `String` (no `Enum()` de SQLAlchemy, ver
+    D1): la validación contra esta lista vive en el schema Pydantic."""
+
+    chest = "Pecho"
+    back = "Espalda"
+    shoulders = "Hombros"
+    biceps = "Bíceps"
+    triceps = "Tríceps"
+    forearm = "Antebrazo"
+    core = "Core"
+    glutes = "Glúteos"
+    quadriceps = "Cuádriceps"
+    hamstrings = "Isquios"
+    calves = "Gemelos"
+    full_body = "Cuerpo completo"
+
+
+class TrainingType(str, enum.Enum):
+    """Tipo de entrenamiento de lista fija del catálogo de ejercicios
+    (`exercise-catalog`, design D2): cero o más por ejercicio, vía la tabla de
+    asociación `ExerciseTrainingType`."""
+
+    strength = "Fuerza"
+    hypertrophy = "Hipertrofia"
+    endurance = "Resistencia"
+    cardio = "Cardio"
+    mobility = "Movilidad"
+    functional = "Funcional"
+    rehabilitation = "Rehabilitación"
+
+
 class User(Base):
     """Persona que interactua con la plataforma (Dueño, Coach o Miembro).
 
@@ -261,10 +296,18 @@ class TrainingDay(Base):
 
 
 class Exercise(Base):
+    """Catálogo de ejercicios (`exercise-catalog`, design D1/D2/D6). `muscle_group`
+    es `String` nullable (0..1, opcional) validado contra `MuscleGroup` en el
+    schema Pydantic — no `Enum()` de SQLAlchemy, ver design D1. Los tipos de
+    entrenamiento (0..n) viven en `ExerciseTrainingType`, no acá."""
+
     __tablename__ = "exercises"
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
-    muscle_group = Column(String, nullable=False, index=True)
+    # Derivado en Python (NFC + strip + casefold), no `lower()` de SQL: mismo
+    # patrón que `MembershipPlan.name_normalized` (design D7).
+    name_normalized = Column(String, nullable=False, unique=True)
+    muscle_group = Column(String, nullable=True, index=True)
     description = Column(String, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     # --- Base de progresión (add-routine-templates, design D3) --------------
@@ -272,8 +315,41 @@ class Exercise(Base):
     base_reps = Column(Integer, nullable=False, default=10, server_default="10")
     base_weight_kg = Column(Float, nullable=False, default=0, server_default="0")
 
+    # --- Media independiente: archivo propio + URL externa (design D6) ------
+    external_media_url = Column(String, nullable=True)
+    media_object_key = Column(String, nullable=True)
+    media_content_type = Column(String, nullable=True)
+    media_size_bytes = Column(Integer, nullable=True)
+    media_filename = Column(String, nullable=True)
+    media_uploaded_at = Column(DateTime, nullable=True)
+    media_uploaded_by_user_id = Column(
+        String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
     day_links = relationship("TrainingDayExercise", back_populates="exercise", cascade="all, delete-orphan")
     logs = relationship("WorkoutLog", back_populates="exercise", cascade="all, delete-orphan")
+    training_types = relationship(
+        "ExerciseTrainingType",
+        cascade="all, delete-orphan",
+        order_by="ExerciseTrainingType.sort_order",
+    )
+
+
+class ExerciseTrainingType(Base):
+    """Tipos de entrenamiento (0..n) de un ejercicio (`exercise-catalog`, design D2).
+    PK compuesta: la fila **es** el par, no tiene identidad propia. `CASCADE` es
+    correcto acá (a diferencia del resto del modelo, donde borrar un ejercicio está
+    prohibido): estas filas son atributos del ejercicio."""
+
+    __tablename__ = "exercise_training_types"
+
+    exercise_id = Column(String, ForeignKey("exercises.id", ondelete="CASCADE"), primary_key=True)
+    training_type = Column(String, primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        Index("ix_exercise_training_types_training_type", "training_type"),
+    )
 
 
 class TrainingDayExercise(Base):
