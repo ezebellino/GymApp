@@ -42,3 +42,24 @@ const customTwMerge = extendTailwindMerge({
 export function cn(...inputs: ClassValue[]) {
   return customTwMerge(clsx(inputs))
 }
+
+// Helper de formato de fecha compartido (hallazgo 2 de verification.md,
+// add-membership-plans): los campos `date`-only del backend (`birth_date`,
+// `plan_since`, `MembershipPlanPrice.effective_from`) llegan como
+// "YYYY-MM-DD" sin hora. `new Date("YYYY-MM-DD")` los interpreta como
+// medianoche UTC, y `toLocaleDateString` los renderiza en el huso horario
+// local — en cualquiera detrás de UTC (Argentina, UTC-3) el día mostrado
+// queda uno para atrás del guardado. Para ese formato armamos la fecha con
+// sus componentes locales en vez de dejar que `Date` la interprete como UTC;
+// un string con hora (`created_at`, `membership_start_date`, etc.) sigue el
+// camino normal, donde sí corresponde mostrar la hora local real.
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/
+
+export function formatDate(value?: string | null): string {
+  if (!value) return "-"
+  if (DATE_ONLY_RE.test(value)) {
+    const [year, month, day] = value.split("-").map(Number)
+    return new Date(year, month - 1, day).toLocaleDateString("es-AR")
+  }
+  return new Date(value).toLocaleDateString("es-AR")
+}

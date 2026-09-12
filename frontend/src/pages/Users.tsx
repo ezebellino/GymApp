@@ -113,6 +113,20 @@ function contactFor(user: User): string {
   return user.email || user.phone || "-";
 }
 
+// Columna Plan (invariante I9 de `add-membership-plans`): "Sin plan" (un
+// miembro sin plan asignado, atenuado) nunca se confunde con "-" (un usuario
+// que nunca fue marcado como miembro del gimnasio, no corresponde).
+function PlanCell({ user }: { user: User }) {
+  const isMemberProfile = user.membership_status !== "none";
+  if (!isMemberProfile) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+  if (!user.membership_plan) {
+    return <span className="text-muted-foreground">Sin plan</span>;
+  }
+  return <span>{user.membership_plan.name}</span>;
+}
+
 // Header de columnas fijo durante el scroll interno de la tabla (dec. 7 del
 // design): `sticky` va en cada `th`, no en el `thead` — con
 // `border-collapse: collapse` (el default) varios motores ignoran el sticky
@@ -153,6 +167,9 @@ function SkeletonRow() {
       </TableCell>
       <TableCell className="px-4 py-2">
         <div className="h-4 w-28 rounded bg-surface-2/40" />
+      </TableCell>
+      <TableCell className="hidden px-4 py-2 lg:table-cell">
+        <div className="h-4 w-24 rounded bg-surface-2/40" />
       </TableCell>
       <TableCell className="px-4 py-2">
         <div className="h-8 w-32 rounded bg-surface-2/40" />
@@ -276,6 +293,9 @@ export default function Users() {
                 <TableHead className={STICKY_HEAD_CLASS}>Rol</TableHead>
                 <TableHead className={STICKY_HEAD_CLASS}>Alta</TableHead>
                 <TableHead className={STICKY_HEAD_CLASS}>Inicio en el gimnasio</TableHead>
+                <TableHead className={cn(STICKY_HEAD_CLASS, "hidden lg:table-cell")}>
+                  Plan
+                </TableHead>
                 <TableHead className={STICKY_HEAD_CLASS}>Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -290,7 +310,7 @@ export default function Users() {
 
               {!isPending && isError && (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="p-0">
+                  <TableCell colSpan={7} className="p-0">
                     <DataError
                       title="No se pudieron cargar los usuarios"
                       description="Intenta nuevamente en unos segundos."
@@ -302,7 +322,7 @@ export default function Users() {
 
               {!isPending && !isError && rows.length === 0 && (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="p-0">
+                  <TableCell colSpan={7} className="p-0">
                     <EmptyState query={debouncedQ} />
                   </TableCell>
                 </TableRow>
@@ -337,6 +357,9 @@ export default function Users() {
                         {user.membership_status !== "none" && user.membership_start_date
                           ? new Date(user.membership_start_date).toLocaleDateString("es-AR")
                           : "-"}
+                      </TableCell>
+                      <TableCell className="hidden px-4 py-2 text-foreground lg:table-cell">
+                        <PlanCell user={user} />
                       </TableCell>
                       <TableCell className="px-4 py-2">
                         <div className="flex flex-wrap gap-2">

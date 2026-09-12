@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
-import { cn } from "../utils";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { cn, formatDate } from "../utils";
 
 // Base real de `TableHead` (`ui/table.tsx`), copiada acá para reproducir
 // exactamente el bug que reportó el gate (hallazgo 1 de verification.md):
@@ -30,6 +30,38 @@ describe("cn", () => {
     const result = cn("text-body-md", "text-label-caps");
     expect(result).toContain("text-label-caps");
     expect(result).not.toContain("text-body-md");
+  });
+});
+
+// Hallazgo 2 de verification.md (add-membership-plans): un string `date`-only
+// ("YYYY-MM-DD", como `plan_since`/`effective_from`) no se puede formatear con
+// `new Date(str).toLocaleDateString(...)` porque se parsea como medianoche
+// UTC y se renderiza en el huso local — en cualquiera detrás de UTC el día
+// mostrado corre uno para atrás. Se fuerza un huso detrás de UTC (Buenos
+// Aires, UTC-3, sin horario de verano) para reproducir el bug si `formatDate`
+// volviera a la implementación ingenua.
+describe("formatDate", () => {
+  const originalTz = process.env.TZ;
+
+  beforeEach(() => {
+    process.env.TZ = "America/Argentina/Buenos_Aires";
+  });
+
+  afterEach(() => {
+    process.env.TZ = originalTz;
+  });
+
+  it("no corre un dia para atras un string date-only (hallazgo 2)", () => {
+    expect(formatDate("2026-09-11")).toBe("11/9/2026");
+  });
+
+  it("formatea un datetime completo sin alterar el dia", () => {
+    expect(formatDate("2026-09-11T14:30:00")).toBe("11/9/2026");
+  });
+
+  it("devuelve '-' sin valor", () => {
+    expect(formatDate(null)).toBe("-");
+    expect(formatDate(undefined)).toBe("-");
   });
 });
 

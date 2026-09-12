@@ -3,7 +3,7 @@ router `router` (`/routines/users/{user_id}/templates`, Dueño/Coach).
 """
 
 from app import models
-from tests.helpers import OWNER_EMAIL, create_user
+from tests.helpers import OWNER_EMAIL, assign_plan_to_member, create_user
 
 
 def _create_template(client, headers, *, name="Fuerza 4 días", day_ids=None):
@@ -129,6 +129,7 @@ def test_asignar_a_un_miembro_sin_membresia_responde_409(client, owner_user, aut
 def test_reactivar_la_membresia_habilita_la_asignacion(client, owner_user, auth_header, db_session):
     headers = auth_header(OWNER_EMAIL)
     member = _create_member(db_session, membership_status=models.MembershipStatus.cancelled)
+    assign_plan_to_member(db_session, member)
     template = _create_template(client, headers)
 
     client.post(f"/users/{member.id}/membership/activate", headers=headers)

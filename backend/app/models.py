@@ -77,6 +77,17 @@ class User(Base):
     membership_start_date = Column(DateTime, nullable=True)
     membership_cancelled_at = Column(DateTime, nullable=True)
 
+    # --- Plan de membresia (`membership-plans`, design D1) -------------------
+    # Nullable en la base a proposito: un Dueño/Coach sin membresia, un miembro
+    # `cancelled` y todo miembro preexistente (sin backfill, ver design D3) no
+    # tienen plan. El invariante "membresia activa ⇒ plan" solo se sostiene en
+    # la capa de aplicacion (alta, activacion y cambio de plan).
+    membership_plan_id = Column(
+        String, ForeignKey("membership_plans.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    plan_since = Column(Date, nullable=True)
+    plan_changed_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
     # --- Auditoria / metadata ----------------------------------------------
     created_at = Column(DateTime, default=datetime.utcnow)
     created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
@@ -95,6 +106,8 @@ class User(Base):
     workout_logs = relationship(
         "WorkoutLog", back_populates="user", foreign_keys="WorkoutLog.user_id"
     )
+    membership_plan = relationship("MembershipPlan", foreign_keys=[membership_plan_id])
+    plan_changed_by = relationship("User", remote_side=[id], foreign_keys=[plan_changed_by_user_id])
 
     @hybrid_property
     def full_name(self):
@@ -129,6 +142,61 @@ class User(Base):
         Index("ix_users_phone", "phone"),
         Index("ix_users_membership_status", "membership_status"),
         Index("ix_users_membership_start_date", "membership_start_date"),
+    )
+
+
+class MembershipPlan(Base):
+    """Plan de membresía (`membership-plans`, design D1): nombre único, descripción
+    opcional y activo/inactivo. El precio vive aparte, como historial append-only
+    (`MembershipPlanPrice`), nunca como columna acá."""
+
+    __tablename__ = "membership_plans"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    # Derivada en Python (NFC + strip + casefold), no `lower()` de SQL: ver design D1
+    # y el mismo patrón ya probado en `RoutineTemplate.name_normalized`.
+    name_normalized = Column(String, nullable=False, unique=True)
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    # `save-update, merge` (no incluye `delete`/`delete-orphan`): el historial de
+    # precios es append-only (invariante I1) — sacar una fila de `plan.prices` en
+    # Python nunca debería traducirse en un DELETE. `all, delete-orphan` (el
+    # default de SQLAlchemy) contradecía eso, aunque hoy no hay ningún camino que
+    # lo dispare (hallazgo 6 de verification.md).
+    prices = relationship(
+        "MembershipPlanPrice",
+        back_populates="plan",
+        cascade="save-update, merge",
+        order_by="MembershipPlanPrice.effective_from.desc()",
+    )
+
+
+class MembershipPlanPrice(Base):
+    """Historial append-only de precios de un plan (`membership-plans`, design D1,
+    invariante I1): una fila nunca se actualiza ni se borra, cambiar el precio solo
+    agrega una fila nueva."""
+
+    __tablename__ = "membership_plan_prices"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    plan_id = Column(
+        String, ForeignKey("membership_plans.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    amount = Column(Integer, nullable=False)
+    effective_from = Column(Date, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    plan = relationship("MembershipPlan", back_populates="prices")
+
+    __table_args__ = (
+        UniqueConstraint("plan_id", "effective_from", name="uq_membership_plan_prices_plan_effective_from"),
+        Index("ix_membership_plan_prices_plan_effective_from", "plan_id", "effective_from"),
     )
 
 

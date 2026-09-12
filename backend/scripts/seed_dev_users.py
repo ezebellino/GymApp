@@ -12,7 +12,7 @@ desarrollo: doble candado sobre `ENVIRONMENT` y el host de `DATABASE_URL`.
 """
 
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -26,10 +26,17 @@ if str(ROOT) not in sys.path:
 
 from app.auth import hash_password
 from app.config import settings
-from app.models import MembershipStatus, User, UserRole
+from app.models import MembershipPlan, MembershipPlanPrice, MembershipStatus, User, UserRole
+from app.routers.membership_plans import _normalize_name
 
 
 DEV_PASSWORD = "devdev123"
+
+# Plan de desarrollo que se le asigna a `dev.member@miniespacio.local` (D3/D5): sin
+# backfill, una base recién migrada no tiene ningún plan, así que el seed lo crea
+# él mismo. Solo afecta entornos de desarrollo, no es una decisión de producto.
+DEV_PLAN_NAME = "General"
+DEV_PLAN_AMOUNT = 15000
 
 # Única definición del lado backend. Mismos valores que `devUsers.ts` en el frontend.
 DEV_USERS = [
@@ -61,6 +68,42 @@ ALLOWED_ENVIRONMENTS = {"development", "local", "test"}
 ALLOWED_DB_HOSTS = {"localhost", "127.0.0.1", "db", ""}
 
 
+def _ensure_dev_plan(db: Session) -> MembershipPlan:
+    """Crea (o reusa, por `name_normalized`) el plan activo de desarrollo con su
+    precio inicial. Idempotente: correr el seed N veces no duplica el plan.
+
+    Sin backfill (`membership-plans`, design D3): una base recién migrada no tiene
+    ningún plan, así que el seed tiene que crearlo él mismo antes de asignárselo al
+    miembro de desarrollo — si no, ese miembro nace violando I2 y el frontend lo
+    muestra como "Sin plan" en los tres entornos de desarrollo del equipo.
+    """
+    name_normalized = _normalize_name(DEV_PLAN_NAME)
+    plan = (
+        db.query(MembershipPlan)
+        .filter(MembershipPlan.name_normalized == name_normalized)
+        .first()
+    )
+    if plan is not None:
+        return plan
+
+    plan = MembershipPlan(
+        name=DEV_PLAN_NAME,
+        name_normalized=name_normalized,
+        description="Plan de desarrollo creado por seed_dev_users",
+        is_active=True,
+    )
+    db.add(plan)
+    db.flush()
+    db.add(
+        MembershipPlanPrice(
+            plan_id=plan.id,
+            amount=DEV_PLAN_AMOUNT,
+            effective_from=date.today(),
+        )
+    )
+    return plan
+
+
 def seed_dev_users(db: Session) -> dict:
     """Upsert por email de los tres usuarios. Sin guardas ni engine propio: recibe la
     sesión para poder correrse también sobre la SQLite de la suite de tests.
@@ -73,6 +116,8 @@ def seed_dev_users(db: Session) -> dict:
     """
     created = 0
     updated = 0
+
+    dev_plan = _ensure_dev_plan(db)
 
     for spec in DEV_USERS:
         user = db.query(User).filter(User.email == spec["email"]).first()
@@ -90,6 +135,9 @@ def seed_dev_users(db: Session) -> dict:
                 if user.membership_start_date is None:
                     user.membership_start_date = datetime.utcnow()
                 user.membership_cancelled_at = None
+                if user.membership_plan_id is None:
+                    user.membership_plan_id = dev_plan.id
+                    user.plan_since = date.today()
             updated += 1
             continue
 
@@ -106,6 +154,8 @@ def seed_dev_users(db: Session) -> dict:
                     MembershipStatus.active if is_member else MembershipStatus.none
                 ),
                 membership_start_date=datetime.utcnow() if is_member else None,
+                membership_plan_id=dev_plan.id if is_member else None,
+                plan_since=date.today() if is_member else None,
             )
         )
         created += 1

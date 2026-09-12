@@ -76,6 +76,10 @@ Resuelve el dolor 1 de la visión: saber quién debe, sin memoria ni planilla.
 - Un plan se puede desactivar. No se puede borrar si tiene o tuvo miembros o pagos. Un plan
   desactivado deja de ofrecerse al asignar (S6).
 - Debe existir siempre al menos un plan activo.
+- **Dónde vive**: los planes se administran en **Pagos → Planes** (C3). La vista de Pagos tiene
+  un botón "Planes" que lleva a esa pantalla; Ajustes solo linkea, no administra (C-5). La
+  pantalla de Planes reutiliza el patrón de Usuarios: listado con búsqueda y filtro por
+  activo/inactivo, y las acciones (nuevo, editar, nuevo precio, desactivar) en diálogos.
 
 ### 3.2 Plan del miembro
 
@@ -124,12 +128,17 @@ ese período, es un cambio a S3 y hay que decirlo ahora.
 
 ## 4. Flujos principales
 
-1. **Crear plan.** Ajustes o Pagos → Planes → Nuevo → nombre, descripción, precio → queda
+1. **Crear plan.** Pagos → botón **Planes** → Nuevo → nombre, descripción, precio → queda
    activo y disponible para asignar.
 2. **Cambiar precio.** Planes → plan → Nuevo precio → monto y fecha desde → el historial
    muestra ambos valores. Los miembros del plan pasan a pagar el nuevo valor.
 3. **Alta de miembro con plan.** Al crear un usuario rol Miembro, el plan es un campo
-   obligatorio. Después puede cambiarse desde la ficha.
+   obligatorio: un selector con los planes activos. Después puede cambiarse desde la ficha.
+   Si todavía no hay ningún plan activo, el alta de Miembro no puede completarse y el diálogo
+   lleva a Pagos → Planes.
+3.1. **Cambiar el plan de un miembro.** Ficha del miembro → Plan → Cambiar plan → selector de
+   planes activos → queda registrado desde cuándo rige y quién lo hizo. Aplica a los próximos
+   pagos (S5), no reescribe los ya registrados.
 4. **Registrar pago.** Ficha del miembro o Pagos → Nuevo pago → período precargado con el
    mes actual, monto precargado con el precio del plan → método y canal → guardar. El
    semáforo pasa a verde al instante.
@@ -158,7 +167,7 @@ En orden de implementación sugerido. Cada ítem es un change de OpenSpec.
 
 | # | Brecha | Depende de | Prioridad |
 |---|---|---|---|
-| M1 | Planes de membresía con historial de precios: entidad, CRUD, migración que crea "General" desde `default_fee` y lo asigna a todos los miembros. | — | Alta |
+| M1 | Planes de membresía con historial de precios: entidad, CRUD, entrada **Pagos → Planes**, migración de esquema (sin backfill: los miembros existentes quedan sin plan hasta que se les asigna uno desde la ficha). | — | Alta |
 | M2 | Plan del miembro: obligatorio en el alta, cambio desde la ficha, visible en listado y ficha. | M1 | Alta |
 | M3 | El pago toma el precio del plan: precarga desde el plan del miembro, guarda plan y precio de referencia. | M2 | Alta |
 | M4 | ~~Endpoints de pagos exigen sesión y rol (parte de P1).~~ Cerrada por `secure-staff-endpoints` (2026-09-11). | — | Alta |

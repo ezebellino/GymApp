@@ -25,6 +25,43 @@ export type User = {
   membership_indicator: MembershipIndicator;
   invitation_status: InvitationStatus;
   created_at: string; // ISO
+  // `membership-plans`: opcionales a propósito (design D5 de ese change) aunque
+  // el backend siempre los manda — los `makeUser` de varios tests construyen
+  // un `User` literal y no deben romper.
+  membership_plan?: MembershipPlanSummary | null;
+  plan_since?: string | null; // ISO date
+};
+
+// --- add-membership-plans: espejo de los schemas nuevos de backend/app/schemas.py (design D2/D4) ---
+
+export type MembershipPlanPrice = {
+  id: string;
+  amount: number;
+  effective_from: string; // ISO date
+  created_at: string; // ISO
+  created_by_user_id?: string | null;
+};
+
+export type MembershipPlan = {
+  id: string;
+  name: string;
+  description?: string | null;
+  is_active: boolean;
+  current_price?: MembershipPlanPrice | null;
+  members_count: number;
+  created_at: string; // ISO
+  updated_at: string; // ISO
+};
+
+export type MembershipPlanDetail = MembershipPlan & {
+  price_history: MembershipPlanPrice[];
+};
+
+// Proyección liviana embebida en `User.membership_plan` (D2).
+export type MembershipPlanSummary = {
+  id: string;
+  name: string;
+  current_amount?: number | null;
 };
 
 // Usuario embebido en la respuesta de /payments y /attendance: proyección

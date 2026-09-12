@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 import { Button } from "@/components/ui/button";
 import { useMembershipPlansQuery } from "@/services/membershipPlans.queries";
-import { useActivateMembershipMutation } from "@/services/users.queries";
+import { useChangeUserPlanMutation } from "@/services/users.queries";
 import { toastSuccess } from "@/lib/toast";
 import type { User } from "@/types";
 
@@ -13,10 +13,13 @@ type Props = {
   user: User;
 };
 
-export default function ActivateMembershipDialog({ open, onOpenChange, user }: Props) {
-  const isReactivation = user.membership_status === "cancelled";
-  const label = isReactivation ? "Reactivar membresía" : "Activar membresía";
-  const hasPlan = Boolean(user.membership_plan);
+// Cambio/asignación de plan desde la ficha (design D2/D4): mismo diálogo y
+// mismo endpoint (`POST /users/{id}/plan`) sirve para "Cambiar plan" (el
+// miembro ya tiene uno) y "Asignar plan" (caso preexistente sin plan, D3) —
+// solo cambia el copy según si `user.membership_plan` está presente.
+export default function ChangeMembershipPlanDialog({ open, onOpenChange, user }: Props) {
+  const isAssign = !user.membership_plan;
+  const title = isAssign ? "Asignar plan" : "Cambiar plan";
   const navigate = useNavigate();
 
   const [planId, setPlanId] = useState("");
@@ -30,9 +33,8 @@ export default function ActivateMembershipDialog({ open, onOpenChange, user }: P
   // Mismo aviso que `CreateUserDialog` (hallazgo 8 de verification.md): sin
   // planes activos, el selector queda vacío y el botón deshabilitado sin
   // explicar por qué ni ofrecer salida.
-  const hasNoActivePlans = !hasPlan && !plansPending && activePlans.length === 0;
-  const activateMutation = useActivateMembershipMutation();
-  const isPending = activateMutation.isPending;
+  const hasNoActivePlans = !plansPending && activePlans.length === 0;
+  const changePlanMutation = useChangeUserPlanMutation();
 
   useEffect(() => {
     if (open) {
@@ -42,19 +44,14 @@ export default function ActivateMembershipDialog({ open, onOpenChange, user }: P
   }, [open]);
 
   async function handleConfirm() {
+    if (!planId) return;
     setError(null);
     try {
-      // D2.2: una sola llamada — si el usuario no tiene plan, `planId` viaja
-      // en el body y el backend lo asigna y activa en la misma operación
-      // atómica. El copy exacto del 400/404 del backend se propaga tal cual.
-      await activateMutation.mutateAsync({
-        id: user.id,
-        membershipPlanId: !hasPlan ? planId : undefined,
-      });
+      await changePlanMutation.mutateAsync({ id: user.id, membershipPlanId: planId });
       onOpenChange(false);
       toastSuccess(
-        isReactivation ? "Membresía reactivada" : "Membresía activada",
-        "El usuario vuelve a contar como miembro activo."
+        isAssign ? "Plan asignado" : "Plan actualizado",
+        "Aplica a los próximos pagos de este miembro."
       );
     } catch (err: any) {
       setError(err?.response?.data?.detail ?? "Error desconocido");
@@ -65,20 +62,20 @@ export default function ActivateMembershipDialog({ open, onOpenChange, user }: P
     <ConfirmActionDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={label}
-      description={`Vas a ${isReactivation ? "reactivar" : "activar"} la membresía de ${user.full_name}.`}
-      confirmLabel={label}
-      pendingLabel={isReactivation ? "Reactivando..." : "Activando..."}
-      isPending={isPending}
-      confirmDisabled={!hasPlan && !planId}
+      title={title}
+      description={`Elegí el plan activo que va a regir para ${user.full_name} a partir de ahora. El cambio aplica a los próximos pagos, no a los ya registrados.`}
+      confirmLabel={title}
+      pendingLabel="Guardando..."
+      isPending={changePlanMutation.isPending}
+      confirmDisabled={!planId}
       error={error}
       onConfirm={handleConfirm}
     >
-      {!hasPlan && hasNoActivePlans ? (
+      {hasNoActivePlans ? (
         <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
           <p className="text-sm text-amber-700 dark:text-amber-200">
-            No hay planes activos. Este usuario no tiene un plan asignado, y necesitás
-            al menos un plan activo para poder activar la membresía.
+            No hay planes activos. Necesitás al menos uno para poder{" "}
+            {isAssign ? "asignar un plan" : "cambiar el plan"}.
           </p>
           <Button
             type="button"
@@ -92,10 +89,9 @@ export default function ActivateMembershipDialog({ open, onOpenChange, user }: P
             Ir a Planes
           </Button>
         </div>
-      ) : null}
-      {!hasPlan && !hasNoActivePlans ? (
+      ) : (
         <div className="space-y-1">
-          <label className="text-sm text-muted-foreground">Plan de membresía</label>
+          <label className="text-sm text-muted-foreground">Plan</label>
           <select
             value={planId}
             onChange={(e) => setPlanId(e.target.value)}
@@ -108,12 +104,8 @@ export default function ActivateMembershipDialog({ open, onOpenChange, user }: P
               </option>
             ))}
           </select>
-          <p className="text-xs text-muted-foreground">
-            Este usuario no tiene un plan asignado — asigná uno para poder activar la
-            membresía.
-          </p>
         </div>
-      ) : null}
+      )}
     </ConfirmActionDialog>
   );
 }

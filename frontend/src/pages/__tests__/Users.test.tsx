@@ -214,6 +214,47 @@ describe("vista de Usuarios", () => {
     expect(await screen.findByRole("heading", { name: "Crear usuario" })).toBeInTheDocument();
   });
 
+  it("muestra la columna de plan en el listado", async () => {
+    mockUsersList([
+      makeUser({ membership_plan: { id: "plan-1", name: "Estudiante", current_amount: 20000 } }),
+    ]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    const table = await screen.findByRole("table");
+    expect(within(table).getByText("Plan")).toBeInTheDocument();
+    expect(await screen.findByText("Estudiante")).toBeInTheDocument();
+  });
+
+  it("muestra Sin plan para un miembro sin plan y guion para quien no es miembro", async () => {
+    mockUsersList([
+      makeUser({
+        id: "u-1",
+        full_name: "Ana Gomez",
+        membership_plan: null,
+      }),
+      makeUser({
+        id: "u-2",
+        full_name: "Beto Lopez",
+        role: "coach",
+        membership_status: "none",
+        membership_indicator: "none",
+        membership_start_date: null,
+        membership_plan: null,
+      }),
+    ]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    expect(await screen.findByText("Ana Gomez")).toBeInTheDocument();
+    expect(screen.getByText("Sin plan")).toBeInTheDocument();
+    expect(screen.getByText("Beto Lopez")).toBeInTheDocument();
+    const row = screen.getByText("Beto Lopez").closest("tr") as HTMLElement;
+    const cells = row.querySelectorAll("td");
+    // Nombre, Contacto, Rol, Alta, Inicio en el gimnasio, Plan, Acciones.
+    expect(cells[5]).toHaveTextContent("-");
+  });
+
   it("el boton Ver de una fila navega a la ficha del usuario", async () => {
     mockUsersList([makeUser({})]);
 

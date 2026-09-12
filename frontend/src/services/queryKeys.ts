@@ -1,6 +1,7 @@
 import type { UsersParams } from "./users";
 import type { PaymentsParams, PeriodRange as PaymentsPeriodRange } from "./payments";
 import type { AttendanceParams, PeriodRange as AttendancePeriodRange } from "./attendance";
+import type { MembershipPlansParams } from "./membershipPlans";
 
 // Único lugar del repo donde se escribe un string de key (dec. 3). Jerarquía
 // [dominio, vista, params] para poder invalidar por prefijo de dominio
@@ -40,5 +41,11 @@ export const queryKeys = {
     byUser: (userId: string) => ["routineAssignments", "byUser", userId] as const,
     my: () => ["routineAssignments", "my"] as const,
     myDetail: (assignmentId: string) => ["routineAssignments", "myDetail", assignmentId] as const,
+  },
+  // add-membership-plans (design D4): dominio nuevo.
+  membershipPlans: {
+    all: ["membershipPlans"] as const,
+    list: (params: MembershipPlansParams) => ["membershipPlans", "list", params] as const,
+    detail: (id: string) => ["membershipPlans", "detail", id] as const,
   },
 };

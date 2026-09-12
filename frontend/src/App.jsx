@@ -31,6 +31,10 @@ const InvitationAccept = lazy(() => import("./pages/InvitationAccept"));
 const NewCoachPage = lazy(() => import("./pages/NewCoach"));
 const UserDetail = lazy(() => import("./pages/UserDetail"));
 const RoutineTemplateDetail = lazy(() => import("./pages/RoutineTemplateDetail"));
+// `add-membership-plans` (design D4): sin entrada en el Sidebar, se llega
+// desde el botón "Planes" de Payments — mismo tratamiento que UserDetail y
+// RoutineTemplateDetail, sin pasar por `routeImporters`.
+const MembershipPlans = lazy(() => import("./pages/MembershipPlans"));
 
 // Widget de cambio de rol, solo en desarrollo (`add-dev-role-switcher`, dec. 1).
 // El ternario va a nivel de módulo a propósito: en `npm run build` Vite
@@ -137,6 +141,14 @@ export default function App() {
                     element={
                       <ProtectedRoute roles={["owner", "coach"]}>
                         <Payments />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/plans"
+                    element={
+                      <ProtectedRoute roles={["owner", "coach"]}>
+                        <MembershipPlans />
                       </ProtectedRoute>
                     }
                   />

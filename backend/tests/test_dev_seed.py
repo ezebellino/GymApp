@@ -58,6 +58,32 @@ def test_seed_dev_users_dos_veces_no_duplica_usuarios(db_session):
     assert member.membership_status == models.MembershipStatus.active
 
 
+def test_seed_dev_users_crea_plan_y_lo_asigna_al_miembro_activo(db_session):
+    """`membership-plans` design D3/D5: sin backfill, el seed tiene que crear él
+    mismo un plan activo con precio y asignárselo al miembro de desarrollo — si no,
+    ese miembro arranca violando I2 (activo sin plan)."""
+    seed_dev_users(db_session)
+
+    plans = db_session.query(models.MembershipPlan).all()
+    assert len(plans) == 1
+    plan = plans[0]
+    assert plan.is_active is True
+    prices = (
+        db_session.query(models.MembershipPlanPrice)
+        .filter(models.MembershipPlanPrice.plan_id == plan.id)
+        .all()
+    )
+    assert len(prices) == 1
+
+    member = next(u for u in _dev_users_in_db(db_session) if u.role == models.UserRole.member)
+    assert member.membership_plan_id == plan.id
+    assert member.plan_since is not None
+
+    # Correr el seed una segunda vez no duplica el plan.
+    seed_dev_users(db_session)
+    assert db_session.query(models.MembershipPlan).count() == 1
+
+
 @pytest.mark.parametrize(
     "spec", DEV_USERS, ids=[spec["role"].value for spec in DEV_USERS]
 )

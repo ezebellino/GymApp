@@ -15,7 +15,7 @@ borrado de usuario ("No hay eliminación física").
 """
 
 from app import models
-from tests.helpers import COACH_EMAIL, OWNER_EMAIL, create_user
+from tests.helpers import COACH_EMAIL, OWNER_EMAIL, create_plan, create_user
 
 
 def _client_headers(client_user):
@@ -61,10 +61,17 @@ def test_member_accede_a_su_propio_perfil_de_rutina(client, client_user):
 # --- Permisos de gestion (require_can_manage_user) --------------------------
 
 
-def test_coach_crea_un_miembro(client, coach_user, auth_header):
+def test_coach_crea_un_miembro(client, owner_user, coach_user, auth_header):
+    plan = create_plan(client, auth_header(OWNER_EMAIL))
+
     response = client.post(
         "/users/",
-        json={"first_name": "Nuevo", "last_name": "Miembro", "role": "member"},
+        json={
+            "first_name": "Nuevo",
+            "last_name": "Miembro",
+            "role": "member",
+            "membership_plan_id": plan["id"],
+        },
         headers=auth_header(COACH_EMAIL),
     )
 
@@ -229,9 +236,15 @@ def test_no_se_puede_promover_a_coach_con_password_sin_email_por_patch(
     # Alta mínima de un Miembro sin email (permitida por la spec) — el mismo
     # bug de "password sin email" del hallazgo 9, pero llegando por PATCH en
     # vez de POST (hallazgo N3 de la re-verificación).
+    plan = create_plan(client, auth_header(OWNER_EMAIL))
     creado = client.post(
         "/users/",
-        json={"first_name": "Sin", "last_name": "Email", "role": "member"},
+        json={
+            "first_name": "Sin",
+            "last_name": "Email",
+            "role": "member",
+            "membership_plan_id": plan["id"],
+        },
         headers=auth_header(OWNER_EMAIL),
     )
     assert creado.status_code == 201, creado.text

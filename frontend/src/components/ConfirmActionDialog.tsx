@@ -18,6 +18,9 @@ type Props = {
   pendingLabel: string;
   destructive?: boolean;
   isPending: boolean;
+  // Deshabilita además el botón de confirmar sin depender de `isPending`
+  // (p. ej. `ChangeMembershipPlanDialog` mientras no se eligió un plan).
+  confirmDisabled?: boolean;
   error?: string | null;
   children?: ReactNode;
   onConfirm: () => void;
@@ -38,6 +41,7 @@ export default function ConfirmActionDialog({
   pendingLabel,
   destructive = false,
   isPending,
+  confirmDisabled = false,
   error,
   children,
   onConfirm,
@@ -66,7 +70,7 @@ export default function ConfirmActionDialog({
             type="button"
             variant={destructive ? "destructive" : "default"}
             onClick={onConfirm}
-            disabled={isPending}
+            disabled={isPending || confirmDisabled}
           >
             {isPending ? pendingLabel : confirmLabel}
           </Button>

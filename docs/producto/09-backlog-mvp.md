@@ -43,8 +43,8 @@ al final el Dashboard que junta todo.
 
 | # | Ítem | Módulo | Depende de | Change |
 |---|---|---|---|---|
-| M1 | Planes de membresía con historial de precios; migración crea "General" desde la cuota base | 03 | — | |
-| M2 | Plan del miembro: cambio desde la ficha, visible en listado y ficha | 03 | M1 | |
+| M1 | Planes de membresía con historial de precios; entrada **Pagos → Planes**; migración solo de esquema, sin backfill (los miembros existentes quedan sin plan) | 03 | — | |
+| M2 | Plan del miembro: asignación en el alta y cambio desde la ficha, visible en listado y ficha | 03 | M1 | |
 | U-1 | Plan obligatorio en el alta de Miembro | 02 | M1 | (mismo change que M2) |
 | M3 | El pago precarga el precio del plan y guarda plan y precio de referencia | 03 | M2 | |
 | M7 | Filtro por estado de cuota en Usuarios | 03 | M3 | |

@@ -24,12 +24,14 @@ import DataError from "@/components/DataError";
 import EditUserDialog from "@/components/EditUserDialog";
 import CancelMembershipDialog from "@/components/CancelMembershipDialog";
 import ActivateMembershipDialog from "@/components/ActivateMembershipDialog";
+import ChangeMembershipPlanDialog from "@/components/ChangeMembershipPlanDialog";
 import InviteUserDialog from "@/components/InviteUserDialog";
 import VerifyContactDialog from "@/components/VerifyContactDialog";
 import MemberTemplatesCard from "@/components/MemberTemplatesCard";
 import { useSessionStore } from "@/stores/session";
+import { useSettingsStore } from "@/stores/settings";
 import { canManageUser } from "@/lib/permissions";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 const ROLE_LABEL: Record<Role, string> = {
   owner: "Dueño",
@@ -72,9 +74,21 @@ const INVITATION_STATUS_LABEL = {
   access_active: "Acceso activo",
 } as const;
 
-function formatDate(value?: string | null) {
-  if (!value) return "-";
-  return new Date(value).toLocaleDateString("es-AR");
+// Plan vigente de la ficha (design D4 de `add-membership-plans`, invariante
+// I9): "Sin plan" es un estado explícito de un miembro preexistente sin
+// asignar (D3), distinto de "-" (no aplica) — acá sí aplica siempre que
+// `isMemberProfile`, así que el único contraste es nombre-y-precio vs. "Sin
+// plan".
+function formatPlan(
+  plan: { name: string; current_amount?: number | null } | null | undefined,
+  planSince: string | null | undefined,
+  currency: string
+): string {
+  if (!plan) return "Sin plan";
+  const amount =
+    plan.current_amount != null ? ` · ${currency} ${plan.current_amount.toLocaleString("es-AR")}` : "";
+  const since = planSince ? ` · desde ${formatDate(planSince)}` : "";
+  return `${plan.name}${amount}${since}`;
 }
 
 function InfoRow({
@@ -144,6 +158,7 @@ type DetailAction =
   | "edit"
   | "cancel-membership"
   | "activate-membership"
+  | "change-plan"
   | "invite"
   | "verify-contact";
 
@@ -152,6 +167,7 @@ export default function UserDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const viewerRole = useSessionStore((s) => s.role);
+  const currency = useSettingsStore((s) => s.settings.currency);
   const [action, setAction] = useState<DetailAction>(null);
 
   const { data: user, isPending, isError, refetch } = useUserQuery(id);
@@ -183,6 +199,15 @@ export default function UserDetail() {
   }
 
   const isMemberRole = user.role === "member";
+  // La sección de plan sigue el perfil de miembro (design D4, invariante I10:
+  // "ficha ofrece Asignar plan para todo perfil de miembro"), no el rol — un
+  // Coach/Dueño marcado como miembro del gimnasio también tiene plan.
+  // Mismo predicado que ya usan `Users.tsx` (`isMemberProfile`) y el backend
+  // (`change_user_plan`, `backend/app/routers/users.py`). Hallazgo 1 de
+  // verification.md, add-membership-plans: antes usaba `isMemberRole`, que
+  // ocultaba "Asignar plan" a un Coach-miembro y lo mostraba (con 400 al
+  // confirmar) a un Miembro sin perfil de miembro.
+  const isMemberProfile = user.membership_status !== "none";
   const canManage = canManageUser(viewerRole, user.role);
   const canInvite =
     canManage && isMemberRole && user.invitation_status !== "access_active";
@@ -325,9 +350,16 @@ export default function UserDetail() {
                   value={formatDate(user.membership_cancelled_at)}
                 />
               ) : null}
+              {isMemberProfile ? (
+                <InfoRow
+                  icon={Calendar}
+                  label="Plan"
+                  value={formatPlan(user.membership_plan, user.plan_since, currency)}
+                />
+              ) : null}
             </CardContent>
             {canManage ? (
-              <CardFooter className="border-t border-border pt-4">
+              <CardFooter className="flex flex-wrap gap-2 border-t border-border pt-4">
                 {user.membership_status === "active" ? (
                   <Button
                     type="button"
@@ -342,6 +374,11 @@ export default function UserDetail() {
                     {user.membership_status === "none" ? "Activar membresía" : "Reactivar membresía"}
                   </Button>
                 )}
+                {isMemberProfile ? (
+                  <Button type="button" variant="outline" onClick={() => setAction("change-plan")}>
+                    {user.membership_plan ? "Cambiar plan" : "Asignar plan"}
+                  </Button>
+                ) : null}
               </CardFooter>
             ) : null}
           </Card>
@@ -396,6 +433,14 @@ export default function UserDetail() {
         <ActivateMembershipDialog
           open={action === "activate-membership"}
           onOpenChange={(open) => setAction(open ? "activate-membership" : null)}
+          user={user}
+        />
+      ) : null}
+
+      {action === "change-plan" ? (
+        <ChangeMembershipPlanDialog
+          open={action === "change-plan"}
+          onOpenChange={(open) => setAction(open ? "change-plan" : null)}
           user={user}
         />
       ) : null}

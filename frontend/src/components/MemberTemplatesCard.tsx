@@ -8,6 +8,7 @@ import AssignTemplateDialog from "@/components/AssignTemplateDialog";
 import RemoveAssignmentDialog from "@/components/RemoveAssignmentDialog";
 import AdjustExerciseBaseDialog from "@/components/AdjustExerciseBaseDialog";
 import { useUserAssignmentsQuery } from "@/services/routineTemplates.queries";
+import { formatDate } from "@/lib/utils";
 import type { RoutineAssignment, RoutineAssignmentStatus, User } from "@/types";
 
 type Props = {
@@ -24,11 +25,6 @@ const STATUS_BADGE_CLASS: Record<RoutineAssignmentStatus, string> = {
   active: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
   alternative: "border-border text-muted-foreground",
 };
-
-function formatDate(value?: string | null) {
-  if (!value) return "-";
-  return new Date(value).toLocaleDateString("es-AR");
-}
 
 // Plantillas asignadas al Miembro, desde su ficha (design.md D11 de
 // add-routine-templates). Toda la lógica de la card vive acá: query de

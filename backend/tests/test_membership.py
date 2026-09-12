@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from app import models
 from app.utils import current_period
-from tests.helpers import OWNER_EMAIL, PASSWORD, create_user, login
+from tests.helpers import OWNER_EMAIL, PASSWORD, assign_plan_to_member, create_user, login
 
 
 def _create_member(db_session, email="miembro@example.com", **kwargs):
@@ -115,6 +115,7 @@ def test_un_pago_nuevo_actualiza_el_indicador_sin_cache(
 
 def test_reactivar_membresia_deja_de_estar_suspended(client, owner_user, auth_header, db_session):
     member = _create_member(db_session)
+    assign_plan_to_member(db_session, member)
     headers = auth_header(OWNER_EMAIL)
     cur_month, cur_year = current_period()
     _add_payment(client, headers, member.id, cur_month, cur_year)
@@ -146,6 +147,7 @@ def test_baja_de_un_miembro_bloquea_su_login(client, owner_user, auth_header, db
 
 def test_reactivar_un_miembro_restaura_su_login(client, owner_user, auth_header, db_session):
     member = _create_member(db_session, email="reactivado@example.com")
+    assign_plan_to_member(db_session, member)
     headers = auth_header(OWNER_EMAIL)
     client.post(f"/users/{member.id}/membership/cancel", json={}, headers=headers)
     client.post(f"/users/{member.id}/membership/activate", headers=headers)
@@ -295,6 +297,7 @@ def test_reactivacion_vuelve_a_dejar_la_fecha_de_baja_en_null(
     client, owner_user, auth_header, db_session
 ):
     member = _create_member(db_session, email="reactivacion-null@example.com")
+    assign_plan_to_member(db_session, member)
     headers = auth_header(OWNER_EMAIL)
     client.post(f"/users/{member.id}/membership/cancel", json={}, headers=headers)
 

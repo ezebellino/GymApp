@@ -36,6 +36,9 @@ export type CreateUserInput = {
   weight_kg?: number | null;
   height_cm?: number | null;
   password?: string;
+  // `membership-plans`: obligatorio en el backend solo cuando `role ===
+  // "member"` (se valida ahí, no acá — ver `CreateUserDialog`).
+  membership_plan_id?: string | null;
 };
 
 export async function createUser(input: CreateUserInput): Promise<User> {
@@ -58,8 +61,16 @@ export async function cancelMembership(id: string, cancelledAt?: string | null):
   return data;
 }
 
-export async function activateMembership(id: string): Promise<User> {
-  const { data } = await api.post<User>(`/users/${id}/membership/activate`, {});
+export async function activateMembership(
+  id: string,
+  membershipPlanId?: string
+): Promise<User> {
+  // D2.2: si el usuario no tiene plan, `membership_plan_id` lo asigna y activa
+  // en la misma operación; si ya tiene plan, se omite y se comporta como
+  // siempre (reactivación simple).
+  const { data } = await api.post<User>(`/users/${id}/membership/activate`, {
+    ...(membershipPlanId ? { membership_plan_id: membershipPlanId } : {}),
+  });
   return data;
 }
 
@@ -76,5 +87,14 @@ export async function inviteUser(id: string): Promise<InviteUserResult> {
 
 export async function verifyUserContact(id: string): Promise<User> {
   const { data } = await api.post<User>(`/users/${id}/contact/verify`, {});
+  return data;
+}
+
+// `membership-plans` (D2): mismo endpoint sirve al cambio de plan y a la
+// asignación inicial de un miembro preexistente sin plan (D3).
+export async function changeUserPlan(id: string, membershipPlanId: string): Promise<User> {
+  const { data } = await api.post<User>(`/users/${id}/plan`, {
+    membership_plan_id: membershipPlanId,
+  });
   return data;
 }

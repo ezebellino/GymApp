@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { KeyRound, Mail, Phone, Ruler, UserPlus, Weight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import type { Role } from "@/types";
 import { useSessionStore } from "@/stores/session";
 import { useCreateUserMutation } from "@/services/users.queries";
+import { useMembershipPlansQuery } from "@/services/membershipPlans.queries";
 import { toastError, toastSuccess } from "@/lib/toast";
 
 type Props = {
@@ -28,6 +30,7 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
 ];
 
 export default function CreateUserDialog({ open, onOpenChange, onSuccess }: Props) {
+  const navigate = useNavigate();
   const viewerRole = useSessionStore((s) => s.role);
   const isOwner = viewerRole === "owner";
 
@@ -40,8 +43,19 @@ export default function CreateUserDialog({ open, onOpenChange, onSuccess }: Prop
   const [weightKg, setWeightKg] = useState("");
   const [heightCm, setHeightCm] = useState("");
   const [password, setPassword] = useState("");
+  const [membershipPlanId, setMembershipPlanId] = useState("");
 
   const createMutation = useCreateUserMutation();
+  // Plan obligatorio para un Miembro (`membership-plans`, D2/D4): el
+  // selector se limita a planes activos. Solo se pide mientras el diálogo
+  // está abierto y el rol elegido es Miembro.
+  const isMember = role === "member";
+  const { data: plansData, isPending: plansPending } = useMembershipPlansQuery({
+    is_active: true,
+    limit: 200,
+  });
+  const activePlans = plansData?.items ?? [];
+  const hasNoActivePlans = isMember && !plansPending && activePlans.length === 0;
 
   // El owner puede dar de alta cualquier rol; el coach solo Miembro (el
   // backend ya lo exige, esto evita el viaje redondo al servidor).
@@ -56,6 +70,7 @@ export default function CreateUserDialog({ open, onOpenChange, onSuccess }: Prop
       setWeightKg("");
       setHeightCm("");
       setPassword("");
+      setMembershipPlanId("");
     }
   }, [open, isOwner]);
 
@@ -71,6 +86,9 @@ export default function CreateUserDialog({ open, onOpenChange, onSuccess }: Prop
   // como `ReactNode` (hallazgo del code review sobre este mismo fix).
   const missingRequiredAccess =
     showPassword && (!password.trim() || password.trim().length < 6 || !email.trim());
+  // Guarda de plan obligatorio para un Miembro (D4): sin plan elegido, o sin
+  // ningún plan activo existente, no se puede completar el alta.
+  const missingRequiredPlan = isMember && (hasNoActivePlans || !membershipPlanId);
 
   async function save() {
     try {
@@ -84,6 +102,7 @@ export default function CreateUserDialog({ open, onOpenChange, onSuccess }: Prop
         weight_kg: weightKg.trim() ? Number(weightKg) : null,
         height_cm: heightCm.trim() ? Number(heightCm) : null,
         ...(showPassword && password.trim() ? { password: password.trim() } : {}),
+        ...(isMember ? { membership_plan_id: membershipPlanId } : {}),
       });
 
       onOpenChange(false);
@@ -155,6 +174,44 @@ export default function CreateUserDialog({ open, onOpenChange, onSuccess }: Prop
               Como Coach solo podés dar de alta usuarios con rol Miembro.
             </p>
           )}
+
+          {isMember && hasNoActivePlans ? (
+            <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+              <p className="text-sm text-amber-700 dark:text-amber-200">
+                No hay planes activos. Necesitás al menos uno para poder dar de alta un
+                Miembro.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onOpenChange(false);
+                  navigate("/plans");
+                }}
+              >
+                Ir a Planes
+              </Button>
+            </div>
+          ) : null}
+
+          {isMember && !hasNoActivePlans ? (
+            <div className="space-y-1">
+              <label className="text-sm text-muted-foreground">Plan de membresía</label>
+              <select
+                value={membershipPlanId}
+                onChange={(e) => setMembershipPlanId(e.target.value)}
+                className="w-full rounded-md border border-border bg-surface-2/40 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Elegí un plan</option>
+                {activePlans.map((plan) => (
+                  <option key={plan.id} value={plan.id}>
+                    {plan.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
@@ -243,7 +300,12 @@ export default function CreateUserDialog({ open, onOpenChange, onSuccess }: Prop
           </Button>
           <Button
             onClick={save}
-            disabled={createMutation.isPending || !firstName.trim() || missingRequiredAccess}
+            disabled={
+              createMutation.isPending ||
+              !firstName.trim() ||
+              missingRequiredAccess ||
+              missingRequiredPlan
+            }
           >
             {createMutation.isPending ? "Creando..." : "Crear usuario"}
           </Button>

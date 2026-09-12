@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import {
   activateMembership,
   cancelMembership,
+  changeUserPlan,
   createUser,
   fetchUser,
   fetchUsers,
@@ -75,9 +76,13 @@ export function useActivateMembershipMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => activateMembership(id),
+    mutationFn: ({ id, membershipPlanId }: { id: string; membershipPlanId?: string }) =>
+      activateMembership(id, membershipPlanId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+      // D2.2: cuando activa y asigna plan en la misma operación, `members_count`
+      // del plan también cambia.
+      queryClient.invalidateQueries({ queryKey: queryKeys.membershipPlans.all });
     },
   });
 }
@@ -102,6 +107,21 @@ export function useVerifyContactMutation() {
     mutationFn: (id: string) => verifyUserContact(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+    },
+  });
+}
+
+export function useChangeUserPlanMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, membershipPlanId }: { id: string; membershipPlanId: string }) =>
+      changeUserPlan(id, membershipPlanId),
+    onSuccess: () => {
+      // `members_count` de cada plan cambia con el usuario que se mueve
+      // (design D4).
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.membershipPlans.all });
     },
   });
 }

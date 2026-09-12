@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Depends, Query, status, Request, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Literal, Annotated
 from sqlalchemy import or_, func, select
 from pydantic import Field
@@ -13,6 +13,7 @@ from ..auth import get_current_user, hash_password, require_role
 from ..models import UserRole, MembershipStatus
 from ..notifications import get_notification_sender
 from ..security import generate_invitation_token, hash_invitation_token
+from .membership_plans import current_price_for
 
 INVITATION_TTL_DAYS = 7
 
@@ -82,6 +83,7 @@ def _serialize_user(
     *,
     membership_indicator: schemas.MembershipIndicator,
     invitation_status: schemas.InvitationStatus,
+    membership_plan: Optional[schemas.MembershipPlanSummary] = None,
 ) -> schemas.UserOut:
     return schemas.UserOut(
         id=user.id,
@@ -105,6 +107,25 @@ def _serialize_user(
         invitation_status=invitation_status,
         created_at=user.created_at,
         theme_preference=user.theme_preference,
+        membership_plan=membership_plan,
+        plan_since=user.plan_since,
+    )
+
+
+def _membership_plan_summary_for(db: Session, user: models.User) -> Optional[schemas.MembershipPlanSummary]:
+    """Resuelve el `MembershipPlanSummary` de un único usuario (ficha, alta, cambio
+    de plan). El listado paginado usa su propia resolución en bloque (`list_users`,
+    invariante I7: sin N+1)."""
+    if not user.membership_plan_id:
+        return None
+    plan = user.membership_plan
+    if plan is None:
+        return None
+    current_price = current_price_for(db, [plan.id]).get(plan.id)
+    return schemas.MembershipPlanSummary(
+        id=plan.id,
+        name=plan.name,
+        current_amount=current_price.amount if current_price else None,
     )
 
 
@@ -112,7 +133,13 @@ def _serialize_user_single(db: Session, user: models.User) -> schemas.UserOut:
     last_month, last_year = _last_payment_month_year(db, user.id)
     indicator = utils.membership_indicator(user.membership_status, last_month, last_year)
     invitation_status = _invitation_status_for(user, _live_invitation_for(db, user.id))
-    return _serialize_user(user, membership_indicator=indicator, invitation_status=invitation_status)
+    membership_plan = _membership_plan_summary_for(db, user)
+    return _serialize_user(
+        user,
+        membership_indicator=indicator,
+        invitation_status=invitation_status,
+        membership_plan=membership_plan,
+    )
 
 
 def _get_user_or_404(db: Session, user_id: str) -> models.User:
@@ -148,7 +175,9 @@ def list_users(
     )
     indicator_expr = utils.membership_indicator_sql_case(last_period_subq).label("membership_indicator")
 
-    query = db.query(models.User, indicator_expr)
+    # `joinedload` en vez de un `outerjoin` manual: un solo SELECT con el plan ya
+    # traído (invariante I7 — sin N+1 al acceder a `user.membership_plan` por fila).
+    query = db.query(models.User, indicator_expr).options(joinedload(models.User.membership_plan))
 
     if q:
         like = f"%{q}%"
@@ -208,11 +237,27 @@ def list_users(
         )
     } if user_ids else {}
 
+    # Una sola query de precios vigentes para los `plan_id` distintos de la página
+    # (invariante I7: sin N+1 — los planes son decenas, no miles).
+    plan_ids = list({user.membership_plan_id for user, _ in rows if user.membership_plan_id})
+    current_prices = current_price_for(db, plan_ids)
+
+    def _plan_summary(user: models.User) -> Optional[schemas.MembershipPlanSummary]:
+        if not user.membership_plan_id or user.membership_plan is None:
+            return None
+        current_price = current_prices.get(user.membership_plan_id)
+        return schemas.MembershipPlanSummary(
+            id=user.membership_plan.id,
+            name=user.membership_plan.name,
+            current_amount=current_price.amount if current_price else None,
+        )
+
     return [
         _serialize_user(
             user,
             membership_indicator=indicator_value,
             invitation_status=_invitation_status_for(user, live_invitations.get(user.id)),
+            membership_plan=_plan_summary(user),
         )
         for user, indicator_value in rows
     ]
@@ -260,7 +305,27 @@ def create_user(
             "Email requerido para dar acceso a un Dueño o Coach",
         )
 
-    data = payload.model_dump(exclude={"password"})
+    # Plan obligatorio para un Miembro (`membership-plans`, invariante I2): se
+    # valida acá, no con un `model_validator` en el schema, porque es condicional
+    # al rol — mismo criterio que las reglas de arriba.
+    plan = None
+    if is_member:
+        if not payload.membership_plan_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Un Miembro necesita un plan de membresía"
+            )
+        plan = db.get(models.MembershipPlan, payload.membership_plan_id)
+        if plan is None or not plan.is_active:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "El plan de membresía indicado no existe o está inactivo"
+            )
+    elif payload.membership_plan_id:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Solo un Miembro puede tener un plan de membresía",
+        )
+
+    data = payload.model_dump(exclude={"password", "membership_plan_id"})
     obj = models.User(
         **data,
         password_hash=hash_password(payload.password) if payload.password else None,
@@ -268,6 +333,9 @@ def create_user(
         is_active=True,
         membership_status=MembershipStatus.active if is_member else MembershipStatus.none,
         membership_start_date=datetime.utcnow() if is_member else None,
+        membership_plan_id=plan.id if plan else None,
+        plan_since=date.today() if plan else None,
+        plan_changed_by_user_id=current_user.id if plan else None,
         created_by_user_id=current_user.id,
     )
     db.add(obj)
@@ -342,6 +410,7 @@ def update_user(
 @router.post("/{user_id}/membership/activate", response_model=schemas.UserOut)
 def activate_membership(
     user_id: str,
+    payload: schemas.MembershipActivateIn = schemas.MembershipActivateIn(),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -349,6 +418,34 @@ def activate_membership(
     require_can_manage_user(current_user, obj.role)
     if obj.membership_status == MembershipStatus.active:
         raise HTTPException(status.HTTP_409_CONFLICT, "La membresía ya está activa")
+
+    # D2.2: si el usuario no tiene plan (incluido `membership_status = 'none'`,
+    # que nunca tuvo perfil de miembro), este endpoint lo asigna y activa en la
+    # misma operación atómica — es la única puerta de entrada al plan para
+    # quien nunca fue miembro (I10).
+    if obj.membership_plan_id is None:
+        if payload.membership_plan_id is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Asigná un plan antes de activar la membresía"
+            )
+        plan = db.get(models.MembershipPlan, payload.membership_plan_id)
+        if plan is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Plan no encontrado")
+        if not plan.is_active:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "El plan indicado está inactivo")
+        # Las tres columnas se escriben juntas, igual que `change_user_plan`
+        # (invariante I12): ningún camino de escritura deja `plan_since` en
+        # `NULL` con plan asignado.
+        obj.membership_plan_id = plan.id
+        obj.plan_since = date.today()
+        obj.plan_changed_by_user_id = current_user.id
+    elif payload.membership_plan_id is not None and payload.membership_plan_id != obj.membership_plan_id:
+        # No se acepta un cambio de plan encubierto dentro de una activación
+        # (D2.2): `change_user_plan` sigue siendo el único lugar donde se
+        # decide un cambio de plan (I11).
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Para cambiar el plan usá la acción Cambiar plan"
+        )
 
     obj.membership_status = MembershipStatus.active
     obj.membership_cancelled_at = None
@@ -378,6 +475,46 @@ def cancel_membership(
         if payload.cancelled_at
         else datetime.utcnow()
     )
+
+    db.commit()
+    db.refresh(obj)
+    return _serialize_user_single(db, obj)
+
+
+# ---------------------------------------------------------------------------
+# Plan de membresía (`membership-plans`, D2): mismo endpoint sirve al cambio de
+# plan y a la asignación inicial de un miembro preexistente sin plan (D3).
+# No exige membresía activa (D2.1): un miembro dado de baja también puede
+# recibir plan, para no quedar sin salida frente a `activate_membership`
+# (I10). Solo se rechaza a quien nunca tuvo perfil de miembro.
+# ---------------------------------------------------------------------------
+
+@router.post("/{user_id}/plan", response_model=schemas.UserOut)
+def change_user_plan(
+    user_id: str,
+    payload: schemas.UserPlanChangeIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    obj = _get_user_or_404(db, user_id)
+    require_can_manage_user(current_user, obj.role)
+
+    if obj.membership_status == MembershipStatus.none:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "El usuario no tiene perfil de miembro")
+
+    plan = db.get(models.MembershipPlan, payload.membership_plan_id)
+    if plan is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Plan no encontrado")
+    if not plan.is_active:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "El plan indicado está inactivo")
+    if obj.membership_plan_id == plan.id:
+        raise HTTPException(status.HTTP_409_CONFLICT, "El usuario ya tiene ese plan")
+
+    # Aplica únicamente a los próximos pagos (S5): no toca ninguna fila de
+    # `payments` ya registrada.
+    obj.membership_plan_id = plan.id
+    obj.plan_since = date.today()
+    obj.plan_changed_by_user_id = current_user.id
 
     db.commit()
     db.refresh(obj)

@@ -114,8 +114,9 @@ Dos caminos, según el rol (D4, D10):
 
 ## 4. Flujos principales
 
-1. **Alta de miembro.** Usuarios → Nuevo → nombre, apellido, email, celular, plan → crear →
-   la ficha ofrece "Invitar".
+1. **Alta de miembro.** Usuarios → Nuevo → nombre, apellido, email, celular, **plan**
+   (selector de planes activos, obligatorio) → crear → la ficha ofrece "Invitar". Los planes se
+   administran en Pagos → Planes (ver [03-membresias-y-pagos.md](03-membresias-y-pagos.md)).
 2. **Invitar.** Ficha → Invitar → modal con el link (copiar) y, si hay celular, el botón de
    WhatsApp → el Dueño lo manda por donde quiera. Estado pasa a "invitación pendiente".
 3. **Aceptar invitación (Miembro).** Abre el link → define contraseña → entra al portal.
@@ -152,7 +153,7 @@ Dos caminos, según el rol (D4, D10):
 
 | # | Brecha | Depende de | Prioridad |
 |---|---|---|---|
-| U-1 | Plan obligatorio en el alta de Miembro, visible en ficha y listado. | M1 de membresías | Alta |
+| U-1 | Plan obligatorio en el alta de Miembro (selector de planes activos), cambiable desde la ficha y visible en ficha y listado. | M1 de membresías | Alta |
 | U-2 | Email obligatorio al crear un Miembro, con mensaje claro (U2). | — | Alta, chica |
 | U-3 | Invitación con un solo link y sin envío de email: retirar el envío SMTP y la verificación por canal, celular opcional para invitar, corregir los textos del diálogo (D11). | — | Alta: cierra el flujo de acceso tal como va a funcionar. |
 | U-4 | Resetear acceso desde la ficha (U5). | — | Media |

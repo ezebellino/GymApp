@@ -59,6 +59,9 @@ class UserBase(BaseSchema):
 class UserCreate(UserBase):
     role: Role = "member"
     password: Optional[str] = Field(None, min_length=6, max_length=100)
+    # Obligatorio solo para role == "member" (`membership-plans`): se valida en el
+    # endpoint, no acá, porque la obligatoriedad es condicional al rol.
+    membership_plan_id: Optional[str] = None
 
 
 class UserUpdate(BaseSchema):
@@ -84,6 +87,14 @@ class UserUpdate(BaseSchema):
         return stripped.lower() if stripped else stripped
 
 
+class MembershipPlanSummary(BaseSchema):
+    """Proyección liviana de `MembershipPlan` para embeber en `UserOut` (D2)."""
+
+    id: str
+    name: str
+    current_amount: Optional[int] = None
+
+
 class UserOut(BaseSchema):
     id: str
     first_name: str
@@ -106,6 +117,11 @@ class UserOut(BaseSchema):
     invitation_status: InvitationStatus
     created_at: datetime
     theme_preference: Optional[ThemeMode] = None
+    # `membership-plans`: opcionales a propósito (D5 del design de ese change) aunque
+    # el backend siempre los mande — los `makeUser` del frontend construyen `User`
+    # literal y no deben romper.
+    membership_plan: Optional[MembershipPlanSummary] = None
+    plan_since: Optional[date] = None
 
 
 class UserSummary(BaseSchema):
@@ -126,6 +142,22 @@ class ThemeModeIn(BaseSchema):
 
 class MembershipCancelIn(BaseSchema):
     cancelled_at: Optional[datetime] = None
+
+
+class MembershipActivateIn(BaseSchema):
+    """`POST /users/{user_id}/membership/activate` (D2.2): si el usuario no tiene
+    plan asignado, este campo lo asigna y activa la membresía en la misma
+    operación. Opcional para que el `{}` que ya manda el frontend siga siendo
+    válido cuando el usuario ya tiene plan."""
+
+    membership_plan_id: Optional[str] = None
+
+
+class UserPlanChangeIn(BaseSchema):
+    """`POST /users/{user_id}/plan` (`membership-plans`, D2): sirve tanto al cambio
+    de plan como a la asignación inicial de un miembro preexistente sin plan."""
+
+    membership_plan_id: str
 
 
 PaymentMethod = Literal["cash", "transfer"]
@@ -647,3 +679,62 @@ def _bucket_expr(column, bucket: Literal["day", "week", "month"]):
     if bucket == "week":
         return func.date_trunc("week", with_tz)
     return func.date_trunc("month", with_tz)
+
+
+# ---------------------------------------------------------------------------
+# Planes de membresía (`membership-plans`, design D1/D2)
+# ---------------------------------------------------------------------------
+
+
+class MembershipPlanBase(BaseSchema):
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+    description: Optional[Annotated[str, Field(max_length=500)]] = None
+
+    @field_validator("name", "description", mode="before")
+    @classmethod
+    def strip_strings(cls, value):
+        return _strip_or_none(value)
+
+
+class MembershipPlanCreate(MembershipPlanBase):
+    # El precio inicial es obligatorio (D2): un plan sin precio no sirve para nada.
+    amount: Annotated[int, Field(ge=0)]
+
+
+class MembershipPlanUpdate(BaseSchema):
+    # Nunca precio ni is_active (D2): eso va por endpoints/subrecursos dedicados.
+    name: Optional[Annotated[str, Field(min_length=1, max_length=120)]] = None
+    description: Optional[Annotated[str, Field(max_length=500)]] = None
+
+    @field_validator("name", "description", mode="before")
+    @classmethod
+    def strip_strings(cls, value):
+        return _strip_or_none(value)
+
+
+class MembershipPlanPriceCreate(BaseSchema):
+    amount: Annotated[int, Field(ge=0)]
+    effective_from: Optional[date] = None
+
+
+class MembershipPlanPriceOut(BaseSchema):
+    id: str
+    amount: int
+    effective_from: date
+    created_at: datetime
+    created_by_user_id: Optional[str] = None
+
+
+class MembershipPlanOut(BaseSchema):
+    id: str
+    name: str
+    description: Optional[str] = None
+    is_active: bool
+    current_price: Optional[MembershipPlanPriceOut] = None
+    members_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class MembershipPlanDetail(MembershipPlanOut):
+    price_history: list[MembershipPlanPriceOut]

@@ -9,7 +9,7 @@ archivo, en cambio, lo importa solo quien lo pide: se carga una sola vez. Por es
 tests que necesitan crear usuarios ad-hoc además de los fixtures estándar.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 from app import models
 from app.auth import hash_password
@@ -69,3 +69,36 @@ def create_user(
     session.commit()
     session.refresh(user)
     return user
+
+
+def create_plan(client, headers, *, name="General", description=None, amount=15000):
+    """Crea un plan de membresía vía API (`membership-plans`) y devuelve el body ya
+    parseado. Helper reutilizable por `test_membership_plans.py` y
+    `test_user_plan.py`."""
+    response = client.post(
+        "/membership-plans/",
+        json={"name": name, "description": description, "amount": amount},
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def assign_plan_to_member(db_session, member):
+    """Asigna un plan directo en la base, sin pasar por la API (sin `client`/
+    `headers` a mano). Reactivar la membresía exige plan (`membership-plans`,
+    invariante I2); tests que no ejercitan esa regla de por sí necesitan uno
+    igual para poder activar/reactivar. Hallazgo 10 de verification.md: antes
+    vivía copiado en `test_membership.py` y `test_routine_assignments.py`."""
+    plan = models.MembershipPlan(
+        name=f"Plan {member.id}", name_normalized=f"plan {member.id}", is_active=True
+    )
+    db_session.add(plan)
+    db_session.flush()
+    db_session.add(models.MembershipPlanPrice(plan_id=plan.id, amount=10000, effective_from=date.today()))
+    # I12: las tres columnas de plan se escriben siempre juntas — ningún
+    # camino de la API deja `plan_since` en `NULL` con plan asignado, así que
+    # este helper tampoco (hallazgo 4 de la segunda pasada de verification.md).
+    member.membership_plan_id = plan.id
+    member.plan_since = date.today()
+    db_session.commit()

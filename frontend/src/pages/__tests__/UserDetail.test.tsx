@@ -466,6 +466,181 @@ describe("ficha de detalle de un usuario", () => {
     });
   });
 
+  describe("plan de membresia (add-membership-plans)", () => {
+    function jsonResponseWithHeaders(data: unknown, total?: number) {
+      return Promise.resolve({
+        data,
+        status: 200,
+        statusText: "OK",
+        headers: total !== undefined ? { "x-total-count": String(total) } : {},
+        config: {},
+      } as any);
+    }
+
+    it("muestra el plan vigente del miembro y permite cambiarlo", async () => {
+      seedRole("owner");
+      let planId = "plan-1";
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url === "/users/u-1") {
+          return jsonResponse(
+            makeUser({
+              membership_plan: { id: planId, name: "Estudiante", current_amount: 20000 },
+              plan_since: "2026-01-01",
+            })
+          );
+        }
+        if (url === "/membership-plans/") {
+          return jsonResponseWithHeaders(
+            [
+              { id: "plan-1", name: "Estudiante", is_active: true, members_count: 1, description: null, created_at: "2026-01-01T00:00:00", updated_at: "2026-01-01T00:00:00", current_price: { id: "p1", amount: 20000, effective_from: "2026-01-01", created_at: "2026-01-01T00:00:00" } },
+              { id: "plan-2", name: "Full", is_active: true, members_count: 1, description: null, created_at: "2026-01-01T00:00:00", updated_at: "2026-01-01T00:00:00", current_price: { id: "p2", amount: 30000, effective_from: "2026-01-01", created_at: "2026-01-01T00:00:00" } },
+            ],
+            2
+          );
+        }
+        return jsonResponse({});
+      });
+      vi.mocked(api.post).mockImplementation((url: string) => {
+        if (url === "/users/u-1/plan") {
+          planId = "plan-2";
+          return jsonResponse(
+            makeUser({
+              membership_plan: { id: "plan-2", name: "Full", current_amount: 30000 },
+              plan_since: "2026-01-05",
+            })
+          );
+        }
+        return jsonResponse({});
+      });
+
+      renderAt("/users/u-1");
+      await screen.findByRole("heading", { name: "Ana Gomez" });
+
+      expect(screen.getByText(/Estudiante/)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Cambiar plan" }));
+      const dialog = await screen.findByRole("dialog", { hidden: true });
+      await within(dialog).findByRole("option", { name: "Full" });
+      const select = within(dialog).getByRole("combobox");
+      fireEvent.change(select, { target: { value: "plan-2" } });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Cambiar plan" }));
+
+      await waitFor(() => {
+        expect(api.post).toHaveBeenCalledWith("/users/u-1/plan", {
+          membership_plan_id: "plan-2",
+        });
+      });
+    });
+
+    it("muestra Sin plan y ofrece asignar plan a un miembro sin plan", async () => {
+      seedRole("owner");
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url === "/users/u-1") {
+          return jsonResponse(makeUser({ membership_plan: null, plan_since: null }));
+        }
+        if (url === "/membership-plans/") {
+          return jsonResponseWithHeaders([], 0);
+        }
+        return jsonResponse({});
+      });
+
+      renderAt("/users/u-1");
+      await screen.findByRole("heading", { name: "Ana Gomez" });
+
+      expect(screen.getByText("Sin plan")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Asignar plan" })).toBeInTheDocument();
+    });
+
+    it("ofrece asignar plan a un miembro dado de baja sin plan", async () => {
+      // design D2.1: "Asignar plan" no depende de que la membresía esté activa
+      // — un miembro cancelado y sin plan también tiene que poder recibir uno.
+      seedRole("owner");
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url === "/users/u-1") {
+          return jsonResponse(
+            makeUser({
+              membership_status: "cancelled",
+              membership_cancelled_at: "2026-01-10T00:00:00",
+              membership_plan: null,
+              plan_since: null,
+            })
+          );
+        }
+        if (url === "/membership-plans/") {
+          return jsonResponseWithHeaders([], 0);
+        }
+        return jsonResponse({});
+      });
+
+      renderAt("/users/u-1");
+      await screen.findByRole("heading", { name: "Ana Gomez" });
+
+      expect(screen.getByText("Sin plan")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Asignar plan" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Reactivar membresía" })).toBeInTheDocument();
+    });
+
+    it("muestra la seccion de plan a un Coach con perfil de miembro (hallazgo 1)", async () => {
+      // La sección de plan sigue `membership_status !== "none"` (perfil de
+      // miembro), no `role === "member"`: un Coach marcado como miembro del
+      // gimnasio también tiene que poder ver y asignar su plan.
+      seedRole("owner");
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url === "/users/u-1") {
+          return jsonResponse(
+            makeUser({
+              role: "coach",
+              membership_status: "active",
+              membership_plan: null,
+              plan_since: null,
+              invitation_status: "none",
+            })
+          );
+        }
+        if (url === "/membership-plans/") {
+          return jsonResponseWithHeaders([], 0);
+        }
+        return jsonResponse({});
+      });
+
+      renderAt("/users/u-1");
+      await screen.findByRole("heading", { name: "Ana Gomez" });
+
+      expect(screen.getByText("Sin plan")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Asignar plan" })).toBeInTheDocument();
+    });
+
+    it("no muestra la seccion de plan a un rol Miembro sin perfil de miembro (hallazgo 1)", async () => {
+      // A la inversa: un rol Miembro que nunca tuvo perfil de miembro
+      // (`membership_status: "none"`) no debe ofrecer "Asignar plan" — el
+      // backend rechaza ese caso con 400 "El usuario no tiene perfil de
+      // miembro".
+      seedRole("owner");
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url === "/users/u-1") {
+          return jsonResponse(
+            makeUser({
+              membership_status: "none",
+              membership_start_date: null,
+              membership_plan: null,
+              plan_since: null,
+            })
+          );
+        }
+        if (url === "/membership-plans/") {
+          return jsonResponseWithHeaders([], 0);
+        }
+        return jsonResponse({});
+      });
+
+      renderAt("/users/u-1");
+      await screen.findByRole("heading", { name: "Ana Gomez" });
+
+      expect(screen.queryByText("Sin plan")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Asignar plan" })).toBeNull();
+    });
+  });
+
   describe("permisos de gestion segun rol del viewer", () => {
     it("un coach no ve acciones de gestion en la ficha de otro coach", async () => {
       seedRole("coach");

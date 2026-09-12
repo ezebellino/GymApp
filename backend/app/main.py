@@ -7,7 +7,7 @@ from .logging_conf import setup_logging
 from .middleware import RequestLogMiddleware
 from .routers import users, payments, auth, attendance, reports, routines, invitations
 from .routers import settings as settings_router
-from .routers import routine_templates, routine_assignments
+from .routers import routine_templates, routine_assignments, membership_plans
 
 setup_logging(debug=getattr(settings, "DEBUG", False))  # ⬅️ antes de crear/usar loggers
 
@@ -48,6 +48,7 @@ app.include_router(routines.router)
 app.include_router(routine_templates.router)
 app.include_router(routine_assignments.router)
 app.include_router(routine_assignments.my_router)
+app.include_router(membership_plans.router)
 app.include_router(settings_router.router)
 app.include_router(invitations.router)
 
