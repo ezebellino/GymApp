@@ -4,6 +4,7 @@ import { useSignIn } from "@/hooks/useSignIn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toastError } from "@/lib/toast";
+import { APP_NAME } from "@/lib/branding";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -47,11 +48,11 @@ export default function Login() {
         <div className="flex items-center gap-3">
           <img
             src="/mini-espacio-logo.svg"
-            alt="Gym App"
+            alt={APP_NAME}
             className="h-12 w-12 rounded-full object-cover ring-1 ring-border"
           />
           <p className="text-lg font-semibold tracking-tight text-foreground">
-            Gym App
+            {APP_NAME}
           </p>
         </div>
 

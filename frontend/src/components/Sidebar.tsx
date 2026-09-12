@@ -3,6 +3,7 @@ import { LogOut, UserRound } from "lucide-react";
 import { useSessionStore } from "@/stores/session";
 import { preloadRoute } from "@/lib/routePreload";
 import { navItemsForRole } from "@/lib/navigation";
+import { APP_NAME } from "@/lib/branding";
 
 function roleLabel(role: string) {
   if (role === "owner") return "Dueño";
@@ -41,12 +42,12 @@ export default function Sidebar() {
           <section className="warm-accent-bg warm-glow flex w-full items-center gap-3 rounded-xl border border-border p-3.5">
             <img
               src="/mini-espacio-logo.svg"
-              alt="Gym App"
+              alt={APP_NAME}
               className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-border"
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-bold leading-tight text-foreground">
-                Gym App
+                {APP_NAME}
               </p>
               <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-primary-strong/70">
                 Entrenamiento personalizado

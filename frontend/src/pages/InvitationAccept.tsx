@@ -8,6 +8,7 @@ import { normalizeThemeMode } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toastError } from "@/lib/toast";
+import { APP_NAME } from "@/lib/branding";
 
 type InvitationState = {
   first_name: string;
@@ -129,10 +130,10 @@ export default function InvitationAccept() {
           <div className="flex items-center gap-3">
             <img
               src="/mini-espacio-logo.svg"
-              alt="Gym App"
+              alt={APP_NAME}
               className="h-12 w-12 rounded-full object-cover ring-1 ring-border"
             />
-            <p className="text-lg font-semibold tracking-tight text-foreground">Gym App</p>
+            <p className="text-lg font-semibold tracking-tight text-foreground">{APP_NAME}</p>
           </div>
 
           {load.status === "loading" ? (

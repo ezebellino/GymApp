@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, subscribeWithSelector, type PersistStorage, type StorageValue } from "zustand/middleware";
 import type { AppSettings } from "@/types";
+import { APP_NAME } from "@/lib/branding";
 
 export type SettingsState = {
   settings: AppSettings;
@@ -15,7 +16,7 @@ const SETTINGS_STORAGE_KEY = "app_settings";
 // backend); Settings.tsx conserva su propia copia porque no se migra a este
 // store (dec. 12 / dec. 15 del design: solo cambia su persistencia).
 export const DEFAULT_SETTINGS: AppSettings = {
-  gym_name: "Mini Espacio",
+  gym_name: APP_NAME,
   admin_name: "Fabian Aguirre (Manga)",
   // Legacy/deprecado (ver types.ts): valor sin uso, se conserva solo porque
   // coincide con el seed del backend.
@@ -37,7 +38,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   allow_cash: true,
   allow_transfer: true,
   onboarding_message:
-    "Bienvenido a Mini Espacio. Ante dudas sobre pagos, asistencias o rutinas, consulta en recepción.",
+    `Bienvenido a ${APP_NAME}. Ante dudas sobre pagos, asistencias o rutinas, consulta en recepción.`,
 };
 
 // Porcion de `SettingsState` que efectivamente persiste este storage a

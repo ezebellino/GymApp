@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useInviteUserMutation } from "@/services/users.queries";
 import { toastError, toastSuccess } from "@/lib/toast";
 import type { User } from "@/types";
+import { APP_NAME } from "@/lib/branding";
 
 type Props = {
   open: boolean;
@@ -59,7 +60,7 @@ export default function InviteUserDialog({ open, onOpenChange, user }: Props) {
     const digits = user.phone.replace(/\D/g, "");
     const normalizedPhone = digits.startsWith("54") ? digits : `54${digits}`;
     const message = encodeURIComponent(
-      `Hola ${user.first_name}, te invitamos a crear tu acceso al portal de Mini Espacio: ${link}`
+      `Hola ${user.first_name}, te invitamos a crear tu acceso al portal de ${APP_NAME}: ${link}`
     );
     window.open(
       `https://wa.me/${normalizedPhone}?text=${message}`,

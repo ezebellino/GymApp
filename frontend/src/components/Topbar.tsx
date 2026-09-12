@@ -4,6 +4,7 @@ import { Menu, Moon, Sun, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Role } from "@/types";
 import { useSessionStore } from "@/stores/session";
+import { APP_NAME } from "@/lib/branding";
 import { useThemeStore } from "@/stores/theme";
 import { THEME_MODES } from "@/lib/theme";
 import { useUpdateMyThemeMutation } from "@/services/me.queries";
@@ -105,7 +106,7 @@ export default function Topbar() {
         <div className="flex items-center gap-3 lg:hidden">
           <img
             src="/mini-espacio-logo.svg"
-            alt="Mini Espacio"
+            alt={APP_NAME}
             className="h-9 w-auto object-contain"
           />
         </div>

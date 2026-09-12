@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import { APP_NAME } from "@/lib/branding";
 
 // Todas las vistas importan el mismo singleton axios `@/lib/http` (default export):
 // hay exactamente un seam HTTP y se stubea el modulo entero. No usar
@@ -20,7 +21,7 @@ const EMPTY_LIST_ROUTES = ["/users", "/payments", "/attendance"];
 export function defaultPayloadFor(url: string): unknown {
   if (url.startsWith("/settings")) {
     return {
-      gym_name: "Mini Espacio",
+      gym_name: APP_NAME,
       admin_name: "Admin de Test",
       default_fee: 30000,
     };

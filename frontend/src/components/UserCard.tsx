@@ -19,6 +19,7 @@ import type {
 } from "@/types";
 import PaymentDialog from "./PaymentDialog";
 import AttendanceCalendar from "./AttendanceCalendar";
+import { APP_NAME } from "@/lib/branding";
 import LastPayments from "./LastPayments";
 import EditUserDialog from "./EditUserDialog";
 import api from "@/lib/http";
@@ -310,7 +311,7 @@ export default function UserCard({
         44,
         78,
         8,
-        "Mini Espacio | Seguimiento de progreso | Entrenamiento, constancia y evolucion real.",
+        `${APP_NAME} | Seguimiento de progreso | Entrenamiento, constancia y evolucion real.`,
         zinc
       )
     );
@@ -395,7 +396,7 @@ export default function UserCard({
     try {
       const { blob, filename } = await fetchProgressReport();
       let message =
-        `Hola ${client.full_name}, te compartimos tu reporte de progreso de Mini Espacio. ` +
+        `Hola ${client.full_name}, te compartimos tu reporte de progreso de ${APP_NAME}. ` +
         `Segui asi, tu constancia ya esta mostrando resultados.`;
 
       try {

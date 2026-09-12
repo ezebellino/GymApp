@@ -18,9 +18,10 @@ import { useSessionStore } from "@/stores/session";
 import { useSettingsStore } from "@/stores/settings";
 import type { AppSettings } from "@/types";
 import { toastError, toastSuccess } from "@/lib/toast";
+import { APP_NAME } from "@/lib/branding";
 
 const DEFAULT_SETTINGS: AppSettings = {
-  gym_name: "Mini Espacio",
+  gym_name: APP_NAME,
   admin_name: "Fabian Aguirre (Manga)",
   // Legacy/deprecado (ver types.ts): el tema es ahora una preferencia del
   // usuario, no del negocio; este valor no se lee ni se envia.
@@ -42,14 +43,14 @@ const DEFAULT_SETTINGS: AppSettings = {
   allow_cash: true,
   allow_transfer: true,
   onboarding_message:
-    "Bienvenido a Mini Espacio. Ante dudas sobre pagos, asistencias o rutinas, consulta en recepción.",
+    `Bienvenido a ${APP_NAME}. Ante dudas sobre pagos, asistencias o rutinas, consulta en recepción.`,
 };
 
 function normalizeSettings(settings: AppSettings): AppSettings {
   return {
     ...settings,
     gym_name:
-      settings.gym_name === "Libre Funcional" ? "Mini Espacio" : settings.gym_name,
+      settings.gym_name === "Libre Funcional" ? APP_NAME : settings.gym_name,
     admin_name: settings.admin_name || "Fabian Aguirre (Manga)",
     contact_email:
       settings.contact_email === "owner@librefuncional.com"
@@ -65,7 +66,7 @@ function normalizeSettings(settings: AppSettings): AppSettings {
     onboarding_message:
       settings.onboarding_message ===
       "Bienvenido a Libre Funcional. Ante dudas sobre pagos o asistencias, consulta en recepcion."
-        ? "Bienvenido a Mini Espacio. Ante dudas sobre pagos, asistencias o rutinas, consulta en recepción."
+        ? `Bienvenido a ${APP_NAME}. Ante dudas sobre pagos, asistencias o rutinas, consulta en recepción.`
         : settings.onboarding_message,
   };
 }

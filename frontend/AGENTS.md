@@ -29,7 +29,7 @@ src/
   App.jsx           # rutas de la app
   main.jsx          # entrypoint, monta <QueryClientProvider client={queryClient}>
   components/       # componentes compartidos, incluyendo ui/ (shadcn)
-  hooks/            # custom hooks (useDebounce, useDashboardData, useLegacyRefetchBridge, useSignIn)
+  hooks/            # custom hooks (useDebounce, useLegacyRefetchBridge, useSignIn)
   lib/              # utilidades (cn, formateo, queryClient.ts, theme.ts, etc.)
   pages/            # una carpeta/archivo por vista, mapea a rutas de App.jsx
   services/         # capa de acceso a datos del servidor, dos archivos por dominio (ver abajo)
@@ -293,6 +293,22 @@ completo con acciones).
   acción de marcar serie como hecha (spec `member-routine-view`, fuera de alcance). Tests:
   `pages/__tests__/Routines.test.tsx`, `pages/__tests__/RoutineTemplateDetail.test.tsx`,
   `pages/__tests__/UserRoutine.test.tsx` y `components/__tests__/MemberTemplatesCard.test.tsx`.
+- **Nombre de la app**: nunca se escribe literal en un componente. `src/lib/branding.ts`
+  exporta `APP_NAME`, que sale de `VITE_APP_NAME` (ver `.env.example`) con `"Gym App"` de
+  fallback — un deploy que no defina la variable sigue mostrando un nombre válido. Lo consumen
+  el Sidebar, el Topbar, Login, InvitationAccept, `InviteUserDialog`, `UserCard` (PDF y mensaje
+  de WhatsApp), los defaults de `stores/settings.ts` y `pages/Settings.tsx`, y `main.jsx` para
+  el `document.title` (el `<title>` de `index.html` es solo el fallback estático). Las menciones
+  hardcodeadas a "Mini Espacio" se retiraron por completo del código.
+- **Secciones en "To Do"**: Seguimiento (`/dashboard`), Asistencias (`/attendance`) y Reportes
+  (`/reports`) se vaciaron a pedido del dueño — sus componentes, KPIs, filtros, gráficos y
+  modales ya no existen. Las tres páginas son un `<ComingSoon />`
+  (`components/ComingSoon.tsx`), y conservan a propósito su ruta en `App.jsx`, su entrada en
+  `NAV_ITEMS` y su importer en `routePreload.ts`: el usuario entra y ve que está pendiente, en
+  vez de toparse con un 404. `hooks/useDashboardData.ts` se borró (no le quedaba caller). La
+  capa `services/attendance.ts`/`attendance.queries.ts` **se conserva** aunque hoy no tenga
+  consumidor, y `components/AttendanceCalendar.tsx` sigue en uso desde `UserCard`. Al rehacer
+  alguna de las tres, lo primero es actualizar su spec en `openspec/specs/`.
 - **Estilos**: Tailwind v4 (config vía `@tailwindcss/vite`, sin `tailwind.config.js` clásico si
   no existe — confirmar antes de asumir). Evitar CSS inline salvo casos puntuales.
 - **Layout del shell autenticado**: el contenedor de contenido (gutter horizontal y ancho máximo)
@@ -353,7 +369,11 @@ completo con acciones).
     `refetchOnWindowFocus: false` — sin esto un fetcher que rechaza reintenta con backoff y el
     test se cuelga hasta el timeout, y jsdom puede disparar refetches después del `cleanup()`.
     Acepta un `queryClient` propio por parámetro para tests que lo necesiten.
-  - Cobertura actual: un test de render por cada vista con spec (`Login`, `Dashboard`, `Settings`),
+  - Cobertura actual: un test de render por cada vista con spec (`Login`, `Settings`),
+    más `pages/__tests__/Dashboard.test.tsx`, que tras el vaciado cubre las **tres** secciones
+    pendientes (Seguimiento, Asistencias, Reportes): que cada una renderiza su encabezado y el
+    badge "To Do", sin mockear `@/lib/http` a propósito — si alguna vuelve a llamar a la API, el
+    test se cae con un XHR real de jsdom y avisa,
     más `Users.tsx` (columnas de la spec y los 4 estados del círculo — verde/naranja/rojo/ausente,
     afirmando sobre el texto accesible del indicador, no la clase de color; también que "Crear
     usuario" abre `CreateUserDialog` y que "Ver" navega a la ficha — este segundo con un `<Routes>`
