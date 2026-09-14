@@ -7,24 +7,20 @@ import {
   fetchMyTemplates,
   fetchRoutineTemplate,
   fetchRoutineTemplates,
-  fetchTrainingDays,
   fetchUserAssignments,
   removeAssignment,
   removeAssignmentBase,
+  saveRoutineTemplateDays,
   updateAssignmentBase,
   updateAssignmentStatus,
-  updateExerciseBase,
   updateRoutineTemplate,
-  updateTemplateExercise,
   type AssignTemplateInput,
   type CreateRoutineTemplateInput,
+  type SaveRoutineTemplateDaysInput,
   type UpdateAssignmentBaseInput,
-  type UpdateExerciseBaseInput,
   type UpdateRoutineTemplateInput,
-  type UpdateTemplateExerciseInput,
 } from "./routineTemplates";
 import { queryKeys } from "./queryKeys";
-import type { RoutineTemplateDetail } from "@/types";
 
 // --- Lecturas -------------------------------------------------------------
 
@@ -40,18 +36,6 @@ export function useRoutineTemplateQuery(id: string | undefined) {
     queryKey: queryKeys.routineTemplates.detail(id ?? ""),
     queryFn: () => fetchRoutineTemplate(id as string),
     enabled: Boolean(id),
-  });
-}
-
-// Días del catálogo (Día 1..4), usado por el selector de días de
-// Crear/Editar plantilla. No es una key de dominio propia (no invalida ni
-// se reusa en otra vista): se mantiene simple en vez de sumar un tercer
-// dominio a `queryKeys.ts` para una lectura de catálogo casi estático.
-export function useTrainingDaysQuery() {
-  return useQuery({
-    queryKey: ["routineTemplates", "trainingDays"] as const,
-    queryFn: fetchTrainingDays,
-    staleTime: 5 * 60_000,
   });
 }
 
@@ -110,74 +94,29 @@ export function useDeleteRoutineTemplateMutation() {
     mutationFn: (id: string) => deleteRoutineTemplate(id),
     onSuccess: () => {
       // Borrar una plantilla también deja de contar sus asignaciones (design
-      // D12): sin esto, la ficha de un usuario podría seguir mostrando una
-      // asignación a una plantilla que ya no existe.
+      // D12 de `add-routine-templates`): sin esto, la ficha de un usuario
+      // podría seguir mostrando una asignación a una plantilla que ya no
+      // existe.
       queryClient.invalidateQueries({ queryKey: queryKeys.routineTemplates.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.routineAssignments.all });
     },
   });
 }
 
-// Autosave del toggle activo/estrategia de un ejercicio de la plantilla
-// (design D5/D9): la respuesta trae la configuración con su `planned_sets`
-// ya recalculado y se escribe directo en la caché del detalle con
-// `setQueryData`, sin refetch — el coach nunca ve un botón "Guardar".
-export function useUpdateTemplateExerciseMutation(templateId: string) {
+// Guardado explícito del borrador de días/ejercicios (design D5/D11 de
+// `template-owned-routine-days`): un único `PUT` de reemplazo completo. La
+// respuesta reemplaza la cache del detalle con `setQueryData` (sin refetch)
+// y se invalida `routineAssignments.all`, porque el plan del Miembro puede
+// depender de esta plantilla (D10, "los cambios se ven en vivo").
+export function useSaveRoutineTemplateDaysMutation(templateId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      dayId,
-      exerciseId,
-      input,
-    }: {
-      dayId: string;
-      exerciseId: string;
-      input: UpdateTemplateExerciseInput;
-    }) => updateTemplateExercise(templateId, dayId, exerciseId, input),
-    onSuccess: (updatedExercise, { dayId, exerciseId }) => {
-      queryClient.setQueryData<RoutineTemplateDetail | undefined>(
-        queryKeys.routineTemplates.detail(templateId),
-        (current) => {
-          if (!current) return current;
-          return {
-            ...current,
-            days: current.days.map((day) =>
-              day.day_id !== dayId
-                ? day
-                : {
-                    ...day,
-                    exercises: day.exercises.map((exercise) =>
-                      exercise.exercise_id !== exerciseId ? exercise : updatedExercise,
-                    ),
-                  },
-            ),
-          };
-        },
-      );
-      // El plan del miembro puede depender de esta plantilla (design D12).
-      queryClient.invalidateQueries({ queryKey: queryKeys.routineAssignments.all });
-    },
-  });
-}
-
-// --- Mutaciones: base del ejercicio del catálogo ---------------------------
-
-export function useUpdateExerciseBaseMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      exerciseId,
-      input,
-    }: {
-      exerciseId: string;
-      input: UpdateExerciseBaseInput;
-    }) => updateExerciseBase(exerciseId, input),
-    onSuccess: () => {
-      // Cambia el plan calculado de toda plantilla que incluya este
-      // ejercicio (design D12).
-      queryClient.invalidateQueries({ queryKey: queryKeys.routineTemplates.all });
+    mutationFn: (input: SaveRoutineTemplateDaysInput) =>
+      saveRoutineTemplateDays(templateId, input),
+    onSuccess: (detail) => {
+      queryClient.setQueryData(queryKeys.routineTemplates.detail(templateId), detail);
+      queryClient.invalidateQueries({ queryKey: queryKeys.routineTemplates.list() });
       queryClient.invalidateQueries({ queryKey: queryKeys.routineAssignments.all });
     },
   });

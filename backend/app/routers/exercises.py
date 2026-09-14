@@ -39,7 +39,6 @@ from ..config import settings
 from ..deps import get_db, get_storage
 from ..models import UserRole
 from ..storage import ObjectStorage
-from .routines import sync_exercise_day_links
 
 router = APIRouter(
     prefix="/exercises",
@@ -91,12 +90,12 @@ def _get_exercise_or_404(db: Session, exercise_id: str) -> models.Exercise:
 
 
 def _exercise_in_use(db: Session, exercise_id: str) -> bool:
-    """`TrainingDayExercise` (vínculo automático del seed) no cuenta como uso
-    (S1, requirement "Borrar un ejercicio que nunca se usó"): solo plantilla de
-    rutina, sesión/registro de entrenamiento, o ajuste de base por cliente."""
+    """Requirement "Borrar un ejercicio que nunca se usó": solo cuenta como uso
+    estar agregado a un día de plantilla, tener un registro de entrenamiento, o
+    tener un ajuste de base por cliente."""
     return (
-        db.query(models.RoutineTemplateExercise.id)
-        .filter(models.RoutineTemplateExercise.exercise_id == exercise_id)
+        db.query(models.RoutineTemplateDayExercise.id)
+        .filter(models.RoutineTemplateDayExercise.exercise_id == exercise_id)
         .first()
         is not None
         or db.query(models.WorkoutLog.id).filter(models.WorkoutLog.exercise_id == exercise_id).first()
@@ -245,11 +244,6 @@ def create_exercise(
     db.add(exercise)
     db.flush()
     _set_training_types(db, exercise.id, payload.training_types)
-    # Vínculo automático con el catálogo fijo de días, derivado del grupo
-    # muscular (mismo comportamiento que el `POST /routines/exercises`
-    # retirado, task 4.12): sin esto el ejercicio nuevo no sería seleccionable
-    # en ninguna plantilla de rutina.
-    sync_exercise_day_links(db, exercise.id, exercise.muscle_group, preserve_active=True)
     _commit_or_conflict_on_name(db)
     db.refresh(exercise)
 
@@ -279,7 +273,6 @@ def update_exercise(
 
     if "muscle_group" in updates:
         exercise.muscle_group = payload.muscle_group.value if payload.muscle_group else None
-        sync_exercise_day_links(db, exercise.id, exercise.muscle_group, preserve_active=True)
 
     if "external_media_url" in updates:
         exercise.external_media_url = payload.external_media_url
@@ -302,14 +295,16 @@ def activate_exercise(
     if exercise.is_active:
         raise HTTPException(status.HTTP_409_CONFLICT, "El ejercicio ya está activo")
     exercise.is_active = True
-    # Task 12.8 (H6, design D7.1): `activate` **no** toca los `day_links`. La
-    # primera implementación los reactivaba todos, en espejo de `deactivate` —
-    # pero `deactivate` ya pisó esa selección con `False`, así que "todo vuelve
-    # a activo" no restaura nada: inventa el estado más invasivo posible y pisa
-    # en silencio la curación por día que el staff hizo con
-    # `PUT /routines/days/{day_id}/selection`. Reactivar deja al ejercicio igual
-    # que uno recién creado: en el catálogo, sin estar seleccionado en ningún
-    # día (invariante I10).
+    # `activate` no toca `day_links` (`drop-static-exercise-catalog`, design
+    # D10.7): el vínculo día↔ejercicio es puramente derivado del `muscle_group`
+    # y ya no tiene estado propio del que "reactivar" nada. El efecto que se
+    # buscaba —que un ejercicio reactivado vuelva a ofrecerse como opción para
+    # su día— lo da `Exercise.is_active` en `_offered_as_new_option` y en el
+    # predicado equivalente de `routine_assignments.py`, que es donde
+    # corresponde. La invariante I10 de `add-exercise-catalog` (que este
+    # comentario protegía) se retira junto con el concepto que protegía —
+    # `PUT /routines/days/{day_id}/selection`, sin requirement y sin
+    # consumidor, se retiró en el mismo change (D10).
     db.commit()
     db.refresh(exercise)
     return _serialize_exercise(exercise, storage=storage)
@@ -326,10 +321,12 @@ def deactivate_exercise(
         raise HTTPException(status.HTTP_409_CONFLICT, "El ejercicio ya está inactivo")
     # No se toca el storage ni las plantillas/sesiones que ya lo referencian
     # (design D6, invariante I5): solo se lo saca del listado activo y de las
-    # opciones para agregar a una plantilla nueva.
+    # opciones para agregar a una plantilla nueva. Ya no apaga los `day_links`
+    # (`drop-static-exercise-catalog`, design D10.7): no hay nada que apagar —
+    # el vínculo es puramente derivado y "un ejercicio desactivado no se
+    # ofrece" lo da `Exercise.is_active` en `_offered_as_new_option` y en el
+    # predicado equivalente del plan del Miembro.
     exercise.is_active = False
-    for link in exercise.day_links:
-        link.is_active = False
     db.commit()
     db.refresh(exercise)
     return _serialize_exercise(exercise, storage=storage)

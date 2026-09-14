@@ -24,7 +24,6 @@ app/
   config.py             # settings (pydantic-settings, lee .env)
   database.py            # engine + sesión SQLAlchemy
   storage.py               # puerto ObjectStorage (media de ejercicios, add-exercise-catalog)
-  routine_catalog.py      # catálogo estático de ejercicios por grupo muscular/día
   progression.py           # motor de progresión (add-routine-templates), función pura
 migrations/               # Alembic — versions/ tiene el historial de migraciones
 scripts/                  # utilidades one-off: create_owner, seeds, import CSV, etc.
@@ -58,6 +57,21 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
 - **Modelos**: cualquier cambio en `app/models.py` necesita una migración Alembic nueva. Revisá
   el autogenerate (`alembic revision --autogenerate`) siempre a mano antes de aplicar — a veces
   genera drops o cambios de tipo no deseados.
+- **Migraciones en el deploy (Railway)**: el deploy **sí** aplica las migraciones pendientes
+  solo. `backend/railway.json` declara `deploy.preDeployCommand: ["python -m alembic upgrade
+  head"]`, que Railway corre en un contenedor aparte del build nuevo, con las mismas variables de
+  entorno (incluida `DATABASE_URL`) y **antes** de arrancar el proceso web. Consecuencias:
+  - Si la migración falla, el deploy queda en `failed` y **el deploy anterior sigue sirviendo
+    tráfico**: no queda código nuevo contra un esquema viejo. El error se ve en los logs del
+    servicio (sección Deploy), no en los del proceso web.
+  - `alembic upgrade head` es idempotente: en un deploy sin migraciones nuevas no hace nada y
+    agrega unos segundos.
+  - **No** corre en el proceso web: el `CMD` del `Dockerfile` y el `startCommand` siguen siendo
+    solo uvicorn, para que las migraciones nunca bloqueen el healthcheck de `/health`.
+  - Sigue valiendo la regla de no dejar dos heads de Alembic: `alembic upgrade head` explota con
+    `Multiple head revisions` y ahí el deploy falla entero, no solo una query suelta.
+  - Ya no hace falta `railway run alembic upgrade head` a mano antes de promover un build. Queda
+    como herramienta de rescate si hay que aplicar algo fuera de un deploy.
 - **Auth**: el enum `models.UserRole` tiene **tres** roles — `owner` (Dueño), `coach` (Coach) y
   `member` (Miembro, el portal self-service; renombrado desde `user` en `unify-clients-into-users`
   — el modelo `Client` ya no existe, se fusionó en `User`). Los nombres en español son solo de
@@ -74,51 +88,72 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
 - **CORS**: origins permitidos vienen de `CORS_ORIGINS` en `.env` (coma-separado). Si agregás un
   dominio de frontend nuevo, actualizá `.env.example` y `.env.docker.example` también.
 - **Plantillas de rutina, progresión y asignación** (`routine-templates`, `progression-strategies`,
-  `routine-assignment`, `member-routine-view`, change `add-routine-templates`): capa nueva sobre el
-  catálogo compartido de días/ejercicios que ya existía, sin cambiar su semántica.
+  `routine-assignment`, `member-routine-view`, `template-owned-routine-days`): los días de una
+  plantilla son propiedad exclusiva de esa plantilla — no hay ningún catálogo compartido de días
+  ni de vínculos día↔ejercicio (ese diseño, de `add-exercise-catalog`/`drop-static-exercise-catalog`,
+  se retiró entero en `template-owned-routine-days`: `app/routine_catalog.py`, `TrainingDay`,
+  `TrainingDayExercise` y `RoutineTemplateExercise` ya no existen).
   - `app/progression.py`: función pura `plan_sets(strategy, *, sets, reps, weight_kg) ->
     list[PlannedSet]` con las cinco estrategias (Constante, Pirámide, Invertida, Drop set,
     Rest-pause) y sus constantes del sistema (`ROUND_STEP_KG`, `PYRAMID_RATE`, etc., sin endpoint
     que las escriba). Sin imports de SQLAlchemy ni FastAPI; aritmética con `Decimal` y
     `ROUND_HALF_UP` explícito (no `round()`, que usa banker's rounding). El plan se calcula
     **siempre** en el backend, nunca en el frontend.
-  - `app/routers/routine_templates.py` (`/routines/templates`, owner+coach): alta/edición/borrado
-    de plantillas (`RoutineTemplate` + `RoutineTemplateDay`, subconjunto ordenado de
-    `TrainingDay`) y la configuración activo/estrategia por (plantilla, día, ejercicio)
-    (`RoutineTemplateExercise`, filas ralas con fallback a `TrainingDayExercise.is_active` +
-    estrategia Constante cuando no hay fila propia — así un reseed del catálogo
-    (`_ensure_seed_data`) nunca borra la configuración de una plantilla). Nombre único
-    case-insensitive vía columna derivada `name_normalized` (NFC + strip + casefold en Python, no
-    `lower()` de SQL: se comporta distinto en SQLite y Postgres).
+  - **Modelo**: `RoutineTemplate` tiene `days` (`RoutineTemplateDay`, `cascade="all,
+    delete-orphan"`, ordenados por `position`); cada día tiene sus propios `muscle_groups`
+    (`RoutineTemplateDayMuscleGroup`, 0..n) y `exercises` (`RoutineTemplateDayExercise`, PK propia
+    — estar en la tabla **es** estar en el día, no hay flag `is_active` intermedio). `base_sets`/
+    `base_reps`/`base_weight_kg` (default 3/10/0 kg, `DEFAULT_EXERCISE_BASE_*` en `models.py`) y
+    `strategy` viven en `RoutineTemplateDayExercise` — es el **único** lugar del modelo con una
+    base: `Exercise` no tiene columnas de base propia (se dropearon en este change). El mismo
+    ejercicio en dos días, o en dos plantillas, tiene base y estrategia completamente
+    independientes. `RoutineTemplateDay` no tiene columna `name`: el título "Día N" se deriva de
+    `position` en el serializador.
+  - `app/routers/routine_templates.py` (`/routines/templates`, owner+coach):
+    - `POST` toma solo `{name, tag}` y crea la plantilla **y** su Día 1 vacío en la misma
+      transacción — la invariante "toda plantilla tiene ≥1 día" vale desde el `INSERT`, sin
+      depender de un `PUT` encadenado del frontend.
+    - `PATCH` solo edita `name`/`tag`; toda la edición de días pasa por
+      `PUT /routines/templates/{id}/days`.
+    - `PUT /routines/templates/{id}/days` reemplaza el borrador completo (días, grupos musculares
+      y ejercicios) en una sola transacción, con **identidad explícita**: cada día del payload
+      trae `day_id` (conserva la fila, así los `WorkoutLog` que la referencian no se rompen) o
+      `null` (crea un día nuevo). Un día ausente del payload se borra (cascade se lleva sus grupos
+      musculares y ejercicios). El orden de las listas **es** el dato: la posición del día es su
+      índice + 1, el `sort_order` del ejercicio es su índice. Un par (día, ejercicio) nuevo sin
+      `base` toma la constante por defecto; uno existente sin `base` en el payload conserva la
+      suya. Un ejercicio inactivo no se puede **agregar** de nuevo, pero uno que el día ya tenía
+      agregado sobrevive en el detalle aunque el ejercicio se desactive después.
+    - Nombre de plantilla único case-insensitive vía columna derivada `name_normalized` (NFC +
+      strip + casefold en Python, no `lower()` de SQL: se comporta distinto en SQLite y Postgres).
   - `app/routers/routine_assignments.py`: dos routers en el mismo archivo — `router`
     (`/routines/users/{user_id}/templates`, owner+coach, reusa `require_can_manage_user` de
     `deps.py`) para asignar/reasignar una plantilla a un Miembro (estado Activa/Alternativa, como
     máximo una Activa por índice único parcial `ix_routine_assignments_user_active`) y ajustar la
     base de un ejercicio por cliente con autoría (`RoutineAssignmentBase`); y `my_router`
-    (`/routines/my/templates`, rol member) de solo lectura para "Mi rutina", que resuelve la base
-    con precedencia ajuste-de-cliente → catálogo (`_resolve_base`) y omite los ejercicios
-    inactivos. Dar de baja la membresía de un Miembro **no** oculta ni borra sus asignaciones (esos
-    endpoints no filtran por `membership_status`); asignar una plantilla nueva sí exige membresía
-    activa.
-  - El catálogo de ejercicios (`Exercise`) sumó `base_sets`/`base_reps`/`base_weight_kg` (default
-    3/10/0) al flujo existente de alta/edición (`POST`/`PUT /routines/exercises`, sigue
-    `require_role(owner)`, sin cambio de permiso ni pantalla de alta nueva en el frontend).
-  - **Migración manual en Railway**: la migración `add routine templates` (tablas nuevas +
-    columnas de base en `exercises`) **no** corre sola en el deploy (Railway no ejecuta
-    migraciones automáticamente). Antes de promover el build con este código, aplicar
-    `python -m alembic upgrade head` contra la `DATABASE_URL` de producción (por ejemplo con
-    `railway run` sobre el servicio de backend). Hasta que corra, los endpoints nuevos y también
-    los **existentes** de catálogo de ejercicios fallarían con columna inexistente
-    (`exercises.base_sets`).
+    (`/routines/my/templates`, rol member) de solo lectura para "Mi rutina". `_resolve_base` tiene
+    una única precedencia: el ajuste de base por cliente si existe, si no la base propia del par
+    (día, ejercicio) — ya no hay un tercer nivel de "catálogo". Dar de baja la membresía de un
+    Miembro **no** oculta ni borra sus asignaciones (esos endpoints no filtran por
+    `membership_status`); asignar una plantilla nueva sí exige membresía activa.
+  - `WorkoutLog.day_id` es `nullable` con `ondelete="SET NULL"`: quitar un día de una plantilla
+    (o borrarla entera) no borra el histórico de logs, solo desvincula la FK. `day_name` es un
+    snapshot `NOT NULL` (`"Día {position}"`) tomado al insertar, así el histórico conserva una
+    etiqueta legible aunque el día se borre después. La suite depende de que SQLite tenga
+    `PRAGMA foreign_keys=ON` para verificar este `SET NULL` — ver la sección de Tests.
 - **Catálogo de ejercicios y su media** (`app/routers/exercises.py`, `/exercises`, owner+coach,
   change `add-exercise-catalog`): CRUD del catálogo (nombre único case/trim-insensitive vía
   `name_normalized`, mismo patrón que `routine_templates.py`), grupo muscular (`MuscleGroup`,
   0..1, columna `String` nullable — no `Enum()` de SQLAlchemy, para que Postgres y SQLite se
   comporten igual) y tipos de entrenamiento (`TrainingType`, 0..n, tabla de asociación
   `exercise_training_types`), ambos validados contra la lista fija del enum de Python y expuestos
-  al frontend por `GET /exercises/meta`. `POST /routines/exercises` se retiró (sin consumidor,
-  sería un segundo escritor sin esa validación); `PUT /routines/exercises/{id}` sigue vivo pero
-  angosto a la base de progresión (`base_sets`/`base_reps`/`base_weight_kg`).
+  al frontend por `GET /exercises/meta`. El catálogo **no tiene base de progresión propia**
+  (`template-owned-routine-days` dropeó `base_sets`/`base_reps`/`base_weight_kg` de `Exercise`: la
+  base vive exclusivamente en `RoutineTemplateDayExercise`, ver más arriba). Todo el router de
+  `/routines` que ese diseño anterior necesitaba se retiró con él: `GET /routines/catalog`,
+  `GET /routines/days`, `GET /routines/exercises` y `PUT /routines/exercises/{id}` ya no existen
+  (`POST /routines/exercises` ya se había retirado antes, en `add-exercise-catalog`). El alta y la
+  edición del catálogo pasan **solo** por `POST`/`PATCH /exercises/`.
   - **Media de un ejercicio**: dos campos independientes y opcionales — `external_media_url`
     (URL pegada a mano) y archivo propio (`POST/DELETE /exercises/{id}/media`, multipart, hasta
     `STORAGE_MAX_UPLOAD_BYTES`). Si hay los dos, el archivo propio gana (`media_kind` lo resuelve
@@ -177,6 +212,19 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
     probar que `presigned_get_url` firma de verdad (trae `X-Amz-Signature`) sin abrir un socket, y
     con endpoints interno/público distintos (design D3.1) prueba que firma contra el público y
     que la URL es idéntica entre dos llamadas dentro de la misma ventana de cuantización.
+- **El catálogo de ejercicios arranca vacío, en todos los entornos**: no existe ningún sembrado
+  automático de `Exercise`, ni un catálogo global de días con el que sincronizarlo — cargar un
+  ejercicio (`POST /exercises/`) no lo vincula a ningún "día" por su cuenta. `muscle_group` es
+  solo un atributo del ejercicio: qué días de una plantilla lo incluyen es una decisión explícita
+  del Dueño/Coach al editar esa plantilla (`PUT /routines/templates/{id}/days`), no algo derivado
+  automáticamente. `template-owned-routine-days` retiró entero el mecanismo que existía antes
+  (`app/routine_catalog.py::TRAINING_DAYS`, `ensure_training_days`, `sync_exercise_day_links`,
+  las tablas `TrainingDay`/`TrainingDayExercise`) — no queda ningún proceso ni tabla que reponer
+  al tocar el catálogo.
+  - **Seed opcional de desarrollo**: `scripts/seed_dev_exercises.py` (ver "Scripts" más abajo) es
+    la única forma de tener los 52 ejercicios de ejemplo a mano; nunca corre en producción, no
+    crea ninguna plantilla ni día (son datasets sin relación entre sí), y el catálogo real lo
+    carga el Dueño desde la UI.
 - **Infraestructura local de MinIO**: `docker-compose.yml` suma los servicios `minio` (imagen
   pineada a un `RELEASE.*`, healthcheck contra `/minio/health/live`, puertos 9000 API / 9001
   consola) y `minio-init` (one-shot con `mc` que crea el bucket `gymapp-media` si no existe, para
@@ -212,14 +260,31 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
     correrlo N veces deja exactamente esas 3 filas. La constante `DEV_USERS` es la única
     definición del lado backend; la copia del frontend vive en
     `frontend/src/components/dev/devUsers.ts` (duplicada a propósito, si divergen el widget
-    devuelve un 400 con mensaje accionable). **Se niega a correr fuera de desarrollo** con doble
-    candado, evaluado **antes** de abrir cualquier conexión: `settings.ENVIRONMENT` (campo nuevo
-    en `config.py`, default `"production"` — si nadie lo declara, el seed no corre; los
-    `.env*.example` ya traen `development`) tiene que estar en `{development, local, test}` **y**
-    el host de `DATABASE_URL` en `{localhost, 127.0.0.1, db, ""}`. Si un candado cierra, imprime
-    cuál y sale con código 1 (no 0: desde `make`/CI una negativa no puede parecer éxito).
-    `seed_dev_users(db)` está separada de `main()` (sin guardas ni engine) para poder testearla
-    sobre la SQLite de la suite.
+    devuelve un 400 con mensaje accionable). **Se niega a correr fuera de desarrollo** con el
+    doble candado compartido `scripts/dev_guards.py::check_environment_guards(what)`
+    (`drop-static-exercise-catalog` design D4 — extraído de este script para que
+    `seed_dev_exercises.py` lo reuse en vez de copiarlo), evaluado **antes** de abrir cualquier
+    conexión: `settings.ENVIRONMENT` (campo en `config.py`, default `"production"` — si nadie lo
+    declara, el seed no corre; los `.env*.example` ya traen `development`) tiene que estar en
+    `{development, local, test}` **y** el host de `DATABASE_URL` en
+    `{localhost, 127.0.0.1, db, ""}`. Si un candado cierra, imprime cuál (con `what` — "usuarios
+    de desarrollo" o "ejercicios de desarrollo" — en el mensaje) y sale con código 1 (no 0: desde
+    `make`/CI una negativa no puede parecer éxito). `seed_dev_users(db)` está separada de `main()`
+    (sin guardas ni engine) para poder testearla sobre la SQLite de la suite.
+  - `scripts/seed_dev_exercises.py` (`make seed-dev-exercises` desde la raíz, **opcional** — el
+    catálogo arranca vacío en todos los entornos, ver más arriba) siembra 52 ejercicios de
+    ejemplo. La constante `EXERCISE_LIBRARY` (id semántico, nombre y grupo muscular; sin base:
+    `template-owned-routine-days` dropeó `base_sets`/`base_reps`/`base_weight_kg` de `Exercise`)
+    vive **acá**, originalmente mudada desde `app/routine_catalog.py` (ya borrado):
+    `backend/scripts/` no es importable desde `backend/app/`, así que ningún código de aplicación
+    puede volver a derivar nada de esta lista. Mismo candado que `seed_dev_users.py`
+    (`check_environment_guards("ejercicios de desarrollo")`), evaluado antes de `create_engine`.
+    `seed_dev_exercises(db)` es idempotente por `id` (no pisa un ejercicio ya existente, ni
+    siquiera si alguien le editó el grupo muscular a mano) y solo inserta filas de `Exercise` —
+    ya no crea ningún vínculo día↔ejercicio (ese mecanismo no existe más; ver más arriba). **No**
+    se cuelga de `make seed-dev` ni crea ninguna plantilla o día: son datasets sin relación entre
+    sí (uno lo necesita el widget de cambio de rol para funcionar; el otro es conveniencia), y
+    encadenarlos obliga a quien solo quiere usuarios a cargar 52 ejercicios.
 - **Lint**: `ruff` (config en `backend/ruff.toml`, `target-version = "py313"`), select por
   defecto (`E4` imports, `E7` statements, `E9` errores de sintaxis, `F` pyflakes — sin `E501` de
   línea larga ni familias extra como `I`/`B`/`UP`). `per-file-ignores`: `F401` en
@@ -230,9 +295,10 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
   `backend/requirements-dev.txt` junto a pytest.
 - **Tests**: hay suite con pytest en `backend/tests/` (`test_auth.py`, `test_roles.py`,
   `test_health.py`, `test_theme.py`, `test_membership.py`, `test_invitations.py`,
-  `test_contact_verification.py`, `test_payments.py`, `test_dev_seed.py`, `test_progression.py`,
-  `test_exercise_base.py`, `test_routine_templates.py`, `test_routine_assignments.py`,
-  `test_member_routine.py`, `test_storage.py`, `test_exercises.py`, `test_exercise_media.py`).
+  `test_contact_verification.py`, `test_payments.py`, `test_dev_seed.py`,
+  `test_dev_seed_exercises.py`, `test_progression.py`, `test_routine_templates.py`,
+  `test_routine_assignments.py`, `test_member_routine.py`, `test_routines_invariants.py`,
+  `test_storage.py`, `test_exercises.py`, `test_exercise_media.py`).
   `test_dev_seed.py` cubre `scripts/seed_dev_users.py`: primera corrida crea los 3 usuarios (uno
   por rol, Miembro con membresía activa), segunda corrida no duplica ni falla, los tres pasan
   `POST /auth/token` + `GET /auth/me` de verdad, y las dos guardas de entorno (`ENVIRONMENT`
@@ -257,7 +323,25 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
   vencida, y que nunca define `password_hash` ni completa la invitación. `tests/helpers.py` expone
   `create_user(...)` para
   crear usuarios directo en la base con cualquier rol/`membership_status` — no hay auto-registro
-  (`/auth/client-register` se retiró). `test_theme.py` cubre la preferencia de tema por usuario
+  (`/auth/client-register` se retiró). También expone `create_exercise(db_session, *, id, name,
+  muscle_group, ...)`, que inserta un `Exercise` directo en la base con su `name_normalized` —
+  desde `template-owned-routine-days` (design D7) no toca ningún día ni vínculo: el catálogo ya
+  no tiene base propia ni una relación implícita con "días", así que crear un ejercicio no hace
+  que pertenezca a nada. Y `create_template_with_days(db_session, *, name, days=None, tag=None)`
+  (design D13): arma una `RoutineTemplate` con sus propios días, grupos musculares y ejercicios
+  (cada uno con `base_sets`/`base_reps`/`base_weight_kg`/`strategy` opcionales, default las
+  constantes de `models.py`) directo en la base, para tests que solo necesitan una plantilla con
+  contenido sin ejercitar el `PUT` de guardado del borrador. `conftest.py` suma dos fixtures
+  **opt-in** (no `autouse`): `catalog_basic`, un puñado chico de ejercicios cuyos ids la suite
+  nombra seguido (`chest-bench-press`, `chest-cable-fly`, `legs-back-squat`, entre otros) — un
+  test que necesita un ejercicio de un grupo puntual que no cubre llama a `create_exercise`
+  directamente —, y `template_with_days` (depende de `catalog_basic`), una plantilla con dos días
+  y un ejercicio en cada uno, con la base 4×8 · 45 kg que varios tests de asignación/miembro ya
+  esperaban. `conftest.py` también activa `PRAGMA foreign_keys=ON` por conexión de SQLite (fuera
+  del bloque de `drop_all`/`create_all`, que necesita las FK desactivadas para poder romper el
+  ciclo `users` ↔ `membership_plans`): sin esto, el `ondelete="SET NULL"`/`"CASCADE"` del modelo
+  (por ejemplo `WorkoutLog.day_id`) no tiene ningún efecto en la suite, aunque sí en Postgres.
+  `test_theme.py` cubre la preferencia de tema por usuario
   (`theme_preference` en `users`, adoptada en `adopt-kinetic-obsidian-theme`): `GET /auth/me`
   incluye `theme_preference` (`null` para un usuario nuevo); `PATCH /auth/me/theme` con
   `{"theme_preference": "light"}` responde 200 y un `GET` posterior lo devuelve; con un valor que
@@ -303,41 +387,69 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
     redondeo half-up de `1,5 × R` con R impar) y los dos de Rest-pause (incluido el piso de 1 rep),
     más un caso sintético que demuestra que `round()` de Python (banker's rounding) daría un
     resultado distinto al `ROUND_HALF_UP` que usa el motor.
-  - `test_exercise_base.py` cubre la base (series × reps · kg) en el flujo existente de
-    `POST`/`PUT /routines/exercises`: crear un ejercicio indicando la base, crear sin indicarla
-    (default 3×10 · 0 kg), editar la base de uno existente, que una base inválida (sets ≤ 0 o
-    peso negativo) responde 422, que un Coach no puede editarla (403, mismo permiso que el resto
-    del endpoint) y que editar la base cambia el plan ya calculado de toda plantilla que incluya
-    ese ejercicio.
-  - `test_routine_templates.py` cubre `routers/routine_templates.py`: alta con días, rechazo sin
-    días, edición de nombre/etiqueta, nombre único ignorando mayúsculas y espacios en los bordes,
-    que quitar y volver a agregar un día conserva la configuración de sus ejercicios, que
-    desactivar un ejercicio conserva su estrategia, que un ejercicio nuevo arranca en Constante,
-    que el mismo ejercicio tiene estrategia propia por plantilla, borrado sin asignaciones,
-    rechazo del borrado con asignaciones (con el conteo en el mensaje), que cambiar la estrategia
-    devuelve el plan recalculado, que un reseed del catálogo no borra la configuración de ninguna
-    plantilla, y que un Miembro no puede listar plantillas (403).
+  - `test_routine_templates.py` cubre `routers/routine_templates.py`. Alta/edición/borrado:
+    `POST` crea la plantilla con el Día 1 solo con `{name, tag}` (422 si el payload trae
+    `day_ids`), edición de nombre/etiqueta, nombre único ignorando mayúsculas y espacios en los
+    bordes, borrado sin asignaciones y su rechazo con asignaciones (con el conteo en el mensaje),
+    y que un Miembro no puede listar plantillas (403). El grueso de la cobertura es
+    `PUT /routines/templates/{id}/days` (`template-owned-routine-days`, design D5): guardar
+    días/grupos/ejercicios en un solo request, 422 sin persistir nada al pasar de 5 días o
+    de 0 días, que un día que no cambia conserva su `id` entre guardados, que quitar un día borra
+    en cascada sus grupos y ejercicios, que quitar un día intermedio renumera las posiciones de
+    forma contigua, que editar un día de una plantilla no toca los días de otra, que un ejercicio
+    nuevo arranca en 3×10 · 0 kg y estrategia Constante, que editar la base de un ejercicio en un
+    día no toca la del mismo ejercicio en otro día ni en otra plantilla, que el orden del payload
+    se persiste como `sort_order`, 422 al repetir un ejercicio dentro del mismo día, 400 al
+    mandar un `day_id` de otra plantilla, 400 al agregar un ejercicio inactivo (pero uno ya
+    agregado sobrevive en el detalle), que un Coach puede guardar el borrador y un Miembro recibe
+    403, y que cambiar la estrategia de un ejercicio devuelve el plan recalculado.
   - `test_routine_assignments.py` cubre `routers/routine_assignments.py` (`router`): asignar como
     Activa/Alternativa, que una nueva Activa degrada la anterior, los 409 de membresía dada de
     baja/nunca activa/rol no-Miembro, que reactivar la membresía habilita asignar, que dar de baja
     la membresía conserva las asignaciones ya existentes (consultadas desde la ficha del admin),
     el ajuste de base con autoría y fecha, la asignación sin ajustes, quitar el ajuste (vuelve a
-    la base del catálogo) y quitar una asignación (Alternativa, y que quitar la Activa no
-    promueve ninguna Alternativa).
+    la base propia del par día-ejercicio, `template-owned-routine-days` design D4: ya no hay un
+    tercer nivel de "catálogo") y quitar una asignación (Alternativa, y que quitar la Activa no
+    promueve ninguna Alternativa). Suma de `template-owned-routine-days`: que el ajuste de base
+    por cliente pisa la base propia de la plantilla, que quitar de la plantilla un ejercicio con
+    ajuste conserva la asignación y el histórico, y 400 al ajustar la base de un ejercicio que no
+    está en la plantilla.
   - `test_member_routine.py` cubre `routers/routine_assignments.py` (`my_router`, "Mi rutina"): que
     un Miembro solo ve sus propias plantillas asignadas, la lista vacía sin asignaciones, que
-    pedir la asignación de otro Miembro responde 404 (no 403, para no filtrar existencia), que el
-    detalle solo trae los días de la plantilla, que un ejercicio desactivado no aparece en el
-    plan, que el plan usa la base ajustada por cliente cuando existe, que un cambio de estrategia
-    del admin se refleja de inmediato, y que un Miembro dado de baja sigue viendo sus plantillas
-    — este último caso, dado que `auth.is_membership_blocking_login` (regla preexistente, fuera
-    de alcance de este change) bloquea con 401 cualquier request de un Miembro dado de baja
-    incluso con un token ya emitido, se verifica con un override de `get_current_user` apuntando
-    directo al Miembro ya dado de baja (mismo patrón que el override de `get_db` de
-    `conftest.py`), en vez de loguearse de nuevo por HTTP.
+    pedir la asignación de otro Miembro responde 404 (no 403, para no filtrar existencia), que
+    "Mi rutina" muestra solo los días y ejercicios de la plantilla asignada, que el plan usa la
+    base ajustada por cliente cuando existe, que un cambio de estrategia del admin se refleja de
+    inmediato, y que un Miembro dado de baja sigue viendo sus plantillas — este último caso, dado
+    que `auth.is_membership_blocking_login` (regla preexistente, fuera de alcance de este change)
+    bloquea con 401 cualquier request de un Miembro dado de baja incluso con un token ya emitido,
+    se verifica con un override de `get_current_user` apuntando directo al Miembro ya dado de
+    baja (mismo patrón que el override de `get_db` de `conftest.py`), en vez de loguearse de nuevo
+    por HTTP. Suma de `template-owned-routine-days`: que un ejercicio quitado del día desaparece
+    del plan pero sus logs siguen consultables, que quitar un día deja sus `WorkoutLog` con
+    `day_id` nulo y conserva `day_name` (invariante que depende de `PRAGMA foreign_keys=ON` en
+    SQLite — ver `conftest.py` más arriba), y que un cambio del coach en la plantilla se ve en el
+    siguiente request del miembro.
   - `test_exercises.py` cubre `routers/exercises.py` (alta y validación, listas fijas y edición,
     listado y estado, borrado y el `401`/`403` de los 9 endpoints del router para el delta de
-    `staff-endpoint-authorization`). `test_exercise_media.py` cubre el ciclo de vida del archivo
-    propio (subida, límite de tamaño y formato, reemplazo, prioridad sobre la URL externa, y que
-    un fallo del storage al subir responde `502` sin perder la media anterior) usando la fixture
-    `storage` (`InMemoryObjectStorage`) de `conftest.py`.
+    `staff-endpoint-authorization`), y (`template-owned-routine-days`)
+    `test_el_catalogo_de_ejercicios_ya_no_expone_ni_acepta_una_base`: candado de que el payload de
+    alta/edición no acepta `base_sets`/`base_reps`/`base_weight_kg` y que el response no los
+    incluye — esas columnas se dropearon de `Exercise`. `test_exercise_media.py` cubre el ciclo
+    de vida del archivo propio (subida, límite de tamaño y formato, reemplazo, prioridad sobre la
+    URL externa, y que un fallo del storage al subir responde `502` sin perder la media anterior)
+    usando la fixture `storage` (`InMemoryObjectStorage`) de `conftest.py`.
+  - `test_routines_invariants.py` (renombrado desde `test_routines_seed.py` en
+    `template-owned-routine-days`; `drop-static-exercise-catalog` design D2 originalmente) cubre
+    invariantes estructurales que sobreviven a los dos changes: que ningún módulo de `app/`
+    importa el catálogo global de días retirado (recorre los módulos de `app/` y falla si alguno
+    define o importa `TRAINING_DAYS`/`routine_catalog` — candado contra que la fuente de verdad
+    retirada vuelva por descuido) y que los endpoints retirados de ese catálogo
+    (`GET /routines/catalog`, `/routines/days`, `/routines/exercises`,
+    `PUT /routines/exercises/{id}`) responden 404, no reviven por descuido. El resto del archivo
+    original (`ensure_training_days`, el catálogo fijo, el reseed) se borró entero junto con el
+    código que probaba: no queda nada de eso en `app/`.
+  - `test_dev_seed_exercises.py` cubre `scripts/seed_dev_exercises.py`: primera corrida crea los
+    52 ejercicios, una segunda corrida no duplica nada ni pisa un grupo muscular editado a mano
+    entre medio (idempotencia real, no solo conteo de filas), y las mismas dos guardas de entorno
+    que `test_dev_seed.py` (mismo patrón: `create_engine` reemplazado por un centinela que explota
+    si el candado no cortó antes).

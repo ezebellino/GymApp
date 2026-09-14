@@ -53,8 +53,8 @@ al final el Dashboard que junta todo.
 
 | # | Ítem | Módulo | Depende de | Change |
 |---|---|---|---|---|
-| R-2 | ~~Catálogo de ejercicios: pantalla de alta, video/GIF por URL (y archivo propio), grupo de lista fija, tipos, desactivación~~; deprecar base (pendiente, depende de R-4) | 04 | R-1 | `add-exercise-catalog` |
-| R-3 | Días propios por plantilla con grupos musculares; retirar catálogo fijo de días; migración | 04 | R-1 | |
+| R-2 | ~~Catálogo de ejercicios: pantalla de alta, video/GIF por URL (y archivo propio), grupo de lista fija, tipos, desactivación~~; ~~deprecar base~~ | 04 | R-1 | `add-exercise-catalog` (reserva 1 de su `verification.md` — dos fuentes de verdad del grupo muscular — resuelta por `drop-static-exercise-catalog`); la base del catálogo la retiró `template-owned-routine-days` |
+| R-3 | ~~Días propios por plantilla con grupos musculares; retirar catálogo fijo de días; migración~~ | 04 | R-1 | `template-owned-routine-days` |
 | R-4 | Editor de series explícitas; estrategias como generador opcional; tipo de plantilla | 04 | R-3 | |
 | R-5 | Carga actual por miembro y serie; edición por el Dueño | 04 | R-4 | |
 | R-6 | Sesión del miembro: día, video, kg/reps, marcar, finalizar; reemplaza `WorkoutLog` y selección de días | 04 | R-5 | |

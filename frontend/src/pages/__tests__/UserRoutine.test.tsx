@@ -41,7 +41,6 @@ function makeDetail(overrides: Partial<MemberRoutineTemplate> = {}): MemberRouti
             name: "Press banca",
             muscle_group: "Pecho",
             base: { sets: 4, reps: 8, weight_kg: 45 },
-            is_active: true,
             strategy: "constant",
             planned_sets: [{ index: 1, weight_kg: 45, reps: 8, note: null }],
           },
@@ -85,7 +84,6 @@ describe("vista Mi rutina", () => {
                 name: "Remo con barra",
                 muscle_group: "Espalda",
                 base: { sets: 3, reps: 10, weight_kg: 30 },
-                is_active: true,
                 strategy: "constant",
                 planned_sets: [{ index: 1, weight_kg: 30, reps: 10, note: null }],
               },
@@ -138,5 +136,114 @@ describe("vista Mi rutina", () => {
     expect(screen.getByText("45 kg × 8")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /marcar/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /guardar/i })).toBeNull();
+  });
+
+  it("indica que el día todavía no tiene ejercicios cargados", async () => {
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url === "/routines/my/templates") return jsonResponse([makeAssignment({})]);
+      if (url === "/routines/my/templates/assign-1") {
+        return jsonResponse(makeDetail({ days: [{
+          day_id: "day-1",
+          name: "Día 1",
+          muscle_groups: ["Pecho"],
+          position: 1,
+          exercises: [],
+        }] }));
+      }
+      return jsonResponse([]);
+    });
+
+    renderWithProviders(<UserRoutine />, { route: "/my-routine" });
+
+    expect(await screen.findByText("Este día todavía no tiene ejercicios cargados.")).toBeInTheDocument();
+  });
+
+  it("muestra solo los días de la plantilla asignada", async () => {
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url === "/routines/my/templates") return jsonResponse([makeAssignment({})]);
+      if (url === "/routines/my/templates/assign-1") {
+        return jsonResponse(
+          makeDetail({
+            days: [
+              { day_id: "day-1", name: "Día 1", muscle_groups: ["Pecho"], position: 1, exercises: [] },
+              { day_id: "day-2", name: "Día 2", muscle_groups: ["Espalda"], position: 2, exercises: [] },
+            ],
+          })
+        );
+      }
+      return jsonResponse([]);
+    });
+
+    renderWithProviders(<UserRoutine />, { route: "/my-routine" });
+
+    await screen.findByRole("tab", { name: "Día 1" });
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Día 1", "Día 2"]);
+  });
+
+  it("no muestra un ejercicio que ya no está en el día de la plantilla", async () => {
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url === "/routines/my/templates") return jsonResponse([makeAssignment({})]);
+      if (url === "/routines/my/templates/assign-1") {
+        return jsonResponse(
+          makeDetail({
+            days: [
+              {
+                day_id: "day-1",
+                name: "Día 1",
+                muscle_groups: ["Pecho"],
+                position: 1,
+                exercises: [
+                  {
+                    exercise_id: "ex-1",
+                    name: "Press banca",
+                    muscle_group: "Pecho",
+                    base: { sets: 4, reps: 8, weight_kg: 45 },
+                    strategy: "constant",
+                    planned_sets: [{ index: 1, weight_kg: 45, reps: 8, note: null }],
+                  },
+                  {
+                    exercise_id: "ex-3",
+                    name: "Sentadilla",
+                    muscle_group: "Piernas",
+                    base: { sets: 4, reps: 8, weight_kg: 60 },
+                    strategy: "constant",
+                    planned_sets: [{ index: 1, weight_kg: 60, reps: 8, note: null }],
+                  },
+                ],
+              },
+              {
+                // Simula un ejercicio que estuvo en la plantilla y se quitó de
+                // este día: sigue existiendo en OTRO día de la misma
+                // plantilla, así que si el componente alguna vez renderizara
+                // todos los ejercicios de `template.days` en vez de solo los
+                // de `selectedDay`, este test lo detecta.
+                day_id: "day-2",
+                name: "Día 2",
+                muscle_groups: ["Espalda"],
+                position: 2,
+                exercises: [
+                  {
+                    exercise_id: "ex-2",
+                    name: "Aperturas con mancuernas",
+                    muscle_group: "Pecho",
+                    base: { sets: 3, reps: 12, weight_kg: 10 },
+                    strategy: "constant",
+                    planned_sets: [{ index: 1, weight_kg: 10, reps: 12, note: null }],
+                  },
+                ],
+              },
+            ],
+          })
+        );
+      }
+      return jsonResponse([]);
+    });
+
+    renderWithProviders(<UserRoutine />, { route: "/my-routine" });
+
+    expect(await screen.findByText("Press banca")).toBeInTheDocument();
+    expect(screen.getByText("Sentadilla")).toBeInTheDocument();
+    expect(screen.queryByText("Aperturas con mancuernas")).toBeNull();
   });
 });

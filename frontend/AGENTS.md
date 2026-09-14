@@ -61,7 +61,7 @@ src/services/
   me.queries.ts              # hooks: useMeQuery, useUpdateMyThemeMutation, useSyncUserTheme
   auth.ts                    # fetchers puros del login: requestToken (con reintento), fetchMeWithToken, signIn
   routineTemplates.ts         # fetchers de plantillas, base del catálogo y asignaciones (ver "Rutinas" abajo)
-  routineTemplates.queries.ts # hooks de esos fetchers, incluido el autosave del chip de estrategia
+  routineTemplates.queries.ts # hooks de esos fetchers, incluido useSaveRoutineTemplateDaysMutation
   exercises.ts                # fetchers del catálogo de ejercicios, incluida la subida de media (ver abajo)
   exercises.queries.ts        # hooks: useExercisesQuery, useExerciseMetaQuery (staleTime: Infinity), mutaciones CRUD
 ```
@@ -167,7 +167,10 @@ completo con acciones).
     aislamiento de red de la suite.
 - **Estado de cliente (Zustand)**: `src/stores/session.ts` (token/usuario/rol, fuente única de la
   sesión), `src/stores/settings.ts` (ajustes del negocio) y `src/stores/theme.ts` (modo de tema del
-  usuario logueado) son los **tres** stores del repo. Los tres persisten con un `PersistStorage` a
+  usuario logueado) son los **tres** stores persistidos del repo (más `stores/unsavedChanges.ts`,
+  el flag efímero de "hay un borrador sin guardar" que usa `RoutineTemplateDetail.tsx` — ver
+  "Rutinas" más abajo; deliberadamente sin persistencia, así que no entra en este conteo). Los
+  tres persisten con un `PersistStorage` a
   medida sobre las claves planas de `localStorage` que ya existían (`access_token`/`user_name`/
   `user_role`, `app_settings`, `app_theme`) en vez del wrapper `{state,version}` que usaría
   `createJSONStorage` — **deuda declarada, con fecha de vencimiento**: es un shim de compatibilidad
@@ -297,21 +300,45 @@ completo con acciones).
   (`/invitacion/:channel/:token`, ruta pública) es
   donde un Miembro invitado verifica sus dos canales y define su contraseña; reemplaza al viejo
   `/register-client` (retirado, ya no hay auto-registro).
-- **Rutinas** (`add-routine-templates`): `pages/Routines.tsx` (`/routines`, owner/coach) es el
-  listado de plantillas de rutina, migrado al patrón "list page" igual que `Users.tsx` pero sin
-  buscador ni paginación (son unidades, no cientos) — columnas Nombre, Etiqueta (`Badge`), Días,
-  Miembros y la acción "Ver" que navega a `pages/RoutineTemplateDetail.tsx` (`/routines/:templateId`,
-  fuera de `routePreload.ts` como `UserDetail`: no se navega desde el sidebar). El botón "Crear
-  plantilla" abre `components/CreateRoutineTemplateDialog.tsx` (nombre, etiqueta y selección
-  múltiple de días, mandados siempre en el orden natural del catálogo — `day_order` — no en el
-  orden de click). El detalle sigue el patrón de `UserDetail.tsx` (hero con "Volver a Rutinas",
-  "Editar"/"Eliminar") y una `Card` por día con, por ejercicio: su base (editable solo para Dueño
-  vía `components/EditExerciseBaseDialog.tsx`, espejo de `require_role(owner)` del endpoint que
-  reusa), un `Switch` de activo/inactivo, `components/StrategyChips.tsx` (las cinco estrategias) y
-  `components/PlannedSetsList.tsx` (el plan de series, solo lectura). El toggle y los chips son
-  **autosave**: la mutación de `useUpdateTemplateExerciseMutation` escribe la respuesta del backend
-  (que ya trae el plan recalculado) con `setQueryData`, sin refetch — no hay botón "Guardar" ni
-  ninguna fórmula de progresión en `frontend/src/**` (esa cuenta es enteramente del backend).
+- **Rutinas** (`add-routine-templates`, rehecho por `template-owned-routine-days`):
+  `pages/Routines.tsx` (`/routines`, owner/coach) es el listado de plantillas de rutina, migrado
+  al patrón "list page" igual que `Users.tsx` pero sin buscador ni paginación (son unidades, no
+  cientos) — columnas Nombre, Etiqueta (`Badge`), Días, Miembros y la acción "Ver" que navega a
+  `pages/RoutineTemplateDetail.tsx` (`/routines/:templateId`, fuera de `routePreload.ts` como
+  `UserDetail`: no se navega desde el sidebar). El botón "Crear plantilla" abre
+  `components/CreateRoutineTemplateDialog.tsx`: pide **solo nombre y etiqueta** (el backend crea
+  la plantilla y su Día 1 en el mismo request, `POST /routines/templates` — ya no hay selección
+  de días en el alta, se configuran después desde el detalle).
+  - **El detalle es un borrador con guardado explícito, no autosave** (design D11 de
+    `template-owned-routine-days` — reemplaza entero al modelo anterior, donde cada toggle/chip
+    disparaba su propia mutación). Todo lo que se edita en `RoutineTemplateDetail.tsx` vive en un
+    `useReducer` local (`DraftState`/`DraftAction`, días identificados por una `key` de cliente —
+    el `day_id` real para un día existente, `new-<n>` para uno nuevo) hasta que el usuario confirma
+    "Guardar configuración": un único `PUT /routines/templates/{id}/days` de reemplazo completo.
+    Una barra fija al pie con "Descartar" (vuelve el borrador al último estado guardado) y
+    "Guardar configuración" (deshabilitada mientras no hay cambios) es el único punto de escritura
+    — no hay ninguna mutación por acción suelta (agregar/quitar día o ejercicio, cambiar grupos
+    musculares, base o estrategia son todas ediciones locales del reducer).
+  - **Cards de día** (máximo 5, mínimo 1 — el botón "Agregar día" se deshabilita en el tope y
+    "Quitar día" no se ofrece con uno solo): título "Día N" derivado de la posición (no hay campo
+    `name`), un multi-select de grupos musculares por día, y por ejercicio agregado: su base
+    editable inline, `components/StrategyChips.tsx` (las cinco estrategias) y
+    `components/PlannedSetsList.tsx` (el plan de series, solo lectura, calculado por el backend —
+    ninguna fórmula de progresión vive en `frontend/src/**`), más un botón de papelera para
+    quitarlo del día. El buscador de ejercicios para agregar a un día pega contra
+    `GET /exercises/?is_active=true` (`useExercisesQuery`, con `useDebounce`) y filtra en el
+    cliente los que ese día ya tiene agregados — un ejercicio inactivo no se ofrece como opción
+    nueva, pero uno que el día ya tenía agregado antes de desactivarse sigue en el borrador.
+  - **Salir con cambios sin guardar avisa antes de navegar**: `stores/unsavedChanges.ts`
+    (`useUnsavedChangesStore`, un flag `dirty` global, sin persistencia — efímero mientras la
+    pestaña sigue abierta) es escrito únicamente por `RoutineTemplateDetail.tsx` (lo sincroniza
+    con un `useEffect` contra el borrador, lo apaga al desmontarse) y leído por
+    `hooks/useGuardedNavigate.ts`, que usan tanto el botón "Volver a Rutinas" de esa página como
+    los links de `components/Sidebar.tsx`. `main.jsx` usa `<BrowserRouter>` (react-router 7 sin
+    data router), así que `useBlocker` no está disponible: `useGuardedNavigate` es la alternativa
+    — si `dirty` está prendido, retiene la navegación pedida y expone `isConfirmOpen` para que el
+    caller muestre un `ConfirmActionDialog` ("Descartar y salir" / "Seguir editando") en vez de
+    navegar directo.
   `components/EditRoutineTemplateDialog.tsx` y `components/DeleteRoutineTemplateDialog.tsx`
   (esta última sobre `ConfirmActionDialog`, `destructive`) completan el CRUD; el 409 de nombre
   duplicado o de borrado con asignaciones vigentes se muestra tal cual lo redacta el backend.
@@ -512,15 +539,14 @@ completo con acciones).
     `dialog.test.tsx` cubre con un caso montado-cerrado que afirma sobre las clases, no sobre
     estilos computados. Suma de `add-routine-templates`: `pages/__tests__/Routines.test.tsx`
     (columnas de plantilla, click en "Ver" navega al detalle, 409 de nombre duplicado mostrado
-    inline en `CreateRoutineTemplateDialog`), `pages/__tests__/RoutineTemplateDetail.test.tsx`
-    (solo los días de la plantilla, un chip de estrategia dispara el autosave y el plan mostrado
-    ya viene recalculado del backend — sin refetch —, confirmación antes de eliminar),
-    `pages/__tests__/UserRoutine.test.tsx` (elegir entre plantillas asignadas, aviso sin
-    asignaciones, plan de solo lectura sin ninguna acción de marcar serie) y
+    inline en `CreateRoutineTemplateDialog`) y
     `components/__tests__/MemberTemplatesCard.test.tsx` (estado Activa/Alternativa y autoría del
     ajuste, "+ Asignar plantilla" oculto sin membresía activa pero la lista de asignaciones sigue
-    completa, confirmación antes de quitar una asignación). Los cuatro mockean
-    `services/routineTemplates.ts` vía `vi.mock("@/lib/http")` (patrón `apiMock.ts`), sin backend.
+    completa, confirmación antes de quitar una asignación). Mockean `services/routineTemplates.ts`
+    vía `vi.mock("@/lib/http")` (patrón `apiMock.ts`), sin backend.
+    `pages/__tests__/RoutineTemplateDetail.test.tsx` y `pages/__tests__/UserRoutine.test.tsx` se
+    reescribieron enteros con `template-owned-routine-days` (ver el bullet de ese change más
+    abajo, en vez de la versión de autosave que tenían acá).
     Los diálogos siempre montados condicionalmente (nunca `open={false}` con el componente
     presente) evitan que `getByRole("dialog", { hidden: true })` encuentre más de un `<dialog>` —
     ver la nota de `MemberTemplatesCard.tsx` en "Rutinas" arriba. Suma de
@@ -541,4 +567,19 @@ completo con acciones).
     un objeto nuevo mientras el diálogo estaba abierto) y `components/__tests__/UserCard.test.tsx`
     es un archivo nuevo que cubre el cobro rápido respetando `allow_cash`/`allow_transfer` de
     Configuración (ambos habilitados ofrece los dos, uno solo ofrece solo ese, ninguno oculta el
-    cobro rápido entero).
+    cobro rápido entero). Suma de `template-owned-routine-days`:
+    `components/__tests__/CreateRoutineTemplateDialog.test.tsx` (archivo nuevo, un solo caso: crea
+    una plantilla pidiendo solo nombre y etiqueta, sin selección de días).
+    `pages/__tests__/RoutineTemplateDetail.test.tsx` se reescribió entero sobre el modelo de
+    borrador: el título del día como "Día N" con sus grupos musculares unidos por barra, agregar
+    un día al borrador y mandarlo en un solo guardado, que no deja agregar un sexto día ni quitar
+    el último, que el buscador no ofrece un ejercicio ya agregado a ese día y avisa sin
+    resultados, quitar un ejercicio con el botón de papelera, que un ejercicio recién agregado
+    muestra 3×10 · 0 kg, editar la base de un ejercicio del día en el borrador y mandarla en el
+    guardado, y los dos casos de `useGuardedNavigate` (avisa que hay cambios sin guardar al
+    intentar volver a Rutinas, y que "Descartar" deja la plantilla como estaba).
+    `pages/__tests__/UserRoutine.test.tsx` también se reescribió: elegir entre plantillas
+    asignadas, aviso sin ninguna asignada, plan de solo lectura sin ninguna acción de marcar serie,
+    que un día sin ejercicios cargados lo indica, que solo se muestran los días de la plantilla
+    asignada, y que un ejercicio quitado del día de la plantilla ya no aparece en el plan del
+    miembro.

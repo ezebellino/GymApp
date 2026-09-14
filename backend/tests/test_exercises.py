@@ -3,30 +3,40 @@
 Cubre el CRUD del catálogo para staff (Dueño/Coach): alta con nombre único, listas
 fijas de grupo muscular y tipo de entrenamiento, edición sin romper referencias,
 validación de URL externa, listado con filtros y `X-Total-Count`, activar/
-desactivar, borrado angosto (S1), autorización de rol
-(`staff-endpoint-authorization`) y la consistencia del reseed (grupo 3) con los
-grupos musculares nuevos. Los tests de media (subida, ciclo de vida del objeto,
-prioridad archivo/URL) viven en `test_exercise_media.py`.
+desactivar, borrado angosto (S1) y autorización de rol
+(`staff-endpoint-authorization`). Los tests de media (subida, ciclo de vida del
+objeto, prioridad archivo/URL) viven en `test_exercise_media.py`.
+
+`template-owned-routine-days`: el catálogo ya no tiene ningún vínculo derivado a
+un día (`routine_catalog.py`/`TrainingDayExercise` se borraron enteros) ni base
+propia (`base_sets`/`base_reps`/`base_weight_kg` se dropearon de `Exercise`) —
+los tests que cubrían esa indirección (nacer activo para "el día del grupo
+muscular", moverse de día al cambiar el grupo, `_offered_as_new_option`, la
+base editable vía `PUT /routines/exercises/{id}`) se borraron con ella: no hay
+comportamiento que sigan probando. Lo que sobrevive de esos escenarios —"un
+ejercicio en uso en una plantilla no se puede borrar", "editarlo no rompe la
+referencia"— se re-testea contra `routine_template_day_exercises`.
 """
 
 from app import models
 from tests.helpers import CLIENT_EMAIL, OWNER_EMAIL, create_user
 
 
-def _create_template(client, headers, *, name, day_ids):
-    response = client.post(
-        "/routines/templates",
-        json={"name": name, "tag": "", "day_ids": day_ids},
-        headers=headers,
-    )
+def _create_template(client, headers, *, name):
+    response = client.post("/routines/templates", json={"name": name, "tag": ""}, headers=headers)
     assert response.status_code == 201, response.text
     return response.json()
 
 
-def _add_exercise_to_template(client, headers, template_id, day_id, exercise_id):
+def _add_exercise_to_template(client, headers, template_id, exercise_id):
+    """Agrega `exercise_id` al Día 1 (ya existente) de la plantilla vía el
+    `PUT` de guardado del borrador (`template-owned-routine-days`, design D5):
+    ya no hay un endpoint granular por (día, ejercicio)."""
+    template = client.get(f"/routines/templates/{template_id}", headers=headers).json()
+    day_id = template["days"][0]["day_id"]
     response = client.put(
-        f"/routines/templates/{template_id}/days/{day_id}/exercises/{exercise_id}",
-        json={"is_active": True},
+        f"/routines/templates/{template_id}/days",
+        json={"days": [{"day_id": day_id, "muscle_groups": [], "exercises": [{"exercise_id": exercise_id}]}]},
         headers=headers,
     )
     assert response.status_code == 200, response.text
@@ -110,6 +120,40 @@ def test_nombre_vacio_o_solo_espacios_devuelve_422(client, owner_user, auth_head
     assert null_patch.status_code == 422, null_patch.text
 
 
+def test_el_catalogo_de_ejercicios_ya_no_expone_ni_acepta_una_base(client, owner_user, auth_header):
+    """`template-owned-routine-days` (design D7): la base editable del
+    catálogo se retiró sin reemplazo. `POST`/`PATCH` ignoran cualquier
+    `base_*` del payload (no rompen, tampoco lo persisten en ningún lado) y
+    `ExerciseOut` nunca expone esos campos."""
+    headers = auth_header(OWNER_EMAIL)
+
+    created = client.post(
+        "/exercises/",
+        json={
+            "name": "Ejercicio con base en el payload (test)",
+            "muscle_group": "Pecho",
+            "base_sets": 4,
+            "base_reps": 8,
+            "base_weight_kg": 20,
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert "base_sets" not in body
+    assert "base_reps" not in body
+    assert "base_weight_kg" not in body
+    assert "base" not in body
+
+    patched = client.patch(
+        f"/exercises/{body['id']}",
+        json={"base_sets": 5, "base_reps": 5, "base_weight_kg": 90},
+        headers=headers,
+    )
+    assert patched.status_code == 200, patched.text
+    assert "base_sets" not in patched.json()
+
+
 # --- Listas fijas y edición (task 6.2) ---------------------------------------
 
 
@@ -154,18 +198,12 @@ def test_patch_reemplaza_el_set_completo_de_tipos_de_entrenamiento(client, owner
 
 
 def test_editar_ejercicio_usado_en_plantilla_no_rompe_la_referencia(client, owner_user, auth_header):
-    """Cubre tanto la descripción como el grupo muscular (H2, hallazgo de
-    verificación): `sync_exercise_day_links` borraba el `TrainingDayExercise`
-    del día viejo al cambiar `muscle_group` por `PATCH`, y con él se perdía la
-    fila que enumera el ejercicio dentro de la plantilla — aunque
-    `RoutineTemplateExercise` sobreviviera huérfana. El caso original (editar
-    `name`/`description`) no alcanzaba a cubrir esa rama."""
     headers = auth_header(OWNER_EMAIL)
     exercise = client.post(
         "/exercises/", json={"name": "Press inclinado (test)", "muscle_group": "Pecho"}, headers=headers
     ).json()
-    template = _create_template(client, headers, name="Plantilla editar ejercicio", day_ids=["day-1"])
-    _add_exercise_to_template(client, headers, template["id"], "day-1", exercise["id"])
+    template = _create_template(client, headers, name="Plantilla editar ejercicio")
+    _add_exercise_to_template(client, headers, template["id"], exercise["id"])
 
     response = client.patch(
         f"/exercises/{exercise['id']}",
@@ -180,8 +218,8 @@ def test_editar_ejercicio_usado_en_plantilla_no_rompe_la_referencia(client, owne
     )
     assert in_template["name"] == "Press inclinado actualizado"
 
-    # Cambiar el grupo muscular es la rama que rompía la referencia (H2): el
-    # ejercicio tiene que seguir apareciendo en la plantilla que ya lo usa.
+    # Cambiar el grupo muscular no afecta el vínculo: es explícito y propio de
+    # la plantilla, no derivado del grupo muscular (design D1/D2).
     response = client.patch(
         f"/exercises/{exercise['id']}", json={"muscle_group": "Espalda"}, headers=headers
     )
@@ -254,8 +292,8 @@ def test_desactivar_ejercicio_lo_saca_del_listado_activo_y_conserva_la_plantilla
     exercise = client.post(
         "/exercises/", json={"name": "Remo con barra (test)", "muscle_group": "Espalda"}, headers=headers
     ).json()
-    template = _create_template(client, headers, name="Plantilla desactivar", day_ids=["day-2"])
-    _add_exercise_to_template(client, headers, template["id"], "day-2", exercise["id"])
+    template = _create_template(client, headers, name="Plantilla desactivar")
+    _add_exercise_to_template(client, headers, template["id"], exercise["id"])
 
     response = client.post(f"/exercises/{exercise['id']}/deactivate", headers=headers)
     assert response.status_code == 200, response.text
@@ -313,8 +351,8 @@ def test_borrar_ejercicio_usado_en_plantilla_devuelve_409(client, owner_user, au
     exercise = client.post(
         "/exercises/", json={"name": "Press militar (test)", "muscle_group": "Hombros"}, headers=headers
     ).json()
-    template = _create_template(client, headers, name="Plantilla borrar", day_ids=["day-3"])
-    _add_exercise_to_template(client, headers, template["id"], "day-3", exercise["id"])
+    template = _create_template(client, headers, name="Plantilla borrar")
+    _add_exercise_to_template(client, headers, template["id"], exercise["id"])
 
     response = client.delete(f"/exercises/{exercise['id']}", headers=headers)
 
@@ -322,20 +360,6 @@ def test_borrar_ejercicio_usado_en_plantilla_devuelve_409(client, owner_user, au
     still_there = client.get(f"/exercises/{exercise['id']}", headers=headers)
     assert still_there.status_code == 200
     assert still_there.json()["is_active"] is True
-
-
-def test_borrar_ejercicio_con_solo_el_vinculo_automatico_de_dia_esta_permitido(
-    client, owner_user, auth_header
-):
-    headers = auth_header(OWNER_EMAIL)
-    # Dispara `_ensure_seed_data`: crea el vínculo automático `TrainingDayExercise`
-    # de "legs-sissy-squat" con el Día 4 a partir de su grupo muscular, sin que
-    # ninguna plantilla ni sesión lo referencien todavía.
-    client.get("/routines/days", headers=headers)
-
-    response = client.delete("/exercises/legs-sissy-squat", headers=headers)
-
-    assert response.status_code == 204, response.text
 
 
 # --- Autorización (task 6.5, delta staff-endpoint-authorization) ------------
@@ -380,137 +404,3 @@ def test_endpoints_de_ejercicios_sin_sesion_devuelve_401_y_con_rol_member_403(
     assert no_token_media.status_code == 401, no_token_media.text
     as_member_media = client.post(f"/exercises/{exercise['id']}/media", headers=member_headers)
     assert as_member_media.status_code == 403, as_member_media.text
-
-
-# --- Consistencia del reseed (task 6.6, grupo 3) -----------------------------
-
-
-def test_seed_vincula_los_ejercicios_de_pierna_a_los_grupos_musculares_nuevos(
-    client, owner_user, auth_header
-):
-    headers = auth_header(OWNER_EMAIL)
-
-    response = client.get("/routines/days", headers=headers)
-    assert response.status_code == 200, response.text
-
-    day4 = next(day for day in response.json() if day["id"] == "day-4")
-    exercises_by_id = {item["exercise_id"]: item for item in day4["exercises"]}
-
-    assert exercises_by_id["legs-back-squat"]["muscle_group"] == "Cuádriceps"
-    assert exercises_by_id["legs-romanian-deadlift"]["muscle_group"] == "Isquios"
-    assert exercises_by_id["legs-standing-calf-raise"]["muscle_group"] == "Gemelos"
-
-
-def test_ejercicio_sin_grupo_muscular_no_rompe_routines_days(client, owner_user, auth_header):
-    """Regresión H1 (verificación, corrida completa): `RoutineExerciseOption`
-    fue el único schema corregido en la primera pasada, pero quedaron otros
-    cinco declarando `muscle_group: str` no-opcional contra la columna nullable
-    (design D1) — `RoutineCatalogExercise`, `RoutineCatalogGroup`,
-    `RoutineExerciseManageOut`, `RoutineTemplateExerciseOut` y `WorkoutLogOut`.
-    Con un solo ejercicio sin grupo, `/routines/catalog` y `/routines/exercises`
-    seguían dando 500, y `PUT /routines/exercises/{id}` (que
-    `EditExerciseBaseDialog`/`AdjustExerciseBaseDialog` consumen) explotaba
-    **después** de commitear el cambio. Este test cubre las cuatro superficies
-    nombradas por el hallazgo, más el detalle de plantilla."""
-    headers = auth_header(OWNER_EMAIL)
-    exercise = client.post(
-        "/exercises/", json={"name": "Ejercicio sin grupo (test)"}, headers=headers
-    ).json()
-
-    assert client.get("/routines/days", headers=headers).status_code == 200
-    assert client.get("/routines/catalog", headers=headers).status_code == 200
-    assert client.get("/routines/exercises", headers=headers).status_code == 200
-
-    put_response = client.put(
-        f"/routines/exercises/{exercise['id']}",
-        json={"base_sets": 4, "base_reps": 8, "base_weight_kg": 20},
-        headers=headers,
-    )
-    assert put_response.status_code == 200, put_response.text
-    assert put_response.json()["muscle_group"] is None
-
-    # Para el detalle de plantilla: un ejercicio se agrega a un día vía el
-    # vínculo automático `TrainingDayExercise` (deriva del grupo muscular, no
-    # hay forma de agregar uno arbitrario a un día por API). Se crea con grupo,
-    # se agrega a la plantilla, y **después** se le quita el grupo — el mismo
-    # camino que ejercita H2 (el vínculo se conserva por estar en uso) y que es
-    # justo donde H1 explotaba al serializar la respuesta.
-    grouped_exercise = client.post(
-        "/exercises/", json={"name": "Ejercicio con grupo (test)", "muscle_group": "Pecho"}, headers=headers
-    ).json()
-    template = _create_template(
-        client, headers, name="Plantilla sin grupo (test)", day_ids=["day-1"]
-    )
-    _add_exercise_to_template(client, headers, template["id"], "day-1", grouped_exercise["id"])
-    patch_response = client.patch(
-        f"/exercises/{grouped_exercise['id']}", json={"muscle_group": None}, headers=headers
-    )
-    assert patch_response.status_code == 200, patch_response.text
-
-    detail_response = client.get(f"/routines/templates/{template['id']}", headers=headers)
-    assert detail_response.status_code == 200, detail_response.text
-    in_template = next(
-        item
-        for item in detail_response.json()["days"][0]["exercises"]
-        if item["exercise_id"] == grouped_exercise["id"]
-    )
-    assert in_template["muscle_group"] is None
-
-
-# --- Reactivar y catálogo fijo (task 12.9, H6/D7.1) --------------------------
-
-
-def test_reactivar_no_reactiva_la_seleccion_por_dia_del_catalogo_fijo(client, owner_user, auth_header):
-    """`activate` (task 12.8, design D7.1) ya no reactiva en bloque los
-    `TrainingDayExercise` del ejercicio, a diferencia de la primera
-    implementación que lo espejaba con `deactivate`. Reactivar tiene que dejar
-    al ejercicio igual que uno recién creado: en el catálogo, pero sin volver a
-    aparecer en la selección de un día de la que el staff ya lo había excluido
-    a mano (invariante I10)."""
-    headers = auth_header(OWNER_EMAIL)
-    exercise_id = "chest-bench-press"
-
-    day1 = next(
-        day for day in client.get("/routines/days", headers=headers).json() if day["id"] == "day-1"
-    )
-    other_active_ids = [
-        item["exercise_id"]
-        for item in day1["exercises"]
-        if item["is_active"] and item["exercise_id"] != exercise_id
-    ]
-    assert other_active_ids  # el Día 1 tiene otros ejercicios activos por default
-
-    # El staff excluye "chest-bench-press" de la selección del Día 1 a mano.
-    selection_response = client.put(
-        "/routines/days/day-1/selection",
-        json={"exercise_ids": other_active_ids},
-        headers=headers,
-    )
-    assert selection_response.status_code == 200, selection_response.text
-    day1_after_exclusion = selection_response.json()
-    link = next(item for item in day1_after_exclusion["exercises"] if item["exercise_id"] == exercise_id)
-    assert link["is_active"] is False
-
-    # Desactivar y reactivar el ejercicio desde /exercises (catálogo).
-    deactivate_response = client.post(f"/exercises/{exercise_id}/deactivate", headers=headers)
-    assert deactivate_response.status_code == 200, deactivate_response.text
-    activate_response = client.post(f"/exercises/{exercise_id}/activate", headers=headers)
-    assert activate_response.status_code == 200, activate_response.text
-    assert activate_response.json()["is_active"] is True
-
-    # No vuelve a la selección del Día 1...
-    day1_after_reactivate = next(
-        day for day in client.get("/routines/days", headers=headers).json() if day["id"] == "day-1"
-    )
-    link_after = next(
-        item for item in day1_after_reactivate["exercises"] if item["exercise_id"] == exercise_id
-    )
-    assert link_after["is_active"] is False
-
-    # ...ni al `active_exercise_count` del overview de un usuario.
-    overview_before = next(
-        day
-        for day in client.get(f"/routines/users/{owner_user.id}/overview", headers=headers).json()
-        if day["day_id"] == "day-1"
-    )
-    assert overview_before["active_exercise_count"] == len(other_active_ids)

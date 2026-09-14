@@ -1,9 +1,12 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { LogOut, UserRound } from "lucide-react";
 import { useSessionStore } from "@/stores/session";
+import { useUnsavedChangesStore } from "@/stores/unsavedChanges";
+import { useGuardedNavigate } from "@/hooks/useGuardedNavigate";
 import { preloadRoute } from "@/lib/routePreload";
 import { navItemsForRole } from "@/lib/navigation";
 import { APP_NAME } from "@/lib/branding";
+import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 
 function roleLabel(role: string) {
   if (role === "owner") return "Dueño";
@@ -18,6 +21,9 @@ export default function Sidebar() {
   const logout = useSessionStore((s) => s.logout);
   const navigate = useNavigate();
   const allowed = navItemsForRole(role);
+  const dirty = useUnsavedChangesStore((s) => s.dirty);
+  const { guardedNavigate, isConfirmOpen, confirmDiscardAndLeave, cancelLeave } =
+    useGuardedNavigate();
 
   // Único punto de logout del shell (dec.: se sacó del Topbar, que solo lo
   // tenía duplicado). Limpia sesión y redirige directo, sin alerta
@@ -63,6 +69,16 @@ export default function Sidebar() {
               to={to}
               onMouseEnter={() => preloadRoute(to)}
               onFocus={() => preloadRoute(to)}
+              onClick={(event) => {
+                // Aviso al salir con un borrador sin guardar (design D11 de
+                // `template-owned-routine-days`): si hay cambios sucios en la
+                // pantalla actual, se retiene la navegación y se confirma
+                // antes de dejarlo salir.
+                if (dirty) {
+                  event.preventDefault();
+                  guardedNavigate(to);
+                }
+              }}
               className={({ isActive }) =>
                 [
                   "group flex select-none items-center gap-3 rounded-xl border border-transparent px-3.5 py-2.5 transition-all duration-200",
@@ -124,6 +140,20 @@ export default function Sidebar() {
           </button>
         </div>
       </div>
+
+      {isConfirmOpen ? (
+        <ConfirmActionDialog
+          open={isConfirmOpen}
+          onOpenChange={(open) => !open && cancelLeave()}
+          title="Tenés cambios sin guardar"
+          description="Si salís ahora se pierden los cambios que hiciste en la pantalla actual."
+          confirmLabel="Descartar y salir"
+          cancelLabel="Seguir editando"
+          pendingLabel="Descartar y salir"
+          isPending={false}
+          onConfirm={confirmDiscardAndLeave}
+        />
+      ) : null}
     </aside>
   );
 }

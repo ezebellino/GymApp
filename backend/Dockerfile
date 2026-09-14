@@ -18,5 +18,7 @@ COPY . .
 EXPOSE 8000
 
 # Keep the web process focused on serving HTTP. Database migrations must not block
-# Railway's healthcheck during container startup.
+# Railway's healthcheck during container startup: en Railway las aplica el
+# `deploy.preDeployCommand` de `railway.json` (`alembic upgrade head`), en un
+# contenedor aparte y antes de arrancar este proceso.
 CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port \"$PORT\" --proxy-headers --forwarded-allow-ips='*'"]

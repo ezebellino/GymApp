@@ -68,25 +68,34 @@ function SkeletonRow() {
   );
 }
 
-function EmptyState({ query }: { query?: string }) {
+function EmptyState({ query, onCreate }: { query?: string; onCreate: () => void }) {
+  if (query) {
+    return (
+      <div className="flex flex-col items-center justify-center py-14 text-center">
+        <div className="mb-3 rounded-full border border-border bg-surface-2/30 px-4 py-2 text-label-caps uppercase text-muted-foreground">
+          Sin resultados
+        </div>
+        <p className="max-w-md text-sm leading-6 text-muted-foreground">
+          No encontramos ejercicios que coincidan con{" "}
+          <span className="font-medium text-foreground">"{query}"</span>.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center justify-center py-14 text-center">
       <div className="mb-3 rounded-full border border-border bg-surface-2/30 px-4 py-2 text-label-caps uppercase text-muted-foreground">
-        Sin resultados
+        Catálogo vacío
       </div>
       <p className="max-w-md text-sm leading-6 text-muted-foreground">
-        {query ? (
-          <>
-            No encontramos ejercicios que coincidan con{" "}
-            <span className="font-medium text-foreground">"{query}"</span>.
-          </>
-        ) : (
-          <>
-            Todavía no creaste ningún ejercicio. Creá el primero para poder agregarlo a una
-            plantilla de rutina.
-          </>
-        )}
+        Todavía no cargaste ningún ejercicio. Cargá el primero para empezar a armar tus plantillas
+        de rutina.
       </p>
+      <Button type="button" className="mt-4" onClick={onCreate}>
+        <Dumbbell className="mr-2 h-4 w-4" />
+        Crear ejercicio
+      </Button>
     </div>
   );
 }
@@ -290,7 +299,7 @@ export default function Exercises() {
               {!isPending && !isError && rows.length === 0 && (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={6} className="p-0">
-                    <EmptyState query={debouncedQ} />
+                    <EmptyState query={debouncedQ} onCreate={() => setCreateOpen(true)} />
                   </TableCell>
                 </TableRow>
               )}

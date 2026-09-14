@@ -65,6 +65,7 @@ make migrate    # alembic upgrade head
 make lint       # ruff (backend) + eslint/tsc (frontend), ver bullet Tests
 make docker-up  # stack completo en Docker (db + backend + frontend + minio, media de ejercicios)
 make seed-dev   # crea/actualiza los 3 usuarios de desarrollo (Dueño, Coach, Miembro)
+make seed-dev-exercises  # opcional: 52 ejercicios de ejemplo (el catálogo arranca vacío)
 ```
 
 `make seed-dev` detecta si el stack Docker está corriendo (seedea dentro del contenedor
@@ -80,6 +81,12 @@ ofrece el widget flotante de cambio de rol del frontend en modo desarrollo (capa
 | Dueño | `dev.owner@miniespacio.local` | `devdev123` |
 | Coach | `dev.coach@miniespacio.local` | `devdev123` |
 | Miembro (membresía activa) | `dev.member@miniespacio.local` | `devdev123` |
+
+`make seed-dev-exercises` es **opcional**, distinto del anterior y no encadenado a él: el
+catálogo de ejercicios arranca vacío en todos los entornos (`drop-static-exercise-catalog`), y
+este target solo sirve para tener datos de prueba a mano en desarrollo (52 ejercicios de
+ejemplo). Mismo patrón de detección Docker/venv nativo y el mismo doble candado (compartido vía
+`backend/scripts/dev_guards.py`) — ver `backend/AGENTS.md`.
 
 ## Gestión de contexto y tokens: usá CodeGraph antes de explorar a ciegas
 

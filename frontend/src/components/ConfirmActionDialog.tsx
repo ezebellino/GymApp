@@ -15,6 +15,10 @@ type Props = {
   title: string;
   description: string;
   confirmLabel: string;
+  // "template-owned-routine-days" (design D11): el aviso de borrador sin
+  // guardar necesita un botón de cancelar con copy propio ("Seguir
+  // editando") en vez del genérico "Cancelar".
+  cancelLabel?: string;
   pendingLabel: string;
   destructive?: boolean;
   isPending: boolean;
@@ -38,6 +42,7 @@ export default function ConfirmActionDialog({
   title,
   description,
   confirmLabel,
+  cancelLabel = "Cancelar",
   pendingLabel,
   destructive = false,
   isPending,
@@ -64,7 +69,7 @@ export default function ConfirmActionDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
-            Cancelar
+            {cancelLabel}
           </Button>
           <Button
             type="button"

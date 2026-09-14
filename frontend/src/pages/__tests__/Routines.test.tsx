@@ -11,7 +11,7 @@ import {
   waitFor,
   within,
 } from "../../test/renderWithProviders";
-import type { RoutineDay, RoutineTemplateSummary } from "@/types";
+import type { RoutineTemplateSummary } from "@/types";
 
 vi.mock("@/lib/http", async () => {
   const { createApiMock } = await import("../../test/apiMock");
@@ -26,17 +26,6 @@ function makeTemplate(overrides: Partial<RoutineTemplateSummary> = {}): RoutineT
     day_count: 2,
     assignment_count: 3,
     created_at: "2026-01-01T00:00:00",
-    ...overrides,
-  };
-}
-
-function makeDay(overrides: Partial<RoutineDay> = {}): RoutineDay {
-  return {
-    id: "day-1",
-    name: "Día 1",
-    muscle_groups: ["Pecho", "Tríceps"],
-    day_order: 1,
-    exercises: [],
     ...overrides,
   };
 }
@@ -64,7 +53,6 @@ describe("vista de Rutinas", () => {
   it("lista las plantillas con su etiqueta y su cantidad de dias", async () => {
     mockGet({
       "/routines/templates": [makeTemplate({})],
-      "/routines/days": [makeDay({})],
     });
 
     renderWithProviders(<Routines />, { route: "/routines" });
@@ -78,7 +66,6 @@ describe("vista de Rutinas", () => {
   it("abre el detalle de la plantilla al hacer click en la fila", async () => {
     mockGet({
       "/routines/templates": [makeTemplate({})],
-      "/routines/days": [makeDay({})],
     });
 
     renderWithProviders(
@@ -99,7 +86,6 @@ describe("vista de Rutinas", () => {
   it("abre el detalle desde el boton Ver de la fila", async () => {
     mockGet({
       "/routines/templates": [makeTemplate({})],
-      "/routines/days": [makeDay({})],
     });
 
     renderWithProviders(
@@ -120,7 +106,6 @@ describe("vista de Rutinas", () => {
   it("muestra la accion Ver de la fila como icon-button sin texto", async () => {
     mockGet({
       "/routines/templates": [makeTemplate({})],
-      "/routines/days": [makeDay({})],
     });
 
     renderWithProviders(<Routines />, { route: "/routines" });
@@ -136,7 +121,6 @@ describe("vista de Rutinas", () => {
   it("ofrece la entrada a Ejercicios desde el header", async () => {
     mockGet({
       "/routines/templates": [makeTemplate({})],
-      "/routines/days": [makeDay({})],
     });
 
     renderWithProviders(
@@ -156,7 +140,6 @@ describe("vista de Rutinas", () => {
   it("muestra el error del backend cuando el nombre de plantilla ya esta en uso", async () => {
     mockGet({
       "/routines/templates": [makeTemplate({})],
-      "/routines/days": [makeDay({})],
     });
     vi.mocked(api.post).mockImplementation((url: string) => {
       if (url === "/routines/templates") {
@@ -176,7 +159,6 @@ describe("vista de Rutinas", () => {
     fireEvent.change(within(dialog).getByPlaceholderText("Fuerza 4 días"), {
       target: { value: "FUERZA 4 DIAS" },
     });
-    fireEvent.click(within(dialog).getByRole("checkbox", { name: /Día 1/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Crear plantilla" }));
 
     expect(

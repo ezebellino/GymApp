@@ -173,6 +173,18 @@ export default function UserCard({
         zinc
       )
     );
+    // `template-owned-routine-days` (design D10): el overview y el progreso
+    // siguen siempre la asignación Activa — sin ella, se indica en vez de
+    // mostrar el nombre de una Alternativa.
+    lines.push(
+      text(
+        44,
+        673,
+        10,
+        `Plantilla: ${summary.active_assignment?.template_name ?? "Sin plantilla activa"}`,
+        zinc
+      )
+    );
 
     const cards = [
       ["ASISTENCIAS", String(summary.attendance_count), "presencias"],

@@ -1,21 +1,20 @@
 import api from "../lib/http";
 import type {
+  ExerciseBase,
   MemberRoutineTemplate,
   ProgressionStrategy,
   RoutineAssignment,
   RoutineAssignmentStatus,
-  RoutineDay,
-  RoutineExerciseManage,
   RoutineTemplateDetail,
-  RoutineTemplateExercise,
   RoutineTemplateSummary,
 } from "@/types";
 
 // Fetchers de plantillas de rutina, motor de progresión y asignaciones
-// (add-routine-templates, design D9/D12). Contrato de API tomado al pie de
-// la letra de `openspec/changes/add-routine-templates/design.md` — el
-// backend de este change corre en paralelo, no existe todavía mientras se
-// escribe este archivo.
+// (`add-routine-templates`, `template-owned-routine-days`). El día y sus
+// ejercicios son propios de la plantilla (design D1/D5 de
+// `template-owned-routine-days`): sin catálogo global de días ni
+// `PUT`/switch por ejercicio — el guardado del borrador es un único
+// reemplazo completo (`saveRoutineTemplateDays`).
 
 // --- Plantillas --------------------------------------------------------
 
@@ -29,10 +28,11 @@ export async function fetchRoutineTemplate(id: string): Promise<RoutineTemplateD
   return data;
 }
 
+// `{name, tag}` únicamente (design D6): el `POST` crea la plantilla y su
+// Día 1 en el mismo request, sin pedir días.
 export type CreateRoutineTemplateInput = {
   name: string;
   tag: string;
-  day_ids: string[];
 };
 
 export async function createRoutineTemplate(
@@ -56,53 +56,44 @@ export async function deleteRoutineTemplate(id: string): Promise<void> {
   await api.delete(`/routines/templates/${id}`);
 }
 
-export type UpdateTemplateExerciseInput = {
-  is_active?: boolean;
+// --- Guardado del borrador de días/ejercicios (design D5) -----------------
+
+// Espejo de conveniencia de `DEFAULT_EXERCISE_BASE_SETS/REPS/WEIGHT_KG` de
+// `backend/app/models.py` (design D5): solo para pintar la card de un
+// ejercicio recién agregado al borrador antes de guardar. El servidor la
+// vuelve a aplicar al persistir, así que un desfasaje se corrige solo al
+// guardar — este valor NO se repite en ningún otro archivo del frontend.
+export const DEFAULT_EXERCISE_BASE: ExerciseBase = { sets: 3, reps: 10, weight_kg: 0 };
+
+export type RoutineTemplateDayExerciseInput = {
+  exercise_id: string;
   strategy?: ProgressionStrategy;
+  base?: ExerciseBase;
 };
 
-export async function updateTemplateExercise(
+export type RoutineTemplateDayInput = {
+  day_id: string | null;
+  muscle_groups: string[];
+  exercises: RoutineTemplateDayExerciseInput[];
+};
+
+export type SaveRoutineTemplateDaysInput = {
+  days: RoutineTemplateDayInput[];
+};
+
+// `PUT /routines/templates/{id}/days`: reemplazo completo con identidad
+// explícita (design D5). El orden de las listas es el dato — la posición
+// del día es su índice y el `sort_order` del ejercicio también. Responde el
+// `RoutineTemplateDetail` recalculado, así el borrador se reemplaza por la
+// verdad del servidor sin un refetch extra.
+export async function saveRoutineTemplateDays(
   templateId: string,
-  dayId: string,
-  exerciseId: string,
-  input: UpdateTemplateExerciseInput,
-): Promise<RoutineTemplateExercise> {
-  const { data } = await api.put<RoutineTemplateExercise>(
-    `/routines/templates/${templateId}/days/${dayId}/exercises/${exerciseId}`,
+  input: SaveRoutineTemplateDaysInput,
+): Promise<RoutineTemplateDetail> {
+  const { data } = await api.put<RoutineTemplateDetail>(
+    `/routines/templates/${templateId}/days`,
     input,
   );
-  return data;
-}
-
-// --- Base del ejercicio del catálogo (design D3, flujo existente) ------
-
-export type UpdateExerciseBaseInput = {
-  base_sets: number;
-  base_reps: number;
-  base_weight_kg: number;
-};
-
-// Reusa el `PUT /routines/exercises/{id}` ya existente (owner-only): este
-// change solo le suma tres campos opcionales al schema (design D3), no
-// construye un endpoint nuevo.
-export async function updateExerciseBase(
-  exerciseId: string,
-  input: UpdateExerciseBaseInput,
-): Promise<RoutineExerciseManage> {
-  const { data } = await api.put<RoutineExerciseManage>(
-    `/routines/exercises/${exerciseId}`,
-    input,
-  );
-  return data;
-}
-
-// Días del catálogo (Día 1..4), para el selector de días al crear/editar una
-// plantilla. Reusa el endpoint existente `GET /routines/days`
-// (owner/coach) — no es un fetcher nombrado en design D12, pero no hay
-// forma de armar el selector sin conocer los días existentes y no vale la
-// pena duplicar ese endpoint solo para este change.
-export async function fetchTrainingDays(): Promise<RoutineDay[]> {
-  const { data } = await api.get<RoutineDay[]>("/routines/days");
   return data;
 }
 

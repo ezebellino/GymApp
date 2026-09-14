@@ -11,7 +11,7 @@ from .. import models, schemas
 from ..auth import get_current_user, require_role
 from ..deps import get_db
 from ..models import UserRole
-from ..routine_catalog import EXERCISE_LIBRARY, TRAINING_DAYS
+from ..progression import plan_sets
 from ..utils import now_ar
 
 
@@ -40,192 +40,99 @@ def _require_member(user: models.User) -> models.User:
     return user
 
 
-def _day_ids_for_muscle_group(muscle_group: str) -> list[str]:
-    return [
-        day["id"]
-        for day in TRAINING_DAYS
-        if muscle_group in day["muscle_groups"]
-    ]
+def _day_title(day: models.RoutineTemplateDay, muscle_groups: list[str]) -> str:
+    """"Día N" o "Día N - <grupos unidos por '/'>" (`template-owned-routine-days`,
+    design D1): una sola fuente de verdad del título, acá y en
+    `routers/routine_templates.py` (duplicado a propósito: son dos módulos sin
+    dependencia entre sí, ver design D7)."""
+    suffix = f" - {'/'.join(muscle_groups)}" if muscle_groups else ""
+    return f"Día {day.position}{suffix}"
 
 
-def sync_exercise_day_links(
-    db: Session,
-    exercise_id: str,
-    muscle_group: str | None,
-    *,
-    preserve_active: bool = True,
-) -> None:
-    """Vínculo automático ejercicio↔día del catálogo fijo, derivado del grupo
-    muscular (`_ensure_seed_data` hace lo mismo para el seed). Reusado por
-    `routers/exercises.py` (`exercise-catalog`) para que un ejercicio creado o
-    editado por el router nuevo también sea seleccionable en una plantilla, sin
-    duplicar esta lógica. Un `muscle_group` `None` (o fuera de los catálogos de
-    día) simplemente no genera ningún vínculo nuevo y borra los que ya no
-    correspondan.
+def _resolve_plan_base(
+    link: models.RoutineTemplateDayExercise, overrides: dict[str, models.RoutineAssignmentBase]
+) -> tuple[int, int, float]:
+    override = overrides.get(link.exercise_id)
+    if override is not None:
+        return override.sets, override.reps, override.weight_kg
+    return link.base_sets, link.base_reps, link.base_weight_kg
 
-    Corrección H2 (verificación): un `PATCH /exercises/{id}` que cambia el grupo
-    muscular llamaba a esta función y borraba el `TrainingDayExercise` del día
-    viejo, aunque ese vínculo ya estuviera referenciado por
-    `RoutineTemplateExercise` (que apunta a `(template_id, day_id, exercise_id)`
-    directo, sin FK a `TrainingDayExercise` — ver `models.py`). La fila de
-    configuración de la plantilla sobrevivía huérfana y el ejercicio
-    desaparecía de "Mi rutina" y del detalle de la plantilla. Un día con uso en
-    alguna plantilla **nunca** se borra acá, sin importar si sigue matcheando
-    el grupo muscular nuevo; sí se agregan los vínculos del grupo nuevo, así
-    que el ejercicio puede terminar en dos días a la vez (el viejo, por la
-    plantilla que ya lo usa; el nuevo, para poder agregarlo a otras)."""
-    desired_day_ids = set(_day_ids_for_muscle_group(muscle_group)) if muscle_group else set()
-    existing_links = (
-        db.query(models.TrainingDayExercise)
-        .filter(models.TrainingDayExercise.exercise_id == exercise_id)
-        .all()
+
+def _serialize_plan_exercise(
+    link: models.RoutineTemplateDayExercise, overrides: dict[str, models.RoutineAssignmentBase]
+) -> schemas.RoutineTemplateExerciseOut:
+    exercise = link.exercise
+    sets, reps, weight_kg = _resolve_plan_base(link, overrides)
+    planned = plan_sets(link.strategy, sets=sets, reps=reps, weight_kg=weight_kg)
+    return schemas.RoutineTemplateExerciseOut(
+        exercise_id=exercise.id,
+        name=exercise.name,
+        muscle_group=exercise.muscle_group,
+        base=schemas.ExerciseBaseOut(sets=sets, reps=reps, weight_kg=weight_kg),
+        strategy=link.strategy.value,
+        planned_sets=[
+            schemas.PlannedSetOut(index=item.index, weight_kg=item.weight_kg, reps=item.reps, note=item.note)
+            for item in planned
+        ],
     )
-    existing_by_day = {link.day_id: link for link in existing_links}
-    used_day_ids = {
-        row.day_id
-        for row in db.query(models.RoutineTemplateExercise.day_id)
-        .filter(models.RoutineTemplateExercise.exercise_id == exercise_id)
-        .distinct()
-    }
-
-    for day_id in desired_day_ids:
-        if day_id in existing_by_day:
-            continue
-
-        sort_order = (
-            db.query(models.TrainingDayExercise)
-            .filter(models.TrainingDayExercise.day_id == day_id)
-            .count()
-            + 1
-        )
-        db.add(
-            models.TrainingDayExercise(
-                day_id=day_id,
-                exercise_id=exercise_id,
-                sort_order=sort_order,
-                is_active=not preserve_active,
-            )
-        )
-
-    for day_id, link in existing_by_day.items():
-        if day_id not in desired_day_ids and day_id not in used_day_ids:
-            db.delete(link)
 
 
-def _serialize_day(day: models.TrainingDay) -> schemas.RoutineDayOut:
-    return schemas.RoutineDayOut(
-        id=day.id,
-        name=day.name,
-        muscle_groups=[part.strip() for part in day.muscle_groups.split(",") if part.strip()],
-        day_order=day.day_order,
+def _serialize_plan_day(
+    day: models.RoutineTemplateDay, overrides: dict[str, models.RoutineAssignmentBase]
+) -> schemas.RoutineTemplateDayOut:
+    muscle_groups = [item.muscle_group for item in sorted(day.muscle_groups, key=lambda m: m.sort_order)]
+    return schemas.RoutineTemplateDayOut(
+        day_id=day.id,
+        name=_day_title(day, muscle_groups),
+        muscle_groups=muscle_groups,
+        position=day.position,
         exercises=[
-            schemas.RoutineExerciseOption(
-                exercise_id=link.exercise.id,
-                name=link.exercise.name,
-                muscle_group=link.exercise.muscle_group,
-                description=link.exercise.description,
-                is_active=link.is_active,
-                sort_order=link.sort_order,
-            )
+            _serialize_plan_exercise(link, overrides)
             for link in sorted(day.exercises, key=lambda item: item.sort_order)
         ],
     )
 
 
-def _serialize_manage_exercise(exercise: models.Exercise) -> schemas.RoutineExerciseManageOut:
-    return schemas.RoutineExerciseManageOut(
-        id=exercise.id,
-        name=exercise.name,
-        muscle_group=exercise.muscle_group,
-        description=exercise.description,
-        is_active=exercise.is_active,
-        day_ids=sorted(link.day_id for link in exercise.day_links),
-        base_sets=exercise.base_sets,
-        base_reps=exercise.base_reps,
-        base_weight_kg=exercise.base_weight_kg,
+def _get_active_assignment(db: Session, user_id: str) -> models.RoutineAssignment | None:
+    """La asignación **Activa** del Miembro, con la plantilla y sus días
+    precargados (`template-owned-routine-days`, design D10): el overview, "Mi
+    rutina" (días) y el progreso siguen siempre esta asignación, nunca una
+    Alternativa."""
+    return (
+        db.query(models.RoutineAssignment)
+        .options(
+            joinedload(models.RoutineAssignment.template)
+            .joinedload(models.RoutineTemplate.days)
+            .joinedload(models.RoutineTemplateDay.muscle_groups),
+            joinedload(models.RoutineAssignment.template)
+            .joinedload(models.RoutineTemplate.days)
+            .joinedload(models.RoutineTemplateDay.exercises)
+            .joinedload(models.RoutineTemplateDayExercise.exercise),
+        )
+        .filter(
+            models.RoutineAssignment.user_id == user_id,
+            models.RoutineAssignment.status == models.RoutineAssignmentStatus.active,
+        )
+        .first()
     )
 
 
-def _ensure_seed_data(db: Session) -> None:
-    existing_days = {item.id: item for item in db.query(models.TrainingDay).all()}
-    for index, day in enumerate(TRAINING_DAYS, start=1):
-        existing_day = existing_days.get(day["id"])
-        if existing_day:
-            existing_day.name = day["name"]
-            existing_day.muscle_groups = ", ".join(day["muscle_groups"])
-            existing_day.day_order = index
-        else:
-            db.add(
-                models.TrainingDay(
-                    id=day["id"],
-                    name=day["name"],
-                    muscle_groups=", ".join(day["muscle_groups"]),
-                    day_order=index,
-                )
-            )
-
-    existing_exercises = {item.id: item for item in db.query(models.Exercise).all()}
-    for exercise in EXERCISE_LIBRARY:
-        if exercise["id"] not in existing_exercises:
-            db.add(
-                models.Exercise(
-                    id=exercise["id"],
-                    name=exercise["name"],
-                    name_normalized=_normalize_exercise_name(exercise["name"]),
-                    muscle_group=exercise["muscle_group"],
-                    description=exercise.get("description"),
-                    is_active=True,
-                    # Base de progresión (add-routine-templates, design D3): solo al
-                    # crear el ejercicio, nunca se pisa la de uno ya existente.
-                    base_sets=exercise.get("base_sets", 3),
-                    base_reps=exercise.get("base_reps", 10),
-                    base_weight_kg=exercise.get("base_weight_kg", 0),
-                )
-            )
-
-    db.flush()
-
-    existing_links_by_key = {
-        (item.day_id, item.exercise_id): item
-        for item in db.query(models.TrainingDayExercise).all()
-    }
-    desired_link_keys: set[tuple[str, str]] = set()
-
-    for day in TRAINING_DAYS:
-        allowed_groups = set(day["muscle_groups"])
-        eligible_exercises = [
-            exercise
-            for exercise in EXERCISE_LIBRARY
-            if exercise["muscle_group"] in allowed_groups
-        ]
-        for sort_order, exercise in enumerate(eligible_exercises, start=1):
-            key = (day["id"], exercise["id"])
-            desired_link_keys.add(key)
-            existing_link = existing_links_by_key.get(key)
-            if existing_link:
-                existing_link.sort_order = sort_order
-            else:
-                db.add(
-                    models.TrainingDayExercise(
-                        day_id=day["id"],
-                        exercise_id=exercise["id"],
-                        sort_order=sort_order,
-                        is_active=exercise["id"] in day["default_active_ids"],
-                    )
-                )
-
-    seeded_exercise_ids = {exercise["id"] for exercise in EXERCISE_LIBRARY}
-    for key, link in existing_links_by_key.items():
-        if key not in desired_link_keys and link.exercise_id in seeded_exercise_ids:
-            db.delete(link)
-
-    db.commit()
-
-
-def _get_day_or_404(db: Session, day_id: str) -> models.TrainingDay:
-    day = db.get(models.TrainingDay, day_id)
+def _get_member_day_or_400(db: Session, user_id: str, day_id: str) -> models.RoutineTemplateDay:
+    """El día tiene que pertenecer a **alguna** asignación (Activa o
+    Alternativa — la Alternativa existe para poder entrenarla) del Miembro
+    (design D10, invariante I12)."""
+    day = (
+        db.query(models.RoutineTemplateDay)
+        .join(models.RoutineTemplate, models.RoutineTemplateDay.template_id == models.RoutineTemplate.id)
+        .join(models.RoutineAssignment, models.RoutineAssignment.template_id == models.RoutineTemplate.id)
+        .filter(
+            models.RoutineTemplateDay.id == day_id,
+            models.RoutineAssignment.user_id == user_id,
+        )
+        .first()
+    )
     if not day:
-        raise HTTPException(status_code=404, detail="Dia de rutina no encontrado")
+        raise HTTPException(status_code=400, detail="Ese día no pertenece a una plantilla asignada")
     return day
 
 
@@ -574,7 +481,7 @@ def _collect_progress_snapshot(
     client = _get_user_or_404(db, user_id)
     logs = (
         db.query(models.WorkoutLog)
-        .options(joinedload(models.WorkoutLog.day), joinedload(models.WorkoutLog.exercise))
+        .options(joinedload(models.WorkoutLog.exercise))
         .filter(models.WorkoutLog.user_id == user_id)
         .order_by(models.WorkoutLog.performed_at.asc())
         .all()
@@ -618,7 +525,9 @@ def _collect_progress_snapshot(
     best_log = max(logs, key=lambda item: item.weight_kg, default=None)
     recent_logs = list(reversed(logs[-5:]))
     total_volume = sum((log.sets_count or 0) * (log.reps or 0) * log.weight_kg for log in logs)
-    unique_days = len({log.day_id for log in logs})
+    # `day_id` distintos **no nulos** (design D7): un log de un día ya borrado
+    # queda con `day_id IS NULL` (D3) y no debe contarse como un día distinto.
+    unique_days = len({log.day_id for log in logs if log.day_id is not None})
     unique_exercises = len(exercise_histories)
     last_training = logs[-1].performed_at if logs else None
     motivation = _motivation_for_metrics(len(logs), attendance_count, len(improvements[:3]))
@@ -641,186 +550,27 @@ def _collect_progress_snapshot(
 
 
 @router.get(
-    "/catalog",
-    response_model=list[schemas.RoutineCatalogGroup],
-    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
-)
-def routine_catalog(db: Session = Depends(get_db)):
-    _ensure_seed_data(db)
-
-    # La clave puede ser None: `Exercise.muscle_group` es opcional (design D1).
-    groups: dict[str | None, list[schemas.RoutineCatalogExercise]] = defaultdict(list)
-    exercises = (
-        db.query(models.Exercise)
-        .filter(models.Exercise.is_active.is_(True))
-        .order_by(models.Exercise.muscle_group.asc(), models.Exercise.name.asc())
-        .all()
-    )
-    for exercise in exercises:
-        groups[exercise.muscle_group].append(
-            schemas.RoutineCatalogExercise(
-                id=exercise.id,
-                name=exercise.name,
-                muscle_group=exercise.muscle_group,
-                description=exercise.description,
-            )
-        )
-
-    # `key=lambda item: (item[0] is None, item[0] or "")` (H1): `muscle_group`
-    # puede ser `None` (Exercise.muscle_group nullable, design D1), y comparar
-    # `None` contra `str` explota `sorted()`. Los ejercicios sin grupo quedan
-    # al final.
-    return [
-        schemas.RoutineCatalogGroup(muscle_group=muscle_group, exercises=items)
-        for muscle_group, items in sorted(
-            groups.items(), key=lambda item: (item[0] is None, item[0] or "")
-        )
-    ]
-
-
-@router.get(
-    "/days",
-    response_model=list[schemas.RoutineDayOut],
-    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
-)
-def routine_days(db: Session = Depends(get_db)):
-    _ensure_seed_data(db)
-
-    days = (
-        db.query(models.TrainingDay)
-        .options(joinedload(models.TrainingDay.exercises).joinedload(models.TrainingDayExercise.exercise))
-        .order_by(models.TrainingDay.day_order.asc())
-        .all()
-    )
-    return [_serialize_day(day) for day in days]
-
-
-@router.get(
-    "/exercises",
-    response_model=list[schemas.RoutineExerciseManageOut],
-    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
-)
-def routine_exercises(db: Session = Depends(get_db)):
-    _ensure_seed_data(db)
-
-    exercises = (
-        db.query(models.Exercise)
-        .options(joinedload(models.Exercise.day_links))
-        .order_by(models.Exercise.muscle_group.asc(), models.Exercise.name.asc())
-        .all()
-    )
-    return [_serialize_manage_exercise(exercise) for exercise in exercises]
-
-
-@router.put(
-    "/exercises/{exercise_id}",
-    response_model=schemas.RoutineExerciseManageOut,
-    dependencies=[Depends(require_role(UserRole.owner))],
-)
-def update_routine_exercise(
-    exercise_id: str,
-    payload: schemas.RoutineExerciseUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_role(UserRole.owner)),
-):
-    """Achicado a los tres campos de base (`exercise-catalog`, design D7/S2,
-    task 4.13): `name`/`muscle_group`/`description`/`is_active` pasan a ser
-    exclusivos de `PATCH /exercises/{id}`. Sigue vivo (owner-only, sin cambio de
-    permiso) porque `EditExerciseBaseDialog`/`AdjustExerciseBaseDialog` lo
-    consumen y la base de progresión no se toca en este change."""
-    _ensure_seed_data(db)
-
-    exercise = (
-        db.query(models.Exercise)
-        .options(joinedload(models.Exercise.day_links))
-        .filter(models.Exercise.id == exercise_id)
-        .first()
-    )
-    if not exercise:
-        raise HTTPException(status_code=404, detail="Ejercicio no encontrado")
-
-    # `model_dump(exclude_unset=True)` + `setattr` ya alcanza para los tres campos
-    # de base (`base_sets`/`base_reps`/`base_weight_kg`, design D3): no necesitan
-    # ningún manejo especial más allá del schema.
-    updates = payload.model_dump(exclude_unset=True)
-    for field, value in updates.items():
-        setattr(exercise, field, value)
-
-    db.commit()
-    refreshed = (
-        db.query(models.Exercise)
-        .options(joinedload(models.Exercise.day_links))
-        .filter(models.Exercise.id == exercise.id)
-        .first()
-    )
-    return _serialize_manage_exercise(refreshed)
-
-
-@router.put(
-    "/days/{day_id}/selection",
-    response_model=schemas.RoutineDayOut,
-    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
-)
-def update_day_selection(
-    day_id: str,
-    payload: schemas.RoutineDaySelectionUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    _ensure_seed_data(db)
-    day = (
-        db.query(models.TrainingDay)
-        .options(joinedload(models.TrainingDay.exercises).joinedload(models.TrainingDayExercise.exercise))
-        .filter(models.TrainingDay.id == day_id)
-        .first()
-    )
-    if not day:
-        raise HTTPException(status_code=404, detail="Dia de rutina no encontrado")
-
-    selected = payload.exercise_ids
-    available_ids = {link.exercise_id for link in day.exercises}
-    invalid = [exercise_id for exercise_id in selected if exercise_id not in available_ids]
-    if invalid:
-        raise HTTPException(status_code=400, detail="Hay ejercicios invalidos para este dia")
-
-    selected_order = {exercise_id: index for index, exercise_id in enumerate(selected, start=1)}
-    remainder = len(selected) + 1
-    for link in day.exercises:
-        link.is_active = link.exercise_id in selected_order
-        link.assigned_by_user_id = current_user.id
-        if link.exercise_id in selected_order:
-            link.sort_order = selected_order[link.exercise_id]
-        else:
-            link.sort_order = remainder
-            remainder += 1
-
-    db.commit()
-
-    refreshed_day = (
-        db.query(models.TrainingDay)
-        .options(joinedload(models.TrainingDay.exercises).joinedload(models.TrainingDayExercise.exercise))
-        .filter(models.TrainingDay.id == day_id)
-        .first()
-    )
-    return _serialize_day(refreshed_day)
-
-
-@router.get(
     "/users/{user_id}/overview",
     response_model=list[schemas.RoutineDayProgress],
     dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
 def user_routine_overview(user_id: str, db: Session = Depends(get_db)):
-    _ensure_seed_data(db)
+    """Días de la asignación **Activa** del usuario (`template-owned-routine-
+    days`, design D10). Sin asignación Activa: lista vacía con 200 (aunque
+    tenga Alternativas) — nunca 404, la UI ya tiene el estado "Todavía no
+    tenés una plantilla asignada"."""
     _get_user_or_404(db, user_id)
+    assignment = _get_active_assignment(db, user_id)
+    if assignment is None:
+        return []
 
-    days = (
-        db.query(models.TrainingDay)
-        .options(joinedload(models.TrainingDay.exercises))
-        .order_by(models.TrainingDay.day_order.asc())
+    days = sorted(assignment.template.days, key=lambda item: item.position)
+    day_ids = [day.id for day in days]
+    logs = (
+        db.query(models.WorkoutLog)
+        .filter(models.WorkoutLog.user_id == user_id, models.WorkoutLog.day_id.in_(day_ids))
         .all()
     )
-    logs = db.query(models.WorkoutLog).filter(models.WorkoutLog.user_id == user_id).all()
 
     by_day: dict[str, list[models.WorkoutLog]] = defaultdict(list)
     for log in logs:
@@ -828,14 +578,15 @@ def user_routine_overview(user_id: str, db: Session = Depends(get_db)):
 
     result: list[schemas.RoutineDayProgress] = []
     for day in days:
+        muscle_groups = [item.muscle_group for item in sorted(day.muscle_groups, key=lambda m: m.sort_order)]
         day_logs = by_day.get(day.id, [])
         last_performed_at = max((log.performed_at for log in day_logs), default=None)
         result.append(
             schemas.RoutineDayProgress(
                 day_id=day.id,
-                day_name=day.name,
-                muscle_groups=[part.strip() for part in day.muscle_groups.split(",") if part.strip()],
-                active_exercise_count=sum(1 for link in day.exercises if link.is_active),
+                day_name=_day_title(day, muscle_groups),
+                muscle_groups=muscle_groups,
+                active_exercise_count=len(day.exercises),
                 log_count=len(day_logs),
                 last_performed_at=last_performed_at,
             )
@@ -854,12 +605,11 @@ def user_workout_logs(
     limit: int = Query(default=40, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    _ensure_seed_data(db)
     _get_user_or_404(db, user_id)
 
     query = (
         db.query(models.WorkoutLog)
-        .options(joinedload(models.WorkoutLog.day), joinedload(models.WorkoutLog.exercise))
+        .options(joinedload(models.WorkoutLog.exercise))
         .filter(models.WorkoutLog.user_id == user_id)
     )
     if day_id:
@@ -871,7 +621,7 @@ def user_workout_logs(
             id=log.id,
             user_id=log.user_id,
             day_id=log.day_id,
-            day_name=log.day.name,
+            day_name=log.day_name,
             exercise_id=log.exercise_id,
             exercise_name=log.exercise.name,
             muscle_group=log.exercise.muscle_group,
@@ -893,7 +643,6 @@ def user_progress_report(
     user_id: str,
     db: Session = Depends(get_db),
 ):
-    _ensure_seed_data(db)
     (
         client,
         logs,
@@ -1033,7 +782,6 @@ def user_progress_summary(
     user_id: str,
     db: Session = Depends(get_db),
 ):
-    _ensure_seed_data(db)
     (
         client,
         logs,
@@ -1051,6 +799,11 @@ def user_progress_summary(
     ) = _collect_progress_snapshot(db, user_id)
 
     top_improvement = improvements[0] if improvements else None
+
+    # `member-routine-view`, requirement "El overview y el progreso siguen
+    # siempre la asignación Activa" (design D10): `None` cuando el Miembro no
+    # tiene ninguna Activa, aunque tenga Alternativas.
+    active_assignment = _get_active_assignment(db, user_id)
 
     return schemas.UserProgressSummary(
         user_id=client.id,
@@ -1073,6 +826,11 @@ def user_progress_summary(
         if top_improvement
         else None,
         motivation=motivation,
+        active_assignment=schemas.ActiveAssignmentSummary(
+            assignment_id=active_assignment.id, template_name=active_assignment.template.name
+        )
+        if active_assignment
+        else None,
     )
 
 
@@ -1088,29 +846,35 @@ def create_workout_log(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    _ensure_seed_data(db)
     target = _get_user_or_404(db, user_id)
     if target.membership_status != models.MembershipStatus.active:
         raise HTTPException(
             status_code=400, detail="El usuario no tiene una membresía activa"
         )
-    day = _get_day_or_404(db, payload.day_id)
+    # El día tiene que pertenecer a alguna plantilla asignada al Miembro
+    # (Activa o Alternativa), y el ejercicio tiene que estar en ese día
+    # (`template-owned-routine-days`, design D10, invariante I12). Un
+    # ejercicio inactivo en el catálogo pero ya presente en el día sigue
+    # siendo registrable (D9): no se vuelve a chequear `Exercise.is_active`
+    # acá, solo pertenencia al día.
+    day = _get_member_day_or_400(db, user_id, payload.day_id)
 
     link = (
-        db.query(models.TrainingDayExercise)
-        .options(joinedload(models.TrainingDayExercise.exercise))
+        db.query(models.RoutineTemplateDayExercise)
+        .options(joinedload(models.RoutineTemplateDayExercise.exercise))
         .filter(
-            models.TrainingDayExercise.day_id == payload.day_id,
-            models.TrainingDayExercise.exercise_id == payload.exercise_id,
+            models.RoutineTemplateDayExercise.template_day_id == payload.day_id,
+            models.RoutineTemplateDayExercise.exercise_id == payload.exercise_id,
         )
         .first()
     )
-    if not link or not link.is_active:
-        raise HTTPException(status_code=400, detail="Ese ejercicio no esta activo para el dia seleccionado")
+    if not link:
+        raise HTTPException(status_code=400, detail="Ese ejercicio no esta en el dia seleccionado")
 
     log = models.WorkoutLog(
         user_id=user_id,
         day_id=payload.day_id,
+        day_name=f"Día {day.position}",
         exercise_id=payload.exercise_id,
         sets_count=payload.sets_count,
         reps=payload.reps,
@@ -1149,7 +913,7 @@ def create_workout_log(
         id=log.id,
         user_id=log.user_id,
         day_id=log.day_id,
-        day_name=day.name,
+        day_name=log.day_name,
         exercise_id=log.exercise_id,
         exercise_name=exercise.name,
         muscle_group=exercise.muscle_group,
@@ -1173,12 +937,11 @@ def update_workout_log(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    _ensure_seed_data(db)
     _get_user_or_404(db, user_id)
 
     log = (
         db.query(models.WorkoutLog)
-        .options(joinedload(models.WorkoutLog.day), joinedload(models.WorkoutLog.exercise))
+        .options(joinedload(models.WorkoutLog.exercise))
         .filter(
             models.WorkoutLog.id == log_id,
             models.WorkoutLog.user_id == user_id,
@@ -1200,7 +963,7 @@ def update_workout_log(
         id=log.id,
         user_id=log.user_id,
         day_id=log.day_id,
-        day_name=log.day.name,
+        day_name=log.day_name,
         exercise_id=log.exercise_id,
         exercise_name=log.exercise.name,
         muscle_group=log.exercise.muscle_group,
@@ -1222,7 +985,6 @@ def delete_workout_log(
     log_id: str,
     db: Session = Depends(get_db),
 ):
-    _ensure_seed_data(db)
     _get_user_or_404(db, user_id)
 
     log = (
@@ -1258,23 +1020,28 @@ def my_profile(
 
 @router.get(
     "/my/days",
-    response_model=list[schemas.RoutineDayOut],
+    response_model=list[schemas.RoutineTemplateDayOut],
     dependencies=[Depends(require_role(UserRole.member))],
 )
 def my_routine_days(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    _require_member(current_user)
-    _ensure_seed_data(db)
+    """Días de la asignación **Activa** del Miembro (design D10). Sin
+    asignación Activa: lista vacía con 200."""
+    member = _require_member(current_user)
+    assignment = _get_active_assignment(db, member.id)
+    if assignment is None:
+        return []
 
-    days = (
-        db.query(models.TrainingDay)
-        .options(joinedload(models.TrainingDay.exercises).joinedload(models.TrainingDayExercise.exercise))
-        .order_by(models.TrainingDay.day_order.asc())
+    overrides = {
+        override.exercise_id: override
+        for override in db.query(models.RoutineAssignmentBase)
+        .filter(models.RoutineAssignmentBase.assignment_id == assignment.id)
         .all()
-    )
-    return [_serialize_day(day) for day in days]
+    }
+    days = sorted(assignment.template.days, key=lambda item: item.position)
+    return [_serialize_plan_day(day, overrides) for day in days]
 
 
 @router.get(

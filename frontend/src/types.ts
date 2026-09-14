@@ -116,51 +116,6 @@ export type AppSettings = {
   onboarding_message: string | null;
 };
 
-export type RoutineExerciseOption = {
-  exercise_id: string;
-  name: string;
-  // Opcional (H1): un ejercicio puede no tener grupo muscular asignado
-  // (`exercise-catalog`, grupo 0..1).
-  muscle_group: string | null;
-  description?: string | null;
-  is_active: boolean;
-  sort_order: number;
-};
-
-export type RoutineDay = {
-  id: string;
-  name: string;
-  muscle_groups: string[];
-  day_order: number;
-  exercises: RoutineExerciseOption[];
-};
-
-export type RoutineCatalogGroup = {
-  // Optional (H1, corrección de verificación, parte 2): idem RoutineExerciseOption.
-  muscle_group: string | null;
-  exercises: Array<{
-    id: string;
-    name: string;
-    muscle_group: string | null;
-    description?: string | null;
-  }>;
-};
-
-export type RoutineExerciseManage = {
-  id: string;
-  name: string;
-  muscle_group: string | null;
-  description?: string | null;
-  is_active: boolean;
-  day_ids: string[];
-  // Base del ejercicio (series x reps · kg), punto de partida del motor de
-  // progresión (add-routine-templates, design D3). Siempre presente: el
-  // backend la devuelve con default 3/10/0 si no se indicó al crear.
-  base_sets: number;
-  base_reps: number;
-  base_weight_kg: number;
-};
-
 export type RoutineDayProgress = {
   day_id: string;
   day_name: string;
@@ -192,6 +147,15 @@ export type ProgressImprovement = {
   delta_weight: number;
 };
 
+// `template-owned-routine-days` (design D10): el overview y el progreso del
+// Miembro siguen siempre la asignación **Activa** — `null` cuando no tiene
+// una (aunque tenga Alternativas). La UI muestra "Sin plantilla activa" en
+// vez del nombre de una Alternativa.
+export type ActiveAssignmentRef = {
+  assignment_id: string;
+  template_name: string;
+};
+
 export type UserProgressSummary = {
   user_id: string;
   user_name: string;
@@ -206,6 +170,7 @@ export type UserProgressSummary = {
   best_weight_kg?: number | null;
   top_improvement?: ProgressImprovement | null;
   motivation: string;
+  active_assignment: ActiveAssignmentRef | null;
 };
 
 // --- add-routine-templates: bloque nuevo (design D12, append) ---------------
@@ -245,12 +210,16 @@ export type RoutineTemplateSummary = {
   created_at: string;
 };
 
+// `template-owned-routine-days` (design D1/D5): el día y el ejercicio son
+// propios de la plantilla, sin `is_active` — estar en la lista **es** estar
+// en la plantilla. `muscle_groups` es editable (multi-select del enum
+// `MuscleGroup`) y `base`/`strategy` son propias de esa combinación
+// (plantilla, día, ejercicio).
 export type RoutineTemplateExercise = {
   exercise_id: string;
   name: string;
   muscle_group: string | null;
   base: ExerciseBase;
-  is_active: boolean;
   strategy: ProgressionStrategy;
   planned_sets: PlannedSet[];
 };

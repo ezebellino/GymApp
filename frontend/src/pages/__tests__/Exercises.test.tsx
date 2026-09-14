@@ -103,9 +103,12 @@ describe("vista de Ejercicios", () => {
     });
 
     renderWithProviders(<Exercises />, { route: "/exercises" });
-    await screen.findByText("Sin resultados");
+    await screen.findByText("Catálogo vacío");
 
-    fireEvent.click(screen.getByRole("button", { name: "Crear ejercicio" }));
+    // El estado vacío también ofrece un botón "Crear ejercicio" (D6): se
+    // toma el primero en el DOM, que es el de la cabecera de la lista.
+    const [createButton] = screen.getAllByRole("button", { name: "Crear ejercicio" });
+    fireEvent.click(createButton);
     const dialog = await screen.findByRole("dialog", { hidden: true });
 
     fireEvent.change(within(dialog).getByPlaceholderText("Press de banca"), {
@@ -212,5 +215,57 @@ describe("vista de Ejercicios", () => {
     expect(editButton.textContent).toBe("");
     expect(deactivateButton.textContent).toBe("");
     expect(deleteButton.textContent).toBe("");
+  });
+
+  it("muestra el estado vacío de catálogo con la acción de crear ejercicio cuando no hay ninguno", async () => {
+    mockGet([]);
+
+    renderWithProviders(<Exercises />, { route: "/exercises" });
+
+    expect(await screen.findByText("Catálogo vacío")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Todavía no cargaste ningún ejercicio. Cargá el primero para empezar a armar tus plantillas de rutina."
+      )
+    ).toBeInTheDocument();
+
+    // Dos botones "Crear ejercicio": el de la cabecera y el del estado vacío
+    // (D6) — el mismo handler que abre `CreateExerciseDialog`.
+    const buttons = screen.getAllByRole("button", { name: "Crear ejercicio" });
+    expect(buttons.length).toBe(2);
+
+    fireEvent.click(buttons[1]);
+    expect(await screen.findByRole("dialog", { hidden: true })).toBeInTheDocument();
+  });
+
+  it("ofrece la acción de crear ejercicio del estado vacío también a un Coach", async () => {
+    localStorage.setItem("user_role", "coach");
+    mockGet([]);
+
+    renderWithProviders(<Exercises />, { route: "/exercises" });
+
+    await screen.findByText("Catálogo vacío");
+    const buttons = screen.getAllByRole("button", { name: "Crear ejercicio" });
+    expect(buttons.length).toBe(2);
+  });
+
+  it("mantiene el mensaje de sin resultados y no ofrece crear cuando la búsqueda no matchea", async () => {
+    mockGet([]);
+
+    renderWithProviders(<Exercises />, { route: "/exercises" });
+    await screen.findByText("Catálogo vacío");
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Buscar ejercicios" }), {
+      target: { value: "inexistente" },
+    });
+
+    expect(await screen.findByText("Sin resultados")).toBeInTheDocument();
+    expect(screen.getByText(/No encontramos ejercicios que coincidan con/)).toBeInTheDocument();
+    expect(screen.getByText('"inexistente"')).toBeInTheDocument();
+
+    // Solo queda el botón "Crear ejercicio" de la cabecera: el estado vacío
+    // de búsqueda no ofrece la acción (escenario explícito de la spec).
+    const buttons = screen.getAllByRole("button", { name: "Crear ejercicio" });
+    expect(buttons.length).toBe(1);
   });
 });

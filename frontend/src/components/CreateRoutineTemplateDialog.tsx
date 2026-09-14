@@ -10,10 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  useCreateRoutineTemplateMutation,
-  useTrainingDaysQuery,
-} from "@/services/routineTemplates.queries";
+import { useCreateRoutineTemplateMutation } from "@/services/routineTemplates.queries";
 import { toastSuccess } from "@/lib/toast";
 import type { RoutineTemplateDetail } from "@/types";
 
@@ -23,52 +20,32 @@ type Props = {
   onCreated?: (template: RoutineTemplateDetail) => void;
 };
 
-// Alta de plantilla: nombre, etiqueta y el subconjunto ordenado de días
-// existentes del catálogo (design.md D1/D11 de add-routine-templates). Los
-// `day_ids` se mandan siempre en el orden natural del catálogo (Día 1..4,
-// `day_order`), no en el orden de click: es predecible y es lo que espera
-// el escenario manual del Plan de verificación ("Día 1 y Día 4").
+// Alta de plantilla: solo nombre y etiqueta (`template-owned-routine-days`,
+// design D6). Sin selección de días: el backend crea la plantilla y su
+// Día 1 en el mismo request — se configura desde el detalle.
 export default function CreateRoutineTemplateDialog({ open, onOpenChange, onCreated }: Props) {
   const [name, setName] = useState("");
   const [tag, setTag] = useState("");
-  const [selectedDayIds, setSelectedDayIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: days } = useTrainingDaysQuery();
   const createMutation = useCreateRoutineTemplateMutation();
 
   useEffect(() => {
     if (open) {
       setName("");
       setTag("");
-      setSelectedDayIds([]);
       setError(null);
     }
   }, [open]);
 
-  function toggleDay(dayId: string) {
-    setSelectedDayIds((current) =>
-      current.includes(dayId)
-        ? current.filter((id) => id !== dayId)
-        : [...current, dayId]
-    );
-  }
-
-  const orderedDays = Array.isArray(days) ? days : [];
-  const canSubmit = name.trim().length > 0 && selectedDayIds.length > 0;
+  const canSubmit = name.trim().length > 0;
 
   async function save() {
     setError(null);
     try {
-      // Orden natural del catálogo (`day_order`), no el orden de click.
-      const dayIds = orderedDays
-        .filter((day) => selectedDayIds.includes(day.id))
-        .map((day) => day.id);
-
       const template = await createMutation.mutateAsync({
         name: name.trim(),
         tag: tag.trim(),
-        day_ids: dayIds,
       });
 
       onOpenChange(false);
@@ -91,7 +68,8 @@ export default function CreateRoutineTemplateDialog({ open, onOpenChange, onCrea
             Crear plantilla
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Elegí un nombre, una etiqueta corta y los días que va a incluir.
+            Elegí un nombre y una etiqueta corta. Los días se configuran después, desde el
+            detalle de la plantilla.
           </DialogDescription>
         </DialogHeader>
 
@@ -113,30 +91,6 @@ export default function CreateRoutineTemplateDialog({ open, onOpenChange, onCrea
               placeholder="FUERZA"
               maxLength={24}
             />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">Días</label>
-            <div className="space-y-2">
-              {orderedDays.map((day) => (
-                <label
-                  key={day.id}
-                  className="flex items-center gap-2 rounded-md border border-border bg-surface-2/20 px-3 py-2 text-sm text-foreground"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedDayIds.includes(day.id)}
-                    onChange={() => toggleDay(day.id)}
-                    className="h-4 w-4 rounded border-border"
-                  />
-                  {day.name}
-                  {day.muscle_groups.length > 0 ? (
-                    <span className="text-muted-foreground">
-                      · {day.muscle_groups.join(" / ")}
-                    </span>
-                  ) : null}
-                </label>
-              ))}
-            </div>
           </div>
         </div>
 

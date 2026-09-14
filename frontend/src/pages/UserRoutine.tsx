@@ -187,9 +187,13 @@ export default function UserRoutine() {
               ) : null}
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
-              {!selectedDay || selectedDay.exercises.length === 0 ? (
+              {!selectedDay ? (
                 <div className="rounded-xl border border-dashed border-border bg-surface-2/20 p-6 text-sm text-muted-foreground">
-                  No hay ejercicios activos para este día.
+                  Sin días.
+                </div>
+              ) : selectedDay.exercises.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-surface-2/20 p-6 text-sm text-muted-foreground">
+                  Este día todavía no tiene ejercicios cargados.
                 </div>
               ) : (
                 selectedDay.exercises.map((exercise) => (

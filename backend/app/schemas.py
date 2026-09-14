@@ -279,70 +279,6 @@ class RevenueReportItem(BaseSchema):
     total: float
 
 
-class RoutineExerciseOption(BaseSchema):
-    exercise_id: str
-    name: str
-    # Optional (H1, corrección de verificación): `Exercise.muscle_group` es
-    # nullable desde `exercise-catalog` (design D1); un ejercicio sin grupo
-    # rompía la serialización acá con un 500.
-    muscle_group: Optional[str] = None
-    description: Optional[str] = None
-    is_active: bool
-    sort_order: int
-
-
-class RoutineDayOut(BaseSchema):
-    id: str
-    name: str
-    muscle_groups: list[str]
-    day_order: int
-    exercises: list[RoutineExerciseOption]
-
-
-class RoutineCatalogExercise(BaseSchema):
-    id: str
-    name: str
-    # Optional (H1, corrección de verificación, parte 2): `Exercise.muscle_group`
-    # es nullable desde `exercise-catalog` (design D1).
-    muscle_group: Optional[str] = None
-    description: Optional[str] = None
-
-
-class RoutineCatalogGroup(BaseSchema):
-    # Optional: agrupa por `exercise.muscle_group`, que puede ser `None` (H1).
-    muscle_group: Optional[str] = None
-    exercises: list[RoutineCatalogExercise]
-
-
-class RoutineExerciseUpdate(BaseSchema):
-    """`PUT /routines/exercises/{id}`, achicado a los tres campos de base
-    (`exercise-catalog`, design D7/S2, task 4.13): `name`/`muscle_group`/
-    `description`/`is_active` pasan a ser exclusivos de `PATCH /exercises/{id}`.
-    Sigue owner-only, sin cambio de permiso (la base de progresión no es el
-    catálogo)."""
-
-    base_sets: Optional[Annotated[int, Field(ge=1)]] = None
-    base_reps: Optional[Annotated[int, Field(ge=1)]] = None
-    base_weight_kg: Optional[Annotated[float, Field(ge=0)]] = None
-
-
-class RoutineExerciseManageOut(BaseSchema):
-    id: str
-    name: str
-    # Optional (H1, corrección de verificación, parte 2): idem RoutineExerciseOption.
-    muscle_group: Optional[str] = None
-    description: Optional[str] = None
-    is_active: bool
-    day_ids: list[str]
-    base_sets: int
-    base_reps: int
-    base_weight_kg: float
-
-
-class RoutineDaySelectionUpdate(BaseSchema):
-    exercise_ids: list[str] = Field(default_factory=list)
-
-
 class WorkoutLogCreate(BaseSchema):
     day_id: str
     exercise_id: str
@@ -378,7 +314,10 @@ class WorkoutLogUpdate(BaseSchema):
 class WorkoutLogOut(BaseSchema):
     id: str
     user_id: str
-    day_id: str
+    # Optional (`template-owned-routine-days`, design D3): `day_id` queda en
+    # `NULL` cuando se borra el día de la plantilla; `day_name` es el snapshot
+    # que sigue identificando el registro.
+    day_id: Optional[str] = None
     day_name: str
     exercise_id: str
     exercise_name: str
@@ -407,6 +346,17 @@ class ProgressImprovement(BaseSchema):
     delta_weight: float
 
 
+class ActiveAssignmentSummary(BaseSchema):
+    """`member-routine-view`, requirement "El overview y el progreso siguen
+    siempre la asignación Activa": lo mínimo que hace observable ese
+    requirement en `progress-summary`/`progress-report` sin inventar una
+    pantalla nueva. `None` cuando el Miembro no tiene ninguna asignación
+    Activa (aunque tenga Alternativas)."""
+
+    assignment_id: str
+    template_name: str
+
+
 class UserProgressSummary(BaseSchema):
     user_id: str
     user_name: str
@@ -421,6 +371,7 @@ class UserProgressSummary(BaseSchema):
     best_weight_kg: Optional[float] = None
     top_improvement: Optional[ProgressImprovement] = None
     motivation: str
+    active_assignment: Optional[ActiveAssignmentSummary] = None
 
 
 class SettingsBase(BaseSchema):
@@ -532,12 +483,6 @@ def _normalize_tag(value):
     return value
 
 
-def _unique_day_ids(value: list[str]) -> list[str]:
-    if len(set(value)) != len(value):
-        raise ValueError("day_ids no puede tener ids repetidos")
-    return value
-
-
 class PlannedSetOut(BaseSchema):
     """Una serie calculada por el motor de progresión (`app/progression.py`)."""
 
@@ -553,22 +498,24 @@ class ExerciseBaseOut(BaseSchema):
     weight_kg: float
 
 
+class ExerciseBaseIn(BaseSchema):
+    """Base opcional de un par (día, ejercicio) en el `PUT` de guardado del
+    borrador (`template-owned-routine-days`, design D5). Ausente ⇒ constante
+    por defecto para un par nuevo, o la base ya guardada para uno existente."""
+
+    sets: Annotated[int, Field(ge=1)]
+    reps: Annotated[int, Field(ge=1)]
+    weight_kg: Annotated[float, Field(ge=0)]
+
+
 class RoutineTemplateExerciseOut(BaseSchema):
     exercise_id: str
     name: str
-    # Optional (H1, corrección de verificación, parte 2): idem RoutineExerciseOption.
+    # Optional (H1, corrección de verificación, parte 2): idem catálogo.
     muscle_group: Optional[str] = None
     base: ExerciseBaseOut
-    is_active: bool
     strategy: ProgressionStrategyLiteral
     planned_sets: list[PlannedSetOut]
-
-
-class RoutineTemplateExerciseUpdate(BaseSchema):
-    """`PUT /routines/templates/{id}/days/{day_id}/exercises/{exercise_id}`."""
-
-    is_active: Optional[bool] = None
-    strategy: Optional[ProgressionStrategyLiteral] = None
 
 
 class RoutineTemplateDayOut(BaseSchema):
@@ -598,9 +545,14 @@ class RoutineTemplateDetail(BaseSchema):
 
 
 class RoutineTemplateCreate(BaseSchema):
+    """`day_ids` se retiró del schema (design D6): un payload que lo trae es un
+    422 (`extra="forbid"`), no un campo ignorado en silencio. `POST` crea la
+    plantilla y su Día 1 en el mismo request — no hace falta indicar días acá."""
+
+    model_config = ConfigDict(extra="forbid")
+
     name: Annotated[str, Field(min_length=1, max_length=120)]
     tag: Annotated[str, Field(max_length=24)] = ""
-    day_ids: Annotated[list[str], Field(min_length=1)]
 
     @field_validator("name", mode="before")
     @classmethod
@@ -612,16 +564,15 @@ class RoutineTemplateCreate(BaseSchema):
     def normalize_tag(cls, value):
         return _normalize_tag(value) if value is not None else ""
 
-    @field_validator("day_ids")
-    @classmethod
-    def validate_day_ids(cls, value):
-        return _unique_day_ids(value)
-
 
 class RoutineTemplateUpdate(BaseSchema):
+    """`day_ids` se retiró (design D6): la edición de días pasa por
+    `PUT /routines/templates/{id}/days` (`RoutineTemplateDaysUpdate`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
     name: Optional[Annotated[str, Field(min_length=1, max_length=120)]] = None
     tag: Optional[Annotated[str, Field(max_length=24)]] = None
-    day_ids: Optional[Annotated[list[str], Field(min_length=1)]] = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -633,10 +584,73 @@ class RoutineTemplateUpdate(BaseSchema):
     def normalize_tag(cls, value):
         return _normalize_tag(value)
 
-    @field_validator("day_ids")
+
+def _unique_exercise_ids(exercises: list["RoutineTemplateDayExerciseInput"]) -> list["RoutineTemplateDayExerciseInput"]:
+    ids = [item.exercise_id for item in exercises]
+    if len(set(ids)) != len(ids):
+        raise ValueError("No se puede repetir un ejercicio dentro del mismo día")
+    return exercises
+
+
+def _dedupe_muscle_groups(value: list[MuscleGroup]) -> list[MuscleGroup]:
+    seen: list[MuscleGroup] = []
+    for item in value:
+        if item not in seen:
+            seen.append(item)
+    return seen
+
+
+class RoutineTemplateDayExerciseInput(BaseSchema):
+    """Un ejercicio dentro de un día, en el `PUT` de guardado del borrador
+    (design D5). `strategy`/`base` ausentes en un par **nuevo** toman
+    `constant` y la constante por defecto del servidor; en un par **existente**
+    conservan lo ya guardado."""
+
+    exercise_id: str
+    strategy: Optional[ProgressionStrategyLiteral] = None
+    base: Optional[ExerciseBaseIn] = None
+
+
+class RoutineTemplateDayInput(BaseSchema):
+    """Un día dentro del `PUT` de guardado del borrador (design D5). `day_id`
+    presente ⇒ conserva esa fila (tiene que pertenecer a la plantilla, 400 si
+    no); `None` ⇒ día nuevo. `muscle_groups` puede quedar vacío ("Día 1 sin
+    grupo muscular asignado")."""
+
+    day_id: Optional[str] = None
+    muscle_groups: list[MuscleGroup] = Field(default_factory=list)
+    exercises: list[RoutineTemplateDayExerciseInput] = Field(default_factory=list)
+
+    @field_validator("muscle_groups")
     @classmethod
-    def validate_day_ids(cls, value):
-        return _unique_day_ids(value) if value is not None else value
+    def dedupe_muscle_groups(cls, value):
+        return _dedupe_muscle_groups(value)
+
+    @field_validator("exercises")
+    @classmethod
+    def validate_exercises(cls, value):
+        return _unique_exercise_ids(value)
+
+
+class RoutineTemplateDaysUpdate(BaseSchema):
+    """`PUT /routines/templates/{template_id}/days`: reemplazo completo con
+    identidad explícita (design D5). El orden de la lista **es** el dato: la
+    posición del día es su índice + 1, y el `sort_order` del ejercicio es su
+    índice. `1 <= len(days) <= 5` cubre "no se puede agregar un sexto día" y
+    "no se puede quitar el último día" con un solo `Field`."""
+
+    days: Annotated[list[RoutineTemplateDayInput], Field(min_length=1, max_length=5)]
+
+    @field_validator("days")
+    @classmethod
+    def validate_unique_day_ids(cls, value):
+        """Un `day_id` no nulo repetido colapsaría dos días en una sola fila y
+        rompería I1 (posiciones contiguas 1..N). Los `day_id` `null` (días
+        nuevos) sí pueden repetirse."""
+        day_ids = [day.day_id for day in value if day.day_id is not None]
+        if len(set(day_ids)) != len(day_ids):
+            raise ValueError("No se puede repetir un día dentro del mismo guardado")
+        return value
 
 
 class LastAdjustmentOut(BaseSchema):

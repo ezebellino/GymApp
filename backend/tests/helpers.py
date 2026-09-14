@@ -13,6 +13,13 @@ from datetime import date, datetime
 
 from app import models
 from app.auth import hash_password
+from app.models import (
+    DEFAULT_EXERCISE_BASE_REPS,
+    DEFAULT_EXERCISE_BASE_SETS,
+    DEFAULT_EXERCISE_BASE_WEIGHT_KG,
+    ProgressionStrategy,
+)
+from app.routers.routine_templates import _normalize_name as _normalize_template_name
 
 OWNER_EMAIL = "owner@example.com"
 COACH_EMAIL = "coach@example.com"
@@ -111,3 +118,101 @@ def assign_plan_to_member(db_session, member, *, amount=10000, name=None):
     db_session.commit()
     db_session.refresh(plan)
     return plan
+
+
+def _normalize_exercise_name(name: str) -> str:
+    """NFC + strip + casefold, mismo criterio que `routers/exercises.py`."""
+    import unicodedata
+
+    return unicodedata.normalize("NFC", name).strip().casefold()
+
+
+def create_exercise(
+    db_session,
+    *,
+    id,
+    name,
+    muscle_group,
+    description=None,
+):
+    """Crea un `Exercise` directo en la base (`exercise-catalog`).
+
+    `template-owned-routine-days` (design D7): el catálogo ya no tiene base
+    propia (`base_sets`/`base_reps`/`base_weight_kg` se dropearon de
+    `Exercise`) ni ningún vínculo automático a un día — un ejercicio deja de
+    "pertenecer" a un día por su grupo muscular. La base y la estrategia son
+    ahora atributos de `(día de plantilla, ejercicio)`, ver
+    `create_template_with_days`. Devuelve el `Exercise` creado."""
+    exercise = models.Exercise(
+        id=id,
+        name=name,
+        name_normalized=_normalize_exercise_name(name),
+        muscle_group=muscle_group,
+        description=description,
+        is_active=True,
+    )
+    db_session.add(exercise)
+    db_session.commit()
+    db_session.refresh(exercise)
+    return exercise
+
+
+def create_template_with_days(
+    db_session,
+    *,
+    name,
+    days=None,
+    tag=None,
+):
+    """Arma una `RoutineTemplate` con sus días propios directo en la base
+    (`template-owned-routine-days`, design D13): reemplaza al viejo seed de
+    `day-1..day-4` del catálogo global para los tests que solo necesitan una
+    plantilla con contenido, sin ejercitar el `PUT` de guardado del borrador.
+
+    `days` es una lista de dicts, cada uno con:
+      - `muscle_groups`: list[str] (valores de `MuscleGroup`), default `[]`.
+      - `exercises`: list[dict] con `exercise_id` (obligatorio, ya tiene que
+        existir en `exercises`), `strategy` (default `constant`), `base_sets`/
+        `base_reps`/`base_weight_kg` (default las constantes de `models.py`).
+
+    Sin `days`, crea el Día 1 vacío (el estado de una plantilla recién creada
+    por la API). Devuelve la `RoutineTemplate` creada, con `.days` cargados."""
+    name_normalized = _normalize_template_name(name)
+    template = models.RoutineTemplate(
+        name=name,
+        name_normalized=name_normalized,
+        tag=tag,
+    )
+    db_session.add(template)
+    db_session.flush()
+
+    days_input = days if days is not None else [{}]
+    for position, day_input in enumerate(days_input, start=1):
+        day = models.RoutineTemplateDay(template_id=template.id, position=position)
+        db_session.add(day)
+        db_session.flush()
+
+        for sort_order, muscle_group in enumerate(day_input.get("muscle_groups", [])):
+            db_session.add(
+                models.RoutineTemplateDayMuscleGroup(
+                    template_day_id=day.id, muscle_group=muscle_group, sort_order=sort_order
+                )
+            )
+
+        for sort_order, exercise_input in enumerate(day_input.get("exercises", [])):
+            strategy = ProgressionStrategy(exercise_input.get("strategy", ProgressionStrategy.constant))
+            db_session.add(
+                models.RoutineTemplateDayExercise(
+                    template_day_id=day.id,
+                    exercise_id=exercise_input["exercise_id"],
+                    sort_order=sort_order,
+                    strategy=strategy,
+                    base_sets=exercise_input.get("base_sets", DEFAULT_EXERCISE_BASE_SETS),
+                    base_reps=exercise_input.get("base_reps", DEFAULT_EXERCISE_BASE_REPS),
+                    base_weight_kg=exercise_input.get("base_weight_kg", DEFAULT_EXERCISE_BASE_WEIGHT_KG),
+                )
+            )
+
+    db_session.commit()
+    db_session.refresh(template)
+    return template

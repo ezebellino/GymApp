@@ -1,28 +1,28 @@
 import { useEffect, useState } from "react";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 import { Input } from "@/components/ui/input";
-import { useUpdateExerciseBaseMutation } from "@/services/routineTemplates.queries";
-import { toastSuccess } from "@/lib/toast";
-import type { RoutineTemplateExercise } from "@/types";
+import type { ExerciseBase } from "@/types";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  exercise: RoutineTemplateExercise;
+  // Solo lo que hace falta para editar la base: el caller puede pasar un
+  // `RoutineTemplateExercise` o cualquier ejercicio del borrador con esta
+  // forma mínima.
+  exercise: { name: string; base: ExerciseBase };
+  onSave: (base: ExerciseBase) => void;
 };
 
-// Edita la base del catálogo (series x reps · kg) de un ejercicio, desde el
-// detalle de plantilla. Reusa el `PUT /routines/exercises/{id}` existente,
-// exclusivo del Dueño — el caller (`RoutineTemplateDetail.tsx`) es
-// responsable de no montar este diálogo para un Coach (design.md D3/D11 de
-// add-routine-templates, espejo de `require_role(owner)` del endpoint).
-export default function EditExerciseBaseDialog({ open, onOpenChange, exercise }: Props) {
+// Editor de la base (series x reps · kg) de un ejercicio **del borrador**
+// (`template-owned-routine-days`, design D5/D11): no pega ningún request,
+// solo despacha `SET_EXERCISE_BASE` al reducer del detalle de plantilla. La
+// base es propia de la combinación (plantilla, día, ejercicio) — se
+// persiste recién al confirmar el guardado del borrador entero.
+export default function EditExerciseBaseDialog({ open, onOpenChange, exercise, onSave }: Props) {
   const [sets, setSets] = useState(String(exercise.base.sets));
   const [reps, setReps] = useState(String(exercise.base.reps));
   const [weightKg, setWeightKg] = useState(String(exercise.base.weight_kg));
   const [error, setError] = useState<string | null>(null);
-
-  const updateMutation = useUpdateExerciseBaseMutation();
 
   useEffect(() => {
     if (open) {
@@ -33,22 +33,27 @@ export default function EditExerciseBaseDialog({ open, onOpenChange, exercise }:
     }
   }, [open, exercise]);
 
-  async function handleConfirm() {
+  function handleConfirm() {
     setError(null);
-    try {
-      await updateMutation.mutateAsync({
-        exerciseId: exercise.exercise_id,
-        input: {
-          base_sets: Number(sets),
-          base_reps: Number(reps),
-          base_weight_kg: Number(weightKg),
-        },
-      });
-      onOpenChange(false);
-      toastSuccess("Base actualizada", `${exercise.name} tiene una nueva base.`);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Error desconocido");
+    const parsedSets = Number(sets);
+    const parsedReps = Number(reps);
+    const parsedWeightKg = Number(weightKg);
+
+    if (!Number.isFinite(parsedSets) || parsedSets < 1) {
+      setError("Las series tienen que ser al menos 1.");
+      return;
     }
+    if (!Number.isFinite(parsedReps) || parsedReps < 1) {
+      setError("Las repeticiones tienen que ser al menos 1.");
+      return;
+    }
+    if (!Number.isFinite(parsedWeightKg) || parsedWeightKg < 0) {
+      setError("El peso no puede ser negativo.");
+      return;
+    }
+
+    onSave({ sets: parsedSets, reps: parsedReps, weight_kg: parsedWeightKg });
+    onOpenChange(false);
   }
 
   return (
@@ -56,10 +61,10 @@ export default function EditExerciseBaseDialog({ open, onOpenChange, exercise }:
       open={open}
       onOpenChange={onOpenChange}
       title="Editar base del ejercicio"
-      description={`Cambiá la base (series x reps · kg) de ${exercise.name} en el catálogo. Afecta el plan calculado de toda plantilla que lo incluya.`}
-      confirmLabel="Guardar"
-      pendingLabel="Guardando..."
-      isPending={updateMutation.isPending}
+      description={`Cambiá la base (series x reps · kg) de ${exercise.name} en este día. Se persiste al guardar la plantilla.`}
+      confirmLabel="Aplicar"
+      pendingLabel="Aplicar"
+      isPending={false}
       error={error}
       onConfirm={handleConfirm}
     >

@@ -1,6 +1,6 @@
 .PHONY: help setup setup-backend setup-frontend dev backend frontend migrate stop clean \
 	test test-backend test-frontend \
-	lint lint-backend lint-frontend check-plan seed-dev \
+	lint lint-backend lint-frontend check-plan seed-dev seed-dev-exercises \
 	docker-up docker-down docker-build docker-logs docker-ps docker-clean \
 	agents-sync agents-check
 
@@ -35,6 +35,15 @@ seed-dev: ## Crea/actualiza los 3 usuarios de desarrollo (Dueño, Coach, Miembro
 	else \
 		echo "==> modo nativo: seedeando con el venv de backend/"; \
 		cd backend && ../$(PYTHON) -m scripts.seed_dev_users; \
+	fi
+
+seed-dev-exercises: ## Carga 52 ejercicios de prueba (opcional, solo desarrollo)
+	@if docker compose ps --status running --services 2>/dev/null | grep -qx backend; then \
+		echo "==> stack Docker detectado: seedeando dentro del contenedor backend"; \
+		docker compose exec -T backend python -m scripts.seed_dev_exercises; \
+	else \
+		echo "==> modo nativo: seedeando con el venv de backend/"; \
+		cd backend && ../$(PYTHON) -m scripts.seed_dev_exercises; \
 	fi
 
 backend: ## Levanta solo el backend (uvicorn --reload)

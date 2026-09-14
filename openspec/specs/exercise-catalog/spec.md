@@ -7,9 +7,10 @@ ejercicio) y tipos de entrenamiento (lista fija, cero o más), con media de demo
 propio y/o URL externa) y estado activo/inactivo. Cubre el CRUD para Dueño y Coach, la regla de
 que un ejercicio en uso (referenciado por alguna plantilla de rutina o alguna sesión/registro de
 entrenamiento) no se puede borrar y solo se puede desactivar, y el listado con búsqueda y filtros.
-La composición de ejercicios dentro de una plantilla — activarlos o desactivarlos por plantilla,
-su estrategia de progresión y su base (series × reps · kg) — se especifica en
-`routine-templates`; la asignación de plantillas a Miembros, en `routine-assignment`.
+La composición de ejercicios dentro de un día de plantilla — agregarlos o quitarlos mediante un
+buscador, su estrategia de progresión y su base (series × reps · kg) propias de esa combinación
+(plantilla, día, ejercicio) — se especifica en `routine-templates`; la asignación de plantillas a
+Miembros, en `routine-assignment`.
 
 ## Requirements
 

@@ -30,7 +30,7 @@ os.environ["STORAGE_BACKEND"] = "memory"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy import create_engine, event  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 
 from app import models  # noqa: E402
@@ -43,12 +43,27 @@ from tests.helpers import (  # noqa: E402
     COACH_EMAIL,
     OWNER_EMAIL,
     PASSWORD,
+    create_exercise,
+    create_template_with_days,
     create_user,
     login,
 )
 
 test_engine = create_engine(TEST_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+
+@event.listens_for(test_engine, "connect")
+def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record):
+    """SQLite no aplica `ON DELETE`/`ON UPDATE` de las FKs a menos que se pida
+    por conexión (a diferencia de Postgres, que las aplica siempre). Sin esto,
+    los `ondelete="SET NULL"`/`"CASCADE"` del modelo (p. ej.
+    `WorkoutLog.day_id`, `template-owned-routine-days` design D3) quedan sin
+    efecto en la suite y un borrado deja FKs colgando en vez de en `NULL`,
+    aunque en Postgres (producción) sí se comporten bien."""
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 
 def _override_get_db():
@@ -64,9 +79,22 @@ def _override_get_db():
 
 @pytest.fixture(autouse=True)
 def db_schema():
-    """Esquema limpio por test: dos corridas seguidas dan el mismo resultado."""
-    Base.metadata.drop_all(bind=test_engine)
-    Base.metadata.create_all(bind=test_engine)
+    """Esquema limpio por test: dos corridas seguidas dan el mismo resultado.
+
+    El `drop_all`/`create_all` corre con FKs **desactivadas** (`AUTOCOMMIT`,
+    fuera de una transacción: SQLite no permite tocar el pragma dentro de
+    una): el modelo tiene un ciclo real entre tablas (`users.membership_plan_id`
+    -> `membership_plans.id` y `membership_plans.created_by_user_id` ->
+    `users.id`), y SQLite no soporta `ALTER TABLE DROP CONSTRAINT` para que
+    SQLAlchemy rompa el ciclo al ordenar los drops — con FKs on, `drop_all`
+    falla. El resto del test corre con FKs **activadas** (ver el listener de
+    `connect` de arriba): sin esto, `ondelete="SET NULL"`/`"CASCADE"` no
+    tienen ningún efecto en la suite (aunque sí en Postgres/producción)."""
+    with test_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        Base.metadata.drop_all(bind=conn)
+        Base.metadata.create_all(bind=conn)
+        conn.exec_driver_sql("PRAGMA foreign_keys=ON")
     app.dependency_overrides[get_db] = _override_get_db
     yield
     app.dependency_overrides.clear()
@@ -158,3 +186,80 @@ def auth_header(client):
         return login(client, email, password)
 
     return _auth_header
+
+
+# --- Catálogo de ejercicios ---------------------------------------------------
+# `drop-static-exercise-catalog` retiró el sembrado automático de ejercicios: el
+# catálogo arranca vacío en todo entorno, tests incluidos. `catalog_basic` es
+# **opt-in** (no `autouse`, design D5) — solo los tests que la piden explícitamente
+# obtienen estos ejercicios; el resto de la suite sigue viendo un catálogo vacío,
+# que es justo el estado nuevo que hay que poder testear.
+
+
+@pytest.fixture
+def catalog_basic(db_session):
+    """El puñado de ejercicios que la suite ya nombra por id en varios archivos
+    (`chest-bench-press`, `chest-cable-fly`, `legs-back-squat`). Un test que
+    necesite otro ejercicio de un grupo puntual llama a `create_exercise`
+    directo en su cuerpo, en vez de agrandar este fixture.
+
+    `template-owned-routine-days` (design D7): el catálogo ya no tiene base
+    propia — la base (series x reps x kg) vive en `(día de plantilla,
+    ejercicio)`, no acá. Un test que necesite una base puntual la arma con
+    `create_template_with_days` o con el `PUT .../days`."""
+    return {
+        "chest-bench-press": create_exercise(
+            db_session,
+            id="chest-bench-press",
+            name="Press en banco plano con barra",
+            muscle_group="Pecho",
+        ),
+        "chest-cable-fly": create_exercise(
+            db_session,
+            id="chest-cable-fly",
+            name="Apertura inclinadas con mancuernas",
+            muscle_group="Pecho",
+        ),
+        "legs-back-squat": create_exercise(
+            db_session,
+            id="legs-back-squat",
+            name="Sentadilla libre",
+            muscle_group="Cuádriceps",
+        ),
+    }
+
+
+# --- Días propios de una plantilla (`template-owned-routine-days`, D13) -----
+# Opt-in (no `autouse`), igual criterio que `catalog_basic`: la precondición de
+# cada test tiene que leerse en el test.
+
+
+@pytest.fixture
+def template_with_days(db_session, catalog_basic):
+    """Una plantilla con dos días y un ejercicio de `catalog_basic` en cada
+    uno, con la base seedeada que varios tests de asignación/miembro ya
+    esperaban del viejo `routine_catalog` (4x8 · 45kg de `chest-bench-press`).
+    Devuelve la `RoutineTemplate` creada."""
+    return create_template_with_days(
+        db_session,
+        name="Fuerza 4 días",
+        days=[
+            {
+                "muscle_groups": ["Pecho"],
+                "exercises": [
+                    {
+                        "exercise_id": "chest-bench-press",
+                        "strategy": "constant",
+                        "base_sets": 4,
+                        "base_reps": 8,
+                        "base_weight_kg": 45,
+                    },
+                    {"exercise_id": "chest-cable-fly"},
+                ],
+            },
+            {
+                "muscle_groups": ["Cuádriceps"],
+                "exercises": [{"exercise_id": "legs-back-squat"}],
+            },
+        ],
+    )

@@ -8,7 +8,6 @@ Dos routers en el mismo módulo (design D9):
   asignaciones y el plan ya calculado.
 """
 
-from collections import defaultdict
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -18,8 +17,8 @@ from .. import models, schemas
 from ..auth import get_current_user, require_role
 from ..deps import get_db, require_can_manage_user
 from ..models import UserRole
-from .routine_templates import _resolve_exercise_config, _serialize_exercise, _split_muscle_groups
-from .routines import _ensure_seed_data, _get_user_or_404, _require_member
+from ..progression import plan_sets
+from .routines import _get_user_or_404, _require_member
 
 router = APIRouter(
     prefix="/routines/users/{user_id}/templates",
@@ -40,7 +39,12 @@ my_router = APIRouter(
 def _get_template_with_days(db: Session, template_id: str) -> models.RoutineTemplate:
     template = (
         db.query(models.RoutineTemplate)
-        .options(joinedload(models.RoutineTemplate.days))
+        .options(
+            joinedload(models.RoutineTemplate.days).joinedload(models.RoutineTemplateDay.muscle_groups),
+            joinedload(models.RoutineTemplate.days)
+            .joinedload(models.RoutineTemplateDay.exercises)
+            .joinedload(models.RoutineTemplateDayExercise.exercise),
+        )
         .filter(models.RoutineTemplate.id == template_id)
         .first()
     )
@@ -50,12 +54,12 @@ def _get_template_with_days(db: Session, template_id: str) -> models.RoutineTemp
 
 
 def _validate_exercise_in_template(db: Session, template: models.RoutineTemplate, exercise_id: str) -> None:
-    day_ids = [template_day.day_id for template_day in template.days]
+    day_ids = [template_day.id for template_day in template.days]
     exists = (
-        db.query(models.TrainingDayExercise)
+        db.query(models.RoutineTemplateDayExercise)
         .filter(
-            models.TrainingDayExercise.day_id.in_(day_ids),
-            models.TrainingDayExercise.exercise_id == exercise_id,
+            models.RoutineTemplateDayExercise.template_day_id.in_(day_ids),
+            models.RoutineTemplateDayExercise.exercise_id == exercise_id,
         )
         .first()
     )
@@ -118,14 +122,15 @@ def _upsert_base_override(
 
 
 def _resolve_base(
-    exercise: models.Exercise, overrides: dict[str, models.RoutineAssignmentBase]
+    link: models.RoutineTemplateDayExercise, overrides: dict[str, models.RoutineAssignmentBase]
 ) -> tuple[int, int, float]:
-    """Única precedencia del sistema (design D7, invariante I10): el ajuste de base
-    por cliente si existe, si no la base del catálogo."""
-    override = overrides.get(exercise.id)
+    """Única precedencia del sistema (`template-owned-routine-days`, design D4):
+    el ajuste de base por cliente si existe, si no la base propia del par
+    (día, ejercicio)."""
+    override = overrides.get(link.exercise_id)
     if override is not None:
         return override.sets, override.reps, override.weight_kg
-    return exercise.base_sets, exercise.base_reps, exercise.base_weight_kg
+    return link.base_sets, link.base_reps, link.base_weight_kg
 
 
 def _serialize_assignment(db: Session, assignment: models.RoutineAssignment) -> schemas.RoutineAssignmentOut:
@@ -189,7 +194,6 @@ def create_assignment(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_role(UserRole.owner, UserRole.coach)),
 ):
-    _ensure_seed_data(db)
     target = _get_user_or_404(db, user_id)
     require_can_manage_user(current_user, target.role)
 
@@ -301,7 +305,6 @@ def upsert_assignment_base(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_role(UserRole.owner, UserRole.coach)),
 ):
-    _ensure_seed_data(db)
     target = _get_user_or_404(db, user_id)
     require_can_manage_user(current_user, target.role)
     assignment = _get_assignment_or_404(db, user_id, assignment_id)
@@ -365,21 +368,65 @@ def list_my_templates(
     return [_serialize_assignment(db, assignment) for assignment in assignments]
 
 
+def _serialize_member_exercise(
+    link: models.RoutineTemplateDayExercise, overrides: dict[str, models.RoutineAssignmentBase]
+) -> schemas.RoutineTemplateExerciseOut:
+    exercise = link.exercise
+    sets, reps, weight_kg = _resolve_base(link, overrides)
+    planned = plan_sets(link.strategy, sets=sets, reps=reps, weight_kg=weight_kg)
+    return schemas.RoutineTemplateExerciseOut(
+        exercise_id=exercise.id,
+        name=exercise.name,
+        muscle_group=exercise.muscle_group,
+        base=schemas.ExerciseBaseOut(sets=sets, reps=reps, weight_kg=weight_kg),
+        strategy=link.strategy.value,
+        planned_sets=[
+            schemas.PlannedSetOut(index=item.index, weight_kg=item.weight_kg, reps=item.reps, note=item.note)
+            for item in planned
+        ],
+    )
+
+
+def _serialize_member_day(
+    day: models.RoutineTemplateDay, overrides: dict[str, models.RoutineAssignmentBase]
+) -> schemas.RoutineTemplateDayOut:
+    muscle_groups = [item.muscle_group for item in sorted(day.muscle_groups, key=lambda m: m.sort_order)]
+    return schemas.RoutineTemplateDayOut(
+        day_id=day.id,
+        name=f"Día {day.position}" + (f" - {'/'.join(muscle_groups)}" if muscle_groups else ""),
+        muscle_groups=muscle_groups,
+        position=day.position,
+        exercises=[
+            _serialize_member_exercise(link, overrides)
+            for link in sorted(day.exercises, key=lambda item: item.sort_order)
+        ],
+    )
+
+
 @my_router.get("/{assignment_id}", response_model=schemas.MemberRoutineTemplateOut)
 def get_my_template(
     assignment_id: str,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Sin `configs_by_key` ni predicados de fallback (design D10): los
+    ejercicios que ve el Miembro son exactamente los de
+    `routine_template_day_exercises` de los días de la plantilla asignada
+    (I7) — estar en la tabla **es** estar en el plan. Los cambios del Coach se
+    ven en el próximo request (I8): la asignación es una referencia, no una
+    copia."""
     member = _require_member(current_user)
-    _ensure_seed_data(db)
 
     assignment = (
         db.query(models.RoutineAssignment)
         .options(
             joinedload(models.RoutineAssignment.template)
             .joinedload(models.RoutineTemplate.days)
-            .joinedload(models.RoutineTemplateDay.day)
+            .joinedload(models.RoutineTemplateDay.muscle_groups),
+            joinedload(models.RoutineAssignment.template)
+            .joinedload(models.RoutineTemplate.days)
+            .joinedload(models.RoutineTemplateDay.exercises)
+            .joinedload(models.RoutineTemplateDayExercise.exercise),
         )
         .filter(
             models.RoutineAssignment.id == assignment_id,
@@ -394,14 +441,6 @@ def get_my_template(
 
     template = assignment.template
     days = sorted(template.days, key=lambda item: item.position)
-    day_ids = [template_day.day_id for template_day in days]
-
-    configs = (
-        db.query(models.RoutineTemplateExercise)
-        .filter(models.RoutineTemplateExercise.template_id == template.id)
-        .all()
-    )
-    configs_by_key = {(config.day_id, config.exercise_id): config for config in configs}
 
     overrides = {
         override.exercise_id: override
@@ -410,37 +449,7 @@ def get_my_template(
         .all()
     }
 
-    links = (
-        db.query(models.TrainingDayExercise)
-        .options(joinedload(models.TrainingDayExercise.exercise))
-        .filter(models.TrainingDayExercise.day_id.in_(day_ids))
-        .order_by(models.TrainingDayExercise.sort_order.asc())
-        .all()
-    )
-    links_by_day: dict[str, list[models.TrainingDayExercise]] = defaultdict(list)
-    for link in links:
-        links_by_day[link.day_id].append(link)
-
-    days_out = []
-    for template_day in days:
-        exercises_out = []
-        for link in links_by_day.get(template_day.day_id, []):
-            is_active, strategy = _resolve_exercise_config(configs_by_key, template_day.day_id, link)
-            if not is_active:
-                # Un ejercicio desactivado para la plantilla NO aparece en el plan
-                # del Miembro (spec `member-routine-view`).
-                continue
-            base_override = _resolve_base(link.exercise, overrides)
-            exercises_out.append(_serialize_exercise(link, True, strategy, base_override=base_override))
-        days_out.append(
-            schemas.RoutineTemplateDayOut(
-                day_id=template_day.day.id,
-                name=template_day.day.name,
-                muscle_groups=_split_muscle_groups(template_day.day.muscle_groups),
-                position=template_day.position,
-                exercises=exercises_out,
-            )
-        )
+    days_out = [_serialize_member_day(day, overrides) for day in days]
 
     assignment_out = _serialize_assignment(db, assignment)
     return schemas.MemberRoutineTemplateOut(**assignment_out.model_dump(), days=days_out)

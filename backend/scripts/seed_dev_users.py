@@ -14,7 +14,6 @@ desarrollo: doble candado sobre `ENVIRONMENT` y el host de `DATABASE_URL`.
 import sys
 from datetime import date, datetime
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -28,6 +27,7 @@ from app.auth import hash_password
 from app.config import settings
 from app.models import MembershipPlan, MembershipPlanPrice, MembershipStatus, User, UserRole
 from app.routers.membership_plans import _normalize_name
+from scripts.dev_guards import check_environment_guards
 
 
 DEV_PASSWORD = "devdev123"
@@ -62,10 +62,6 @@ DEV_USERS = [
         "role": UserRole.member,
     },
 ]
-
-ALLOWED_ENVIRONMENTS = {"development", "local", "test"}
-# "" cubre SQLite de archivo (`sqlite:///ruta`), que no tiene host.
-ALLOWED_DB_HOSTS = {"localhost", "127.0.0.1", "db", ""}
 
 
 def _ensure_dev_plan(db: Session) -> MembershipPlan:
@@ -164,34 +160,8 @@ def seed_dev_users(db: Session) -> dict:
     return {"created": created, "updated": updated}
 
 
-def check_environment_guards() -> None:
-    """Doble candado antes de abrir cualquier conexión (design, decisión 9).
-
-    Sale con código 1 (no `return`): una negativa que termina en 0 se ve como éxito
-    desde `make` y desde CI.
-    """
-    environment = settings.ENVIRONMENT.strip().lower()
-    if environment not in ALLOWED_ENVIRONMENTS:
-        print(
-            "Me niego a seedear usuarios de desarrollo: ENVIRONMENT="
-            f"{settings.ENVIRONMENT!r} no es de desarrollo "
-            f"(esperaba uno de {sorted(ALLOWED_ENVIRONMENTS)}).\n"
-            "Declará ENVIRONMENT=development en backend/.env si esta base es local."
-        )
-        sys.exit(1)
-
-    db_host = (urlsplit(settings.DATABASE_URL).hostname or "").lower()
-    if db_host not in ALLOWED_DB_HOSTS:
-        print(
-            "Me niego a seedear usuarios de desarrollo: el host de DATABASE_URL es "
-            f"{db_host!r}, no una base local "
-            f"(esperaba uno de {sorted(h or '<sin host>' for h in ALLOWED_DB_HOSTS)})."
-        )
-        sys.exit(1)
-
-
 def main():
-    check_environment_guards()
+    check_environment_guards("usuarios de desarrollo")
 
     engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
     SessionLocal = sessionmaker(bind=engine)
