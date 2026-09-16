@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, LayoutTemplate, PencilLine, Trash2 } from "lucide-react";
 import {
   useRoutineTemplateQuery,
@@ -25,6 +25,9 @@ type DetailAction = null | "edit" | "delete";
 
 export default function RoutineTemplateDetail() {
   const { templateId } = useParams<{ templateId: string }>();
+  // `useNavigate` pelado y no `guardedNavigate`: después de borrar la
+  // plantilla no hay borrador que valga la pena defender.
+  const navigate = useNavigate();
 
   const [action, setAction] = useState<DetailAction>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -135,6 +138,7 @@ export default function RoutineTemplateDetail() {
           open={action === "delete"}
           onOpenChange={(open) => setAction(open ? "delete" : null)}
           template={template}
+          onDeleted={() => navigate("/routines")}
         />
       ) : null}
 

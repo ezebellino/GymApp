@@ -137,6 +137,69 @@ describe("vista de Rutinas", () => {
     expect(await screen.findByText("Catálogo de ejercicios")).toBeInTheDocument();
   });
 
+  it("elimina la plantilla desde la fila tras confirmar", async () => {
+    mockGet({
+      "/routines/templates": [makeTemplate({})],
+    });
+    vi.mocked(api.delete).mockImplementation(() => jsonResponse({}));
+
+    renderWithProviders(<Routines />, { route: "/routines" });
+
+    await screen.findByText("Fuerza 4 días");
+    const row = getRowByText("Fuerza 4 días");
+    fireEvent.click(within(row).getByRole("button", { name: "Eliminar" }));
+
+    const dialog = await screen.findByRole("dialog", { hidden: true });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Eliminar" }));
+
+    await waitFor(() => {
+      expect(api.delete).toHaveBeenCalledWith("/routines/templates/tpl-1");
+    });
+  });
+
+  it("no elimina nada si se cancela el dialogo de la fila", async () => {
+    mockGet({
+      "/routines/templates": [makeTemplate({})],
+    });
+
+    renderWithProviders(<Routines />, { route: "/routines" });
+
+    await screen.findByText("Fuerza 4 días");
+    const row = getRowByText("Fuerza 4 días");
+    fireEvent.click(within(row).getByRole("button", { name: "Eliminar" }));
+
+    const dialog = await screen.findByRole("dialog", { hidden: true });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
+  it("muestra el 409 del backend cuando la plantilla tiene asignaciones vigentes", async () => {
+    mockGet({
+      "/routines/templates": [makeTemplate({})],
+    });
+    vi.mocked(api.delete).mockImplementation(() =>
+      Promise.reject({
+        response: { data: { detail: "La plantilla tiene 3 miembros asignados" } },
+      })
+    );
+
+    renderWithProviders(<Routines />, { route: "/routines" });
+
+    await screen.findByText("Fuerza 4 días");
+    const row = getRowByText("Fuerza 4 días");
+    fireEvent.click(within(row).getByRole("button", { name: "Eliminar" }));
+
+    const dialog = await screen.findByRole("dialog", { hidden: true });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Eliminar" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "La plantilla tiene 3 miembros asignados"
+    );
+    // La fila sigue en la tabla: el borrado no ocurrió.
+    expect(screen.getByText("Fuerza 4 días")).toBeInTheDocument();
+  });
+
   it("muestra el error del backend cuando el nombre de plantilla ya esta en uso", async () => {
     mockGet({
       "/routines/templates": [makeTemplate({})],

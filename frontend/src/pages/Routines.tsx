@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Eye, LayoutTemplate } from "lucide-react";
+import { Eye, LayoutTemplate, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useRoutineTemplatesQuery } from "@/services/routineTemplates.queries";
 import type { RoutineTemplateSummary } from "@/types";
 import ListPageLayout from "@/components/ListPageLayout";
 import DataError from "@/components/DataError";
 import CreateRoutineTemplateDialog from "@/components/CreateRoutineTemplateDialog";
+import DeleteRoutineTemplateDialog from "@/components/DeleteRoutineTemplateDialog";
 import RowActionButton from "@/components/RowActionButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +64,10 @@ function EmptyState() {
 export default function Routines() {
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
+  // La plantilla que se está eliminando: el diálogo se monta solo cuando hay
+  // una (nunca `open={false}` con el componente presente, ver la nota de
+  // `MemberTemplatesCard` en frontend/AGENTS.md).
+  const [templateToDelete, setTemplateToDelete] = useState<RoutineTemplateSummary | null>(null);
   const { data, isPending, isError, refetch } = useRoutineTemplatesQuery();
 
   const rows: RoutineTemplateSummary[] = data ?? [];
@@ -153,11 +158,19 @@ export default function Routines() {
                       {template.assignment_count}
                     </TableCell>
                     <TableCell className="px-4 py-2">
-                      <RowActionButton
-                        icon={Eye}
-                        label="Ver"
-                        onClick={() => navigate(`/routines/${template.id}`)}
-                      />
+                      <div className="flex items-center gap-2">
+                        <RowActionButton
+                          icon={Eye}
+                          label="Ver"
+                          onClick={() => navigate(`/routines/${template.id}`)}
+                        />
+                        <RowActionButton
+                          icon={Trash2}
+                          label="Eliminar"
+                          tone="destructive"
+                          onClick={() => setTemplateToDelete(template)}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -166,11 +179,25 @@ export default function Routines() {
         </div>
       </ListPageLayout>
 
-      <CreateRoutineTemplateDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onCreated={(template) => navigate(`/routines/${template.id}`)}
-      />
+      {/* Los dos diálogos se montan solo cuando están abiertos: con dos
+          `<dialog>` presentes a la vez, `getByRole("dialog")` encuentra más de
+          uno (ver la nota de `MemberTemplatesCard` en frontend/AGENTS.md). */}
+      {createOpen ? (
+        <CreateRoutineTemplateDialog
+          open
+          onOpenChange={setCreateOpen}
+          onCreated={(template) => navigate(`/routines/${template.id}`)}
+        />
+      ) : null}
+
+      {templateToDelete ? (
+        <DeleteRoutineTemplateDialog
+          open
+          onOpenChange={(open) => !open && setTemplateToDelete(null)}
+          template={templateToDelete}
+          onDeleted={() => setTemplateToDelete(null)}
+        />
+      ) : null}
     </>
   );
 }
