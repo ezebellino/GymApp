@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, Plus, Save, Trash2, Undo2 } from "lucide-react";
+import { ChevronDown, ChevronUp, PencilLine, Plus, Save, Trash2, Undo2 } from "lucide-react";
 import { useExerciseMetaQuery, useExercisesQuery } from "@/services/exercises.queries";
 import { usePlannedSetsPreviewQuery } from "@/services/progression.queries";
 import { queryKeys } from "@/services/queryKeys";
@@ -25,7 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StrategyChips from "@/components/StrategyChips";
 import PlannedSetsList from "@/components/PlannedSetsList";
 import EditExerciseBaseDialog from "@/components/EditExerciseBaseDialog";
-import { cn } from "@/lib/utils";
+import EditDayMuscleGroupsDialog from "@/components/routine/EditDayMuscleGroupsDialog";
 
 // Editor de días compartido por la plantilla (`RoutineTemplateDetail.tsx`) y
 // la copia de un Miembro (`MemberRoutineEditor.tsx`) — `member-routine-copies`
@@ -232,6 +232,7 @@ function DayCard({
   onSetStrategy,
 }: DayCardProps) {
   const [query, setQuery] = useState("");
+  const [editingMuscleGroups, setEditingMuscleGroups] = useState(false);
   const debouncedQuery = useDebounce(query, 300);
   const searching = debouncedQuery.trim().length > 0;
 
@@ -245,59 +246,52 @@ function DayCard({
   const alreadyAdded = new Set(day.exercises.map((exercise) => exercise.exercise_id));
   const results = (data?.items ?? []).filter((exercise) => !alreadyAdded.has(exercise.id));
 
-  function toggleMuscleGroup(group: string) {
-    const next = day.muscle_groups.includes(group)
-      ? day.muscle_groups.filter((g) => g !== group)
-      : [...day.muscle_groups, group];
-    onSetMuscleGroups(next);
-  }
-
   return (
     <Card className="rounded-xl border-border bg-surface-1 backdrop-blur-md">
       <CardHeader className="space-y-4 border-b border-border pb-4">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-foreground">{dayTitle(index, day.muscle_groups)}</CardTitle>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            className="rounded-full border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50"
-            aria-label="Quitar día"
-            title={canRemoveDay ? "Quitar día" : "No se puede quitar el único día"}
-            disabled={!canRemoveDay}
-            onClick={onRemoveDay}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-
-        <div className="space-y-1.5">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Grupos musculares
-          </p>
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label={`Grupos musculares del Día ${index + 1}`}>
-            {muscleGroupOptions.map((group) => {
-              const selected = day.muscle_groups.includes(group);
-              return (
-                <button
-                  key={group}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => toggleMuscleGroup(group)}
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                    selected
-                      ? "border-primary/40 bg-primary/15 text-primary-strong"
-                      : "border-border bg-surface-2/30 text-muted-foreground hover:bg-surface-2/60",
-                  )}
-                >
-                  {group}
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="rounded-full border-border bg-surface-2/30 text-muted-foreground hover:bg-surface-2/60 hover:text-foreground"
+              aria-label={`Editar grupos musculares del Día ${index + 1}`}
+              title="Editar grupos musculares"
+              onClick={() => setEditingMuscleGroups(true)}
+            >
+              <PencilLine className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="rounded-full border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50"
+              aria-label="Quitar día"
+              title={canRemoveDay ? "Quitar día" : "No se puede quitar el único día"}
+              disabled={!canRemoveDay}
+              onClick={onRemoveDay}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
       </CardHeader>
+
+      {/* Montado solo cuando está abierto: un `<dialog>` siempre presente en
+          el árbol hace que `getByRole("dialog", { hidden: true })` encuentre
+          más de uno (ver frontend/AGENTS.md, "Rutinas"). */}
+      {editingMuscleGroups ? (
+        <EditDayMuscleGroupsDialog
+          open
+          onOpenChange={setEditingMuscleGroups}
+          dayIndex={index}
+          options={muscleGroupOptions}
+          selected={day.muscle_groups}
+          onSave={onSetMuscleGroups}
+        />
+      ) : null}
 
       <CardContent className="space-y-4 pt-6">
         <div className="relative space-y-2">
