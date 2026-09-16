@@ -285,6 +285,31 @@ def test_listado_filtra_por_grupo_tipo_y_estado_y_expone_total_count(client, own
     assert [item["id"] for item in response.json()] == [a["id"]]
 
 
+def test_busqueda_por_texto_matchea_nombre_o_grupo_muscular(client, owner_user, auth_header):
+    headers = auth_header(OWNER_EMAIL)
+    por_nombre = client.post(
+        "/exercises/",
+        json={"name": "Curl biceps con mancuernas", "muscle_group": "Espalda"},
+        headers=headers,
+    ).json()
+    por_grupo = client.post(
+        "/exercises/",
+        json={"name": "Martillo alterno", "muscle_group": "Bíceps"},
+        headers=headers,
+    ).json()
+    client.post(
+        "/exercises/", json={"name": "Sentadilla libre", "muscle_group": "Cuádriceps"}, headers=headers
+    )
+
+    # "biceps" sin tilde encuentra el del nombre y el del grupo muscular.
+    found = {
+        item["id"] for item in client.get("/exercises/", params={"q": "biceps"}, headers=headers).json()
+    }
+    assert por_nombre["id"] in found
+    assert por_grupo["id"] in found
+    assert len(found) == 2
+
+
 def test_desactivar_ejercicio_lo_saca_del_listado_activo_y_conserva_la_plantilla(
     client, owner_user, auth_header
 ):

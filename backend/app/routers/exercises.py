@@ -29,7 +29,7 @@ from fastapi import (
     status,
 )
 from pydantic import Field
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -57,6 +57,25 @@ def _normalize_name(name: str) -> str:
     de SQLite es ASCII-only y se comportaría distinto de Postgres con las tildes
     de este catálogo)."""
     return unicodedata.normalize("NFC", name).strip().casefold()
+
+
+def _fold(value: str) -> str:
+    """Casefold + sin tildes, para comparar texto escrito por el usuario contra
+    las etiquetas del enum `MuscleGroup` (que sí llevan tildes). Se hace en
+    Python y no en SQL: el catálogo de grupos es una lista fija de 12 valores, y
+    ni SQLite (tests) ni Postgres sin `unaccent` saben ignorar tildes."""
+    decomposed = unicodedata.normalize("NFD", value)
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch)).casefold()
+
+
+def _muscle_groups_matching(term: str) -> list[str]:
+    """Etiquetas de `MuscleGroup` que contienen `term` (sin tildes, sin case).
+    Permite que el buscador encuentre por grupo muscular escribiendo "biceps"
+    o "gluteos" sin tildes."""
+    needle = _fold(term.strip())
+    if not needle:
+        return []
+    return [group.value for group in models.MuscleGroup if needle in _fold(group.value)]
 
 
 def _check_name_collision(db: Session, name_normalized: str, *, exclude_id: str | None = None) -> None:
@@ -177,7 +196,7 @@ def list_exercises(
     response: Response,
     db: Session = Depends(get_db),
     storage: ObjectStorage = Depends(get_storage),
-    q: Optional[str] = Query(None, description="Busca por nombre"),
+    q: Optional[str] = Query(None, description="Busca por nombre o grupo muscular"),
     muscle_group: Optional[models.MuscleGroup] = Query(None),
     training_type: Optional[models.TrainingType] = Query(None),
     is_active: Optional[bool] = Query(None),
@@ -186,7 +205,16 @@ def list_exercises(
 ):
     query = db.query(models.Exercise)
     if q:
-        query = query.filter(models.Exercise.name.ilike(f"%{q}%"))
+        # `q` matchea nombre **o** grupo muscular: el buscador de rutinas es una
+        # sola caja de texto y quien arma el día piensa en "Pecho" tanto como en
+        # "Press banca". El grupo se resuelve contra la lista fija del enum
+        # (ignorando tildes) en vez de un `ilike` sobre la columna, así "biceps"
+        # encuentra "Bíceps".
+        conditions = [models.Exercise.name.ilike(f"%{q}%")]
+        groups = _muscle_groups_matching(q)
+        if groups:
+            conditions.append(models.Exercise.muscle_group.in_(groups))
+        query = query.filter(or_(*conditions))
     if muscle_group is not None:
         query = query.filter(models.Exercise.muscle_group == muscle_group.value)
     if training_type is not None:

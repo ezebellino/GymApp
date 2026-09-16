@@ -298,7 +298,7 @@ function DayCard({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar ejercicio para agregar a este día..."
+            placeholder="Buscar por nombre o grupo muscular..."
             aria-label={`Buscar ejercicio para el Día ${index + 1}`}
           />
           {searching ? (
