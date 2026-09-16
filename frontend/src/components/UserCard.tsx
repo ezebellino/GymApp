@@ -149,15 +149,11 @@ export default function UserCard({
     const zinc = "0.635 0.635 0.659";
     const white = "0.980 0.980 0.980";
 
-    const score = Math.max(
-      10,
-      Math.min(
-        100,
-        Math.min(summary.log_count * 3, 40) +
-          Math.min(summary.attendance_count * 2, 30) +
-          Math.min((summary.top_improvement ? 1 : 0) * 30, 30)
-      )
-    );
+    // El puntaje lo calcula el servidor (design D14, corrección del gate):
+    // reimplementarlo acá duplicaba la fórmula con otros coeficientes y el
+    // mismo defecto de grano que `unique_days` — una sola implementación,
+    // en el backend.
+    const score = summary.score;
 
     lines.push(rect(0, 0, 595, 842, "0.04 0.04 0.04"));
     lines.push(rect(44, 770, 120, 26, amber));
@@ -188,8 +184,8 @@ export default function UserCard({
 
     const cards = [
       ["ASISTENCIAS", String(summary.attendance_count), "presencias"],
-      ["RUTINAS", String(summary.log_count), "cargas"],
-      ["DIAS", String(summary.unique_days), "activos"],
+      ["SERIES", String(summary.log_count), "marcadas"],
+      ["SESIONES", String(summary.session_count), "entrenadas"],
       ["EJERCICIOS", String(summary.unique_exercises), "trabajados"],
     ];
 
@@ -230,9 +226,9 @@ export default function UserCard({
           ["Mejora", summary.top_improvement.delta_weight],
         ]
       : [
-          ["Rutinas", summary.log_count],
+          ["Series", summary.log_count],
           ["Asist.", summary.attendance_count],
-          ["Dias", summary.unique_days],
+          ["Sesiones", summary.session_count],
         ];
     const maxValue = Math.max(...chart.map((item) => Number(item[1]) || 0), 1);
     const graphX = 70;

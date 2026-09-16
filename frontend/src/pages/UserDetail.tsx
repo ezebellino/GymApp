@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   Calendar,
   Cake,
+  LineChart,
   Mail,
   PencilLine,
   Phone,
@@ -265,10 +266,22 @@ export default function UserDetail() {
             </div>
           </div>
 
-          <Button type="button" onClick={() => setAction("edit")}>
-            <PencilLine className="mr-2 h-4 w-4" />
-            Editar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {isMemberRole ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate(`/users/${user.id}/progress`)}
+              >
+                <LineChart className="mr-2 h-4 w-4" />
+                Progreso
+              </Button>
+            ) : null}
+            <Button type="button" onClick={() => setAction("edit")}>
+              <PencilLine className="mr-2 h-4 w-4" />
+              Editar
+            </Button>
+          </div>
         </div>
       </section>
 

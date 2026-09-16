@@ -117,7 +117,8 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
       `PUT /routines/templates/{id}/days`.
     - `PUT /routines/templates/{id}/days` reemplaza el borrador completo (días, grupos musculares
       y ejercicios) en una sola transacción, con **identidad explícita**: cada día del payload
-      trae `day_id` (conserva la fila, así los `WorkoutLog` que la referencian no se rompen) o
+      trae `day_id` (conserva la fila, así lo que la referencia — series marcadas incluidas — no
+      queda huérfano) o
       `null` (crea un día nuevo). Un día ausente del payload se borra (cascade se lleva sus grupos
       musculares y ejercicios). El orden de las listas **es** el dato: la posición del día es su
       índice + 1, el `sort_order` del ejercicio es su índice. Un par (día, ejercicio) nuevo sin
@@ -136,11 +137,87 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
     (día, ejercicio) — ya no hay un tercer nivel de "catálogo". Dar de baja la membresía de un
     Miembro **no** oculta ni borra sus asignaciones (esos endpoints no filtran por
     `membership_status`); asignar una plantilla nueva sí exige membresía activa.
-  - `WorkoutLog.day_id` es `nullable` con `ondelete="SET NULL"`: quitar un día de una plantilla
-    (o borrarla entera) no borra el histórico de logs, solo desvincula la FK. `day_name` es un
-    snapshot `NOT NULL` (`"Día {position}"`) tomado al insertar, así el histórico conserva una
-    etiqueta legible aunque el día se borre después. La suite depende de que SQLite tenga
-    `PRAGMA foreign_keys=ON` para verificar este `SET NULL` — ver la sección de Tests.
+- **Asignación de rutina: es una copia, no una referencia** (`member-routine-copies`, reemplaza
+  el modelo de `template-owned-routine-days` donde `RoutineAssignment` apuntaba en vivo a
+  `RoutineTemplate` y un cambio del Coach se veía de inmediato en todas las copias de esa
+  plantilla). `RoutineAssignment` es la **raíz de la copia**: sus días, grupos musculares y
+  ejercicios viven en tablas propias (`RoutineAssignmentDay` / `...DayMuscleGroup` /
+  `...DayExercise`, design D1), copiados una sola vez al asignar. `RoutineAssignment.template_id`
+  es **nullable** con `ondelete="SET NULL"` (design D2b): borrar la plantilla origen no borra la
+  copia, solo desvincula la FK — la copia sigue siendo una rutina de pleno derecho. Como esa FK
+  puede quedar en `NULL`, la etiqueta de origen nunca sale de `template.name` en vivo: se
+  snapshotea en `template_name` (`NOT NULL`) y `template_tag` al copiar. Sin
+  `UniqueConstraint(user_id, template_id)`: reasignar la misma plantilla crea una copia nueva, no
+  un upsert (design D2, antes era upsert). Como máximo una Activa por usuario sigue siendo el
+  índice único parcial `ix_routine_assignments_user_active` (declarado para Postgres y SQLite).
+  `RoutineAssignmentBase` (el ajuste de base por cliente de `template-owned-routine-days`) **se
+  dropea entero** (design D4): la base y la estrategia de un ejercicio de la copia viven
+  directamente en `RoutineAssignmentDayExercise`, editables por el Dueño/Coach como cualquier otro
+  campo del editor de la copia — ya no hay una tabla de "override" separada.
+  - **`app/routine_days.py`** (design D8) es el módulo **compartido** entre plantilla y copia: los
+    dos subárboles (`RoutineTemplate → RoutineTemplateDay → ...` y `RoutineAssignment →
+    RoutineAssignmentDay → ...`) tienen exactamente las mismas reglas (1..5 días, posiciones y
+    `sort_order` por índice, `exercise_id` único por día, `day_id: null` = día nuevo, base por
+    defecto 3×10×0 kg, ejercicio inactivo no agregable pero conservable), así que el reemplazo
+    completo (`replace_days`) y la serialización (`serialize_day`/`serialize_exercise`) viven acá
+    **una sola vez**, parametrizados por un `DayOwnerDescriptor` (qué modelo de día/grupo/ejercicio
+    y qué columna de FK usar). `routine_templates.py` y `routine_assignments.py` llaman a las
+    mismas funciones — nunca reimplementes esta lógica en un router, el punto de este módulo es que
+    no exista una tercera copia. `copy_days` (design D5) es la única forma de poblar una copia
+    nueva: recorre la plantilla origen día por día, grupo por grupo y ejercicio por ejercicio,
+    fiel incluso a un ejercicio inactivo que ya estaba en la plantilla.
+  - **`WorkoutSetLog`** (`routine-progress-tracking`, design D3) reemplaza a `WorkoutLog`/
+    `RoutineAssignmentBase` con un cambio de grano: **una fila = una serie marcada**, no un
+    ejercicio con `sets_count`. La serie planificada que la originó no es una fila propia: sale de
+    `plan_sets(...)` en cada lectura, y el vínculo es posicional — la tupla
+    `(assignment_day_id, exercise_id, set_index)` identifica "la serie #k de ese ejercicio en ese
+    día de esa copia" (`set_index` 1-based, igual que `PlannedSet.index`). `assignment_day_id` es
+    `nullable` con `ondelete="SET NULL"`: quitar un día de la copia (o borrarla entera) no borra el
+    histórico, solo desvincula la FK; `day_name` es un snapshot `NOT NULL` tomado al insertar, así
+    el histórico conserva una etiqueta legible aunque el día se borre después. La suite depende de
+    que SQLite tenga `PRAGMA foreign_keys=ON` para verificar este `SET NULL` — ver la sección de
+    Tests. `performed_on` es la sesión (fecha calendario en `America/Argentina/Buenos_Aires`,
+    `now_ar()`): marcar dos veces la misma serie el mismo día **corrige** la marca en vez de
+    duplicarla, vía el `UNIQUE(user_id, assignment_day_id, exercise_id, set_index, performed_on)`.
+    Editar la copia (quitar un ejercicio, quitar un día, reducir las series) **nunca borra una
+    marca**: una marca cuyo `set_index` queda fuera del plan recalculado sigue en la tabla y en el
+    histórico, solo deja de adjuntarse al `PlannedSetOut` vigente.
+  - **Endpoints nuevos** en `app/routers/routine_assignments.py`/`routines.py`:
+    `GET`/`PUT /routines/users/{user_id}/templates/{assignment_id}[/days]` (detalle y guardado de
+    la copia, mismo contrato de reemplazo completo con identidad explícita que el `PUT` de
+    plantillas), `PUT /routines/my/days/{day_id}/exercises/{exercise_id}/sets/{set_index}` (el
+    Miembro marca o corrige una serie propia; upsert idempotente por `(user, day, exercise,
+    set_index, hoy)`, con tres validaciones 400: el día pertenece a alguna asignación **propia**
+    — pedir el de otro Miembro es indistinguible de uno inexistente —, el par
+    `(day_id, exercise_id)` existe en la copia, y `1 <= set_index <= len(plan_sets(...))`
+    recalculado en el momento) y `GET /routines/users/{user_id}/logged-exercises` (ejercicios con
+    registros históricos de ese Miembro, para el filtro de la vista de Progreso — se alimenta del
+    histórico, no de la copia vigente, así un ejercicio ya quitado sigue siendo filtrable).
+  - **Endpoints retirados**: `PUT`/`DELETE .../bases/{exercise_id}` (el ajuste de base por
+    cliente, con `RoutineAssignmentBase`) y **todos** los endpoints de escritura de logs de
+    staff — `POST`/`PATCH`/`DELETE /routines/users/{user_id}/logs` y sus espejos
+    `/routines/my/logs` (que antes delegaban en los de staff). No quedó reemplazo equivalente para
+    staff a propósito: el requirement es que marcar una serie sea una acción exclusiva del Miembro
+    sobre su propia copia, y dejar un endpoint de staff que escribe registros sería un agujero que
+    ningún test de UI detectaría. Como consecuencia, **marcar progreso ya no registra asistencia**:
+    el efecto secundario que tenía `create_workout_log` (crear una `Attendance` del día si no
+    había) desapareció junto con el endpoint — el check-in sigue siendo su propio flujo
+    (`/attendance`), sin ninguna relación con el progreso.
+  - `GET /routines/users/{user_id}/logs` y `/my/logs` ganaron filtros `exercise_id`, `from`, `to`
+    (sobre `performed_on`) además del `day_id` que ya tenían.
+  - `backend/tests/test_workout_set_logs.py` (nuevo) cubre `PUT .../sets/{set_index}`: marcar
+    registra peso/reps reales, remarcar la misma serie el mismo día corrige en vez de duplicar,
+    marcar más allá de las series planificadas es 400, marcar un ejercicio que no está en la copia
+    es 400, un Miembro no puede marcar sobre el día de otro, reducir las series en la copia
+    conserva las marcas previas fuera del plan vigente (siguen en `/my/logs` aunque no aparezcan en
+    el plan), quitar un día dejar las marcas con `assignment_day_id` nulo y `day_name` conservado,
+    el plan solo adjunta `logged` de la marca de **hoy** (una de ayer no aparece), un Miembro sin
+    Activa puede marcar sobre una Alternativa, y que marcar una serie no crea ninguna `Attendance`.
+    `tests/helpers.py` suma `assign_template_copy(client, headers, user_id, template_id, *,
+    status="active", starts_on=None)` (copia una plantilla pasando por el mismo endpoint que usa la
+    UI, nunca arma la copia a mano — así un copiado roto se nota en cualquier test que dependa de
+    él) y `mark_set(client, headers, day_id, exercise_id, set_index, *, weight_kg, reps, note=None)`
+    (el `PUT` de marca, como Miembro).
 - **Catálogo de ejercicios y su media** (`app/routers/exercises.py`, `/exercises`, owner+coach,
   change `add-exercise-catalog`): CRUD del catálogo (nombre único case/trim-insensitive vía
   `name_normalized`, mismo patrón que `routine_templates.py`), grupo muscular (`MuscleGroup`,
@@ -281,7 +358,11 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
     (`check_environment_guards("ejercicios de desarrollo")`), evaluado antes de `create_engine`.
     `seed_dev_exercises(db)` es idempotente por `id` (no pisa un ejercicio ya existente, ni
     siquiera si alguien le editó el grupo muscular a mano) y solo inserta filas de `Exercise` —
-    ya no crea ningún vínculo día↔ejercicio (ese mecanismo no existe más; ver más arriba). **No**
+    ya no crea ningún vínculo día↔ejercicio (ese mecanismo no existe más; ver más arriba). La
+    idempotencia es por `id`, pero `exercises.name_normalized` es **único**: si el Dueño ya cargó
+    a mano un ejercicio con uno de los 52 nombres, el seed lo saltea, lo devuelve en
+    `result["collisions"]` y `main()` lo imprime con qué ejercicio choca, en vez de dejar salir un
+    `IntegrityError` crudo. **No**
     se cuelga de `make seed-dev` ni crea ninguna plantilla o día: son datasets sin relación entre
     sí (uno lo necesita el widget de cambio de rol para funcionar; el otro es conveniencia), y
     encadenarlos obliga a quien solo quiere usuarios a cargar 52 ejercicios.
@@ -298,7 +379,7 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
   `test_contact_verification.py`, `test_payments.py`, `test_dev_seed.py`,
   `test_dev_seed_exercises.py`, `test_progression.py`, `test_routine_templates.py`,
   `test_routine_assignments.py`, `test_member_routine.py`, `test_routines_invariants.py`,
-  `test_storage.py`, `test_exercises.py`, `test_exercise_media.py`).
+  `test_workout_set_logs.py`, `test_storage.py`, `test_exercises.py`, `test_exercise_media.py`).
   `test_dev_seed.py` cubre `scripts/seed_dev_users.py`: primera corrida crea los 3 usuarios (uno
   por rol, Miembro con membresía activa), segunda corrida no duplica ni falla, los tres pasan
   `POST /auth/token` + `GET /auth/me` de verdad, y las dos guardas de entorno (`ENVIRONMENT`
@@ -340,7 +421,8 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
   esperaban. `conftest.py` también activa `PRAGMA foreign_keys=ON` por conexión de SQLite (fuera
   del bloque de `drop_all`/`create_all`, que necesita las FK desactivadas para poder romper el
   ciclo `users` ↔ `membership_plans`): sin esto, el `ondelete="SET NULL"`/`"CASCADE"` del modelo
-  (por ejemplo `WorkoutLog.day_id`) no tiene ningún efecto en la suite, aunque sí en Postgres.
+  (por ejemplo `WorkoutSetLog.assignment_day_id`) no tiene ningún efecto en la suite, aunque sí en
+  Postgres.
   `test_theme.py` cubre la preferencia de tema por usuario
   (`theme_preference` en `users`, adoptada en `adopt-kinetic-obsidian-theme`): `GET /auth/me`
   incluye `theme_preference` (`null` para un usuario nuevo); `PATCH /auth/me/theme` con
@@ -406,29 +488,34 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
   - `test_routine_assignments.py` cubre `routers/routine_assignments.py` (`router`): asignar como
     Activa/Alternativa, que una nueva Activa degrada la anterior, los 409 de membresía dada de
     baja/nunca activa/rol no-Miembro, que reactivar la membresía habilita asignar, que dar de baja
-    la membresía conserva las asignaciones ya existentes (consultadas desde la ficha del admin),
-    el ajuste de base con autoría y fecha, la asignación sin ajustes, quitar el ajuste (vuelve a
-    la base propia del par día-ejercicio, `template-owned-routine-days` design D4: ya no hay un
-    tercer nivel de "catálogo") y quitar una asignación (Alternativa, y que quitar la Activa no
-    promueve ninguna Alternativa). Suma de `template-owned-routine-days`: que el ajuste de base
-    por cliente pisa la base propia de la plantilla, que quitar de la plantilla un ejercicio con
-    ajuste conserva la asignación y el histórico, y 400 al ajustar la base de un ejercicio que no
-    está en la plantilla.
+    la membresía conserva las asignaciones ya existentes (consultadas desde la ficha del admin), y
+    quitar una asignación (Alternativa, y que quitar la Activa no promueve ninguna Alternativa).
+    Suma de `member-routine-copies` (la copia, no la referencia): que asignar copia días, grupos
+    musculares, base y estrategia de la plantilla origen; que editar la plantilla origen después de
+    asignar **no** cambia la copia ya creada (I8 invertido a propósito: ya no hay reflejo en vivo);
+    que editar la copia de un Miembro no toca la copia de otro Miembro ni la plantilla; que
+    reasignar la misma plantilla crea una copia nueva y degrada la Activa anterior (ya no es
+    upsert); una sola Activa por usuario incluso con varias copias; que guardar la copia sin tocar
+    un día conserva su `id` (y por lo tanto no huerfaniza las marcas que ese día ya tenga); que los
+    endpoints de ajuste de base por cliente (`PUT`/`DELETE .../bases/{exercise_id}`) **ya no
+    existen** (404/405, `RoutineAssignmentBase` se dropeó); que un ejercicio agregado a la copia
+    arranca en Constante y 3×10×0 kg; y que borrar la plantilla origen con solo copias Alternativas
+    deja la copia entrenable (`template_id` en `NULL`, design D2b).
   - `test_member_routine.py` cubre `routers/routine_assignments.py` (`my_router`, "Mi rutina"): que
     un Miembro solo ve sus propias plantillas asignadas, la lista vacía sin asignaciones, que
     pedir la asignación de otro Miembro responde 404 (no 403, para no filtrar existencia), que
-    "Mi rutina" muestra solo los días y ejercicios de la plantilla asignada, que el plan usa la
-    base ajustada por cliente cuando existe, que un cambio de estrategia del admin se refleja de
-    inmediato, y que un Miembro dado de baja sigue viendo sus plantillas — este último caso, dado
-    que `auth.is_membership_blocking_login` (regla preexistente, fuera de alcance de este change)
-    bloquea con 401 cualquier request de un Miembro dado de baja incluso con un token ya emitido,
-    se verifica con un override de `get_current_user` apuntando directo al Miembro ya dado de
-    baja (mismo patrón que el override de `get_db` de `conftest.py`), en vez de loguearse de nuevo
-    por HTTP. Suma de `template-owned-routine-days`: que un ejercicio quitado del día desaparece
-    del plan pero sus logs siguen consultables, que quitar un día deja sus `WorkoutLog` con
-    `day_id` nulo y conserva `day_name` (invariante que depende de `PRAGMA foreign_keys=ON` en
-    SQLite — ver `conftest.py` más arriba), y que un cambio del coach en la plantilla se ve en el
-    siguiente request del miembro.
+    "Mi rutina" muestra solo los días y ejercicios de **su copia**, que un Miembro dado de baja
+    sigue viendo sus plantillas — este último caso, dado que `auth.is_membership_blocking_login`
+    (regla preexistente, fuera de alcance de este change) bloquea con 401 cualquier request de un
+    Miembro dado de baja incluso con un token ya emitido, se verifica con un override de
+    `get_current_user` apuntando directo al Miembro ya dado de baja (mismo patrón que el override
+    de `get_db` de `conftest.py`), en vez de loguearse de nuevo por HTTP; `GET /my/days` sin
+    asignación Activa devuelve lista vacía con 200; el overview cuenta los ejercicios del día de la
+    plantilla y sigue la asignación Activa aunque haya una Alternativa; `progress-summary` sin
+    Activa lo indica en vez de usar la Alternativa; y (`member-routine-copies`) que el histórico
+    propio filtra por ejercicio y período, y que los ejercicios con registros incluyen uno ya
+    quitado de la copia (alimenta el filtro de la vista de Progreso desde el histórico, no desde la
+    copia vigente).
   - `test_exercises.py` cubre `routers/exercises.py` (alta y validación, listas fijas y edición,
     listado y estado, borrado y el `401`/`403` de los 9 endpoints del router para el delta de
     `staff-endpoint-authorization`), y (`template-owned-routine-days`)

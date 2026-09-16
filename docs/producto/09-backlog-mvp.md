@@ -4,7 +4,7 @@ Todas las brechas de los documentos 01 a 07, consolidadas y ordenadas en fases. 
 convierte en un change de OpenSpec (`/opsx:propose`); la columna Change se completa cuando
 existe. Cuando un change se archiva, el ítem se tacha acá y en su doc de módulo.
 
-Última revisión: 2026-09-12.
+Última revisión: 2026-09-14.
 
 ---
 
@@ -56,8 +56,8 @@ al final el Dashboard que junta todo.
 | R-2 | ~~Catálogo de ejercicios: pantalla de alta, video/GIF por URL (y archivo propio), grupo de lista fija, tipos, desactivación~~; ~~deprecar base~~ | 04 | R-1 | `add-exercise-catalog` (reserva 1 de su `verification.md` — dos fuentes de verdad del grupo muscular — resuelta por `drop-static-exercise-catalog`); la base del catálogo la retiró `template-owned-routine-days` |
 | R-3 | ~~Días propios por plantilla con grupos musculares; retirar catálogo fijo de días; migración~~ | 04 | R-1 | `template-owned-routine-days` |
 | R-4 | Editor de series explícitas; estrategias como generador opcional; tipo de plantilla | 04 | R-3 | |
-| R-5 | Carga actual por miembro y serie; edición por el Dueño | 04 | R-4 | |
-| R-6 | Sesión del miembro: día, video, kg/reps, marcar, finalizar; reemplaza `WorkoutLog` y selección de días | 04 | R-5 | |
+| R-5 | Carga actual por miembro y serie; edición por el Dueño. **Parcial**: la base de un ejercicio vive en la copia del miembro y es editable por Dueño/Coach, pero no hay "carga actual" que se retroalimente de lo marcado — cada marca queda en el histórico sin tocar la base planificada. | 04 | R-4 | `member-routine-copies` (parcial) |
+| R-6 | Sesión del miembro: día, video, kg/reps, marcar, finalizar; reemplaza `WorkoutLog` y selección de días. **Parcial**: el miembro marca cada serie planificada con peso/reps reales y corrige la marca de hoy (`WorkoutSetLog` reemplaza a `WorkoutLog`); sin video en la pantalla de ejecución y sin concepto de "sesión" que se finaliza. | 04 | R-5 | `member-routine-copies` (parcial) |
 | A-2 | Endpoint de auto check-in del miembro (sin UI web); registrar siempre quién hizo el check-in | 05 | — | |
 | A-4 | Un check-in por día con aviso de duplicado | 05 | — | (mismo change que A-2) |
 
@@ -68,7 +68,7 @@ al final el Dashboard que junta todo.
 | M6 | Mi cuota: plan, estado, historial, cómo pagar | 03 | M3 | |
 | C-3 | Sección "El gimnasio" en el portal; alias en Mi cuota | 06 | M6 | (mismo change que M6) |
 | A-3 | Mis asistencias: calendario y racha | 05 | — | |
-| R-7 | Mi progreso y seguimiento en la ficha: kilo máximo por semana, récords, sesiones, racha, "+kg vs. anterior" | 04 | R-6 | |
+| R-7 | Mi progreso y seguimiento en la ficha: kilo máximo por semana, récords, sesiones, racha, "+kg vs. anterior". **Parcial**: `member-routine-copies` agrega la vista de Progreso en la ficha (Dueño/Coach) con histórico filtrable por ejercicio/período y un gráfico de evolución del peso máximo por sesión — sin récords, sin racha, sin comparación "+kg vs. anterior", y sin una vista equivalente en el portal del miembro (solo en la ficha del staff). | 04 | R-6 | `member-routine-copies` (parcial) |
 | U-4 | Resetear acceso desde la ficha | 02 | — | |
 | U-5 | Mi perfil: peso, altura, celular | 02 | — | |
 
@@ -114,7 +114,7 @@ válidos. Resumen:
 |---|---|---|
 | 02 Usuarios | U1–U6 | U2 email obligatorio · U5 resetear acceso sin autoservicio |
 | 03 Membresías | S1–S7 | S2 mora sin gracia · S3 monto editable y referencia al registrar · S5 sin prorrateo |
-| 04 Rutinas | R1–R9 | R1 video por URL · R4 asignación en vivo, no copia · R7 estrategias como generador |
+| 04 Rutinas | R1–R9 | R1 video por URL · R4 asignación **copia** la plantilla (revertido, ver `member-routine-copies`) · R7 estrategias como generador |
 | 05 Asistencias | A1–A5 | A1 uno por día · A3 moroso puede entrar con aviso |
 | 06 Configuración | C1–C5 | C3 planes viven en Pagos |
 | 07 Dashboard | D-1–D-6 | D-2 Reportes se retira · D-4 ingresos por fecha de registro |

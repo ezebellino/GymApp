@@ -7,82 +7,70 @@ Asignación de plantillas de rutina a Miembros por parte de un Dueño o Coach: e
 ### Requirement: Asignación de una plantilla a un Miembro
 Un Dueño o Coach SHALL poder asignar una plantilla de rutina a un usuario con rol Miembro,
 indicando un estado (Activa o Alternativa) y quedando registrada la fecha desde la que rige la
-asignación. Un Miembro SHALL poder tener varias plantillas asignadas a la vez, pero como máximo
-una con estado Activa. Asignar una nueva plantilla como Activa SHALL dejar automáticamente
-cualquier otra asignación Activa previa de ese Miembro en estado Alternativa.
+asignación. Asignar una plantilla SHALL crear una **copia independiente** de sus días, grupos
+musculares, ejercicios, estrategias de progresión y bases (series × reps · kg) propia de ese
+Miembro — no una referencia a la plantilla original. Un Miembro SHALL poder tener varias copias
+asignadas a la vez, pero como máximo una con estado Activa. Asignar una nueva plantilla como
+Activa SHALL dejar automáticamente cualquier otra asignación Activa previa de ese Miembro en
+estado Alternativa. Reasignar a un Miembro la misma plantilla de la que ya tiene una copia SHALL
+crear una copia nueva, independiente de la anterior, que pasa a ser la asignación Activa; la
+copia anterior SHALL pasar a estado Alternativa, conservando intacto el progreso ya registrado
+contra ella.
 
 #### Scenario: Asignar una primera plantilla como Activa
-- **WHEN** un Coach asigna la plantilla "Fuerza 4 días" a un Miembro que no tenía ninguna plantilla
+- **WHEN** un Coach asigna la plantilla "Fuerza 4 días" a un Miembro que no tenía ninguna copia
   asignada, con estado Activa
-- **THEN** el Miembro queda con esa plantilla como su única asignación, en estado Activa
+- **THEN** el Miembro queda con una copia de "Fuerza 4 días" como su única asignación, en estado
+  Activa
 
 #### Scenario: Asignar una segunda plantilla como Alternativa
-- **WHEN** un Miembro ya tiene "Fuerza 4 días" como Activa y un Coach le asigna "Full body inicial"
-  con estado Alternativa
-- **THEN** el Miembro queda con ambas plantillas asignadas: "Fuerza 4 días" sigue Activa y
-  "Full body inicial" queda como Alternativa
+- **WHEN** un Miembro ya tiene una copia de "Fuerza 4 días" como Activa y un Coach le asigna
+  "Full body inicial" con estado Alternativa
+- **THEN** el Miembro queda con copias de ambas plantillas asignadas: la de "Fuerza 4 días" sigue
+  Activa y la de "Full body inicial" queda como Alternativa
 
 #### Scenario: Asignar una nueva plantilla Activa reemplaza a la anterior
-- **WHEN** un Miembro tiene "Fuerza 4 días" como Activa y un Coach asigna "Hipertrofia 3 días" con
-  estado Activa
-- **THEN** "Hipertrofia 3 días" queda Activa y "Fuerza 4 días" pasa a estado Alternativa,
-  conservándose ambas asignaciones
+- **WHEN** un Miembro tiene una copia de "Fuerza 4 días" como Activa y un Coach asigna
+  "Hipertrofia 3 días" con estado Activa
+- **THEN** la copia nueva de "Hipertrofia 3 días" queda Activa y la copia de "Fuerza 4 días" pasa
+  a estado Alternativa, conservándose ambas asignaciones
 
-### Requirement: Ajuste de la base por cliente con autoría
-Al asignar una plantilla, o después, un Dueño o Coach SHALL poder sobreescribir, para ese cliente
-en particular, la base (series × reps · kg) propia que uno o más ejercicios tienen en esa
-plantilla. Cuando exista un ajuste, el sistema SHALL registrar quién lo hizo y en qué fecha, y
-mostrar esa información junto a la asignación. Sin ningún ajuste, la asignación SHALL indicar que
-usa la base propia de la plantilla sin cambios. Si el ejercicio
-ajustado es quitado del día de la plantilla, el ajuste SHALL dejar de tener efecto sin romper la
-asignación ni el histórico ya registrado para ese cliente.
+#### Scenario: Editar la plantilla origen no afecta las copias ya creadas
+- **WHEN** un Dueño edita, después de haberla asignado, la plantilla "Fuerza 4 días" (agrega un
+  ejercicio a un día, cambia una estrategia)
+- **THEN** ninguna copia ya asignada de "Fuerza 4 días" a ningún Miembro cambia — cada copia sigue
+  mostrando exactamente lo que tenía en el momento en que fue creada
 
-#### Scenario: Ajustar la base de un ejercicio para un cliente
-- **WHEN** el Coach Eze ajusta, para la asignación de "Fuerza 4 días" a un Miembro, la base de
-  "Press banca plano" a 4×6 · 50 kg
-- **THEN** el plan calculado para ese Miembro usa esa base ajustada en lugar de la base propia que
-  ese ejercicio tiene en la plantilla
-- **THEN** la asignación muestra "Ajustada por Eze" junto con la fecha del ajuste
-
-#### Scenario: Asignación sin ajustes
-- **WHEN** un Coach asigna una plantilla a un Miembro sin sobreescribir la base de ningún ejercicio
-- **THEN** la asignación indica que no tiene ajustes y el plan calculado usa la base propia de la
-  plantilla
-
-#### Scenario: Quitar el ajuste de base de un ejercicio
-- **WHEN** el Coach Eze había ajustado la base de "Press banca plano" a 4×6 · 50 kg para un
-  Miembro, y ahora quita ese ajuste
-- **THEN** el plan calculado para ese Miembro vuelve a usar la base propia que ese ejercicio tiene
-  en la plantilla
-- **THEN** la asignación deja de mostrar la autoría y fecha de ese ajuste
-
-#### Scenario: Quitar de la plantilla un ejercicio con ajuste de base para un cliente
-- **WHEN** el Coach Eze había ajustado la base de "Press banca plano" para un Miembro, y luego un
-  Dueño quita "Press banca plano" del día de la plantilla que ese Miembro tiene asignada
-- **THEN** ese ejercicio deja de aparecer en el plan del Miembro y el ajuste deja de tener efecto
-- **THEN** la asignación del Miembro y su histórico ya registrado para ese ejercicio se conservan
-  intactos
+#### Scenario: Reasignar la misma plantilla crea una copia nueva y conserva la anterior como Alternativa
+- **WHEN** un Miembro ya tiene una copia Activa de "Fuerza 4 días" con progreso registrado, y un
+  Coach le vuelve a asignar "Fuerza 4 días" (por ejemplo, para bajarle cambios hechos en la
+  plantilla origen desde entonces)
+- **THEN** se crea una copia nueva de "Fuerza 4 días" que pasa a ser la asignación Activa del
+  Miembro
+- **THEN** la copia anterior pasa a estado Alternativa, sin perder ninguno de los registros de
+  progreso que el Miembro ya había cargado contra ella
 
 ### Requirement: La membresía activa condiciona nuevas asignaciones
-El sistema SHALL permitir asignar una plantilla únicamente a Miembros con membresía activa. Un
-Miembro cuya membresía esté dada de baja, o que nunca haya tenido una membresía activa, NO SHALL
-poder recibir una nueva asignación de plantilla mientras dure esa condición. Esta condición SHALL
-aplicar únicamente a asignaciones nuevas: una asignación que el Miembro ya tenía SHALL conservarse
-intacta, sin borrarse ni modificarse, cuando pierda la membresía activa.
+El sistema SHALL permitir asignar una plantilla (creando una copia) únicamente a Miembros con
+membresía activa. Un Miembro cuya membresía esté dada de baja, o que nunca haya tenido una
+membresía activa, NO SHALL poder recibir una nueva asignación de plantilla mientras dure esa
+condición. Esta condición SHALL aplicar únicamente a asignaciones nuevas, incluida una
+reasignación: una copia que el Miembro ya tenía SHALL conservarse intacta, sin borrarse ni
+modificarse, cuando pierda la membresía activa.
 
 #### Scenario: Rechazar la asignación a un Miembro con membresía dada de baja
 - **WHEN** un Dueño intenta asignar una plantilla a un Miembro cuya membresía está dada de baja
-- **THEN** el sistema rechaza la asignación y no la crea
+- **THEN** el sistema rechaza la asignación y no crea ninguna copia
 
 #### Scenario: Reactivar la membresía habilita nuevas asignaciones
 - **WHEN** un Dueño reactiva la membresía de un Miembro que estaba dada de baja y luego le asigna
   una plantilla
-- **THEN** el sistema permite la asignación
+- **THEN** el sistema permite la asignación y crea la copia correspondiente
 
 #### Scenario: Dar de baja la membresía no quita las asignaciones existentes
-- **WHEN** un Dueño da de baja la membresía de un Miembro que ya tenía "Fuerza 4 días" asignada
-  como Activa
-- **THEN** esa asignación se conserva intacta
+- **WHEN** un Dueño da de baja la membresía de un Miembro que ya tenía una copia de "Fuerza 4
+  días" asignada como Activa
+- **THEN** esa copia se conserva intacta
 - **THEN** al reactivarse la membresía de ese Miembro, vuelve a verla en "Mi rutina" — mientras la
   membresía está dada de baja, el Miembro no puede acceder a la aplicación por la regla de
   autenticación vigente (`backend/app/auth.py`, no modificada por este change), así que no llega a
@@ -106,12 +94,42 @@ promueva una explícitamente.
 - **THEN** "Full body inicial" sigue en estado Alternativa, sin pasar a Activa automáticamente
 
 ### Requirement: Ver las plantillas asignadas de un cliente desde su ficha
-La ficha de un Miembro SHALL mostrar todas sus plantillas asignadas con su estado (Activa o
-Alternativa), y desde ahí un Dueño o Coach SHALL poder asignarle una plantilla nueva, siguiendo el
-mismo patrón de acciones en la ficha del usuario que el resto de las acciones sobre un Miembro
-(membresía, invitación).
+La ficha de un Miembro SHALL mostrar todas sus copias de rutina asignadas con la plantilla de la
+que se copiaron y su estado (Activa o Alternativa), y desde ahí un Dueño o Coach SHALL poder
+asignarle una plantilla nueva, siguiendo el mismo patrón de acciones en la ficha del usuario que
+el resto de las acciones sobre un Miembro (membresía, invitación).
 
-#### Scenario: Ver el estado de las plantillas asignadas en la ficha
-- **WHEN** un Coach abre la ficha de un Miembro que tiene "Fuerza 4 días" Activa y
-  "Full body inicial" como Alternativa
-- **THEN** ve ambas plantillas listadas, cada una con su estado correspondiente
+#### Scenario: Ver el estado de las copias asignadas en la ficha
+- **WHEN** un Coach abre la ficha de un Miembro que tiene una copia de "Fuerza 4 días" Activa y
+  una copia de "Full body inicial" como Alternativa
+- **THEN** ve ambas copias listadas, cada una con la plantilla de la que se originó y su estado
+  correspondiente
+
+### Requirement: Edición de la copia de un Miembro por Dueño o Coach
+Un Dueño o Coach SHALL poder entrar a la copia de rutina de un Miembro y editarla — agregar o
+quitar días, agregar o quitar ejercicios de un día, cambiar la estrategia de progresión o la base
+(series × reps · kg) de un ejercicio — con el mismo alcance de edición que hoy existe para una
+plantilla. El punto de entrada a esa edición SHALL ser la fila de esa copia entre las rutinas
+asignadas de la ficha del Miembro, mediante el mismo icono de Editar que ya identifica esa acción
+en el resto de la ficha. Editar la copia de un Miembro SHALL afectar únicamente a ese Miembro: NO
+SHALL modificar la plantilla de la que se copió, ni ninguna otra copia de ningún otro Miembro,
+incluso si esa otra copia se originó de la misma plantilla.
+
+#### Scenario: Entrar a editar la copia desde la ficha del Miembro
+- **WHEN** un Coach abre la ficha de un Miembro y usa el icono de Editar en la fila de una de sus
+  copias de rutina asignadas
+- **THEN** entra a la edición de esa copia (sus días, ejercicios, estrategias y bases), no a la
+  edición de la plantilla de la que se originó
+
+#### Scenario: Editar la copia de un Miembro no afecta a otro Miembro con la misma plantilla origen
+- **WHEN** dos Miembros tienen cada uno una copia de "Fuerza 4 días", y un Coach le cambia a uno
+  de ellos la base de "Sentadilla libre" en su copia
+- **THEN** solo la copia de ese Miembro queda con la base cambiada
+- **THEN** la copia del otro Miembro y la plantilla "Fuerza 4 días" original permanecen sin cambios
+
+#### Scenario: Quitar un ejercicio de la copia de un Miembro con progreso ya registrado
+- **WHEN** un Coach quita "Aperturas con mancuernas" de un día de la copia de un Miembro que ya
+  tenía registros de progreso cargados para ese ejercicio
+- **THEN** "Aperturas con mancuernas" deja de aparecer en el plan vigente de ese Miembro
+- **THEN** los registros de progreso que ese Miembro ya había cargado para ese ejercicio se
+  conservan intactos y siguen siendo consultables

@@ -104,11 +104,13 @@ export async function fetchUserAssignments(userId: string): Promise<RoutineAssig
   return data;
 }
 
+// `base_overrides` se retiró del payload (`member-routine-copies`, design
+// D4): el ajuste de base por cliente ya no existe, la base se edita directo
+// en la copia (ver `services/routineAssignments.ts`).
 export type AssignTemplateInput = {
   template_id: string;
   status: RoutineAssignmentStatus;
   starts_on?: string | null;
-  base_overrides?: Array<{ exercise_id: string; sets: number; reps: number; weight_kg: number }>;
 };
 
 export async function assignTemplate(
@@ -136,36 +138,6 @@ export async function updateAssignmentStatus(
 
 export async function removeAssignment(userId: string, assignmentId: string): Promise<void> {
   await api.delete(`/routines/users/${userId}/templates/${assignmentId}`);
-}
-
-export type UpdateAssignmentBaseInput = {
-  sets: number;
-  reps: number;
-  weight_kg: number;
-};
-
-export async function updateAssignmentBase(
-  userId: string,
-  assignmentId: string,
-  exerciseId: string,
-  input: UpdateAssignmentBaseInput,
-): Promise<RoutineAssignment> {
-  const { data } = await api.put<RoutineAssignment>(
-    `/routines/users/${userId}/templates/${assignmentId}/bases/${exerciseId}`,
-    input,
-  );
-  return data;
-}
-
-export async function removeAssignmentBase(
-  userId: string,
-  assignmentId: string,
-  exerciseId: string,
-): Promise<RoutineAssignment> {
-  const { data } = await api.delete<RoutineAssignment>(
-    `/routines/users/${userId}/templates/${assignmentId}/bases/${exerciseId}`,
-  );
-  return data;
 }
 
 // --- Vista del miembro ---------------------------------------------------

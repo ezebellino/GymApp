@@ -576,36 +576,35 @@ arranque de un helper que corre en 20 endpoints de un router central.
 
 ### Tests
 
+> **Ronda 3 — la tabla se recortó a lo que sobrevive.** Entre la ronda 2 y esta, dos changes
+> posteriores se implementaron y archivaron encima de este: `template-owned-routine-days` retiró
+> entero el catálogo global de días (`app/routine_catalog.py`, `TrainingDay`,
+> `TrainingDayExercise`, `RoutineTemplateExercise`, `ensure_training_days`,
+> `sync_exercise_day_links`) y `member-routine-copies` reemplazó la asignación por referencia por
+> una copia propia. Con eso quedaron sin objeto los invariantes **I1, I3, I4, I8, I9, I10, I11 y
+> I12** y los 18 casos de la tabla que los cubrían: el código que probaban ya no existe, y sus
+> tests se borraron en esos changes, no acá. Lo que este change sigue siendo dueño de garantizar
+> —y lo único que la tabla nombra ahora— es **I2** (ningún módulo de `app/` deriva nada de una
+> lista fija de ejercicios), **I5** (con el catálogo vacío nada responde 500), **I7** (el seed
+> opcional se niega fuera de desarrollo) y los estados vacíos del frontend (D6). El caso de
+> `RoutineTemplateDetail.test.tsx` también se fue: `template-owned-routine-days` reconstruyó esa
+> pantalla con buscador y su estado vacío es otro.
+
 | Capa | Archivo | Caso |
 |---|---|---|
-| backend | `backend/tests/test_exercises.py` | `test_un_ejercicio_nuevo_nace_activo_para_el_dia_de_su_grupo_muscular` |
-| backend | `backend/tests/test_exercises.py` | `test_cambiar_el_grupo_muscular_mueve_el_vinculo_al_dia_nuevo_y_lo_saca_del_viejo` |
-| backend | `backend/tests/test_exercises.py` | `test_limpiar_y_reponer_el_grupo_muscular_deja_al_ejercicio_ofrecido_y_activo_en_su_dia` |
-| backend | `backend/tests/test_exercises.py` | `test_pasar_por_un_grupo_muscular_sin_dia_en_el_catalogo_borra_los_vinculos_y_volver_los_repone` |
-| backend | `backend/tests/test_exercises.py` | `test_desactivar_y_reactivar_un_ejercicio_lo_vuelve_a_ofrecer_para_su_dia` |
-| backend | `backend/tests/test_exercises.py` | `test_un_ejercicio_sin_grupo_muscular_no_se_ofrece_ni_en_el_dia_de_la_plantilla_que_lo_usa` |
-| backend | `backend/tests/test_exercises.py` | `test_crear_un_ejercicio_en_una_base_sin_dias_sembrados_no_falla_por_fk` |
-| backend | `backend/tests/test_routines_seed.py` | `test_visitar_endpoints_de_rutinas_no_crea_ni_borra_ejercicios_ni_vinculos` |
-| backend | `backend/tests/test_routines_seed.py` | `test_ensure_training_days_crea_los_cuatro_dias_una_vez_y_despues_no_escribe` |
-| backend | `backend/tests/test_routines_seed.py` | `test_ningun_modulo_de_app_importa_exercise_library` |
-| backend | `backend/tests/test_routines_seed.py` | `test_con_el_catalogo_vacio_los_endpoints_de_rutinas_responden_200` |
-| backend | `backend/tests/test_routine_templates.py` | `test_editar_el_grupo_muscular_de_un_ejercicio_usado_en_una_plantilla_lo_deja_en_el_dia_viejo` |
-| backend | `backend/tests/test_routine_templates.py` | `test_un_ejercicio_desactivado_en_el_catalogo_no_se_ofrece_como_opcion_nueva_del_dia` |
-| backend | `backend/tests/test_routine_templates.py` | `test_un_ejercicio_desactivado_en_el_catalogo_sigue_en_la_plantilla_que_ya_lo_tenia` |
-| backend | `backend/tests/test_routine_templates.py` | `test_un_ejercicio_agregado_sin_configuracion_propia_arranca_activo_y_en_constante` |
-| backend | `backend/tests/test_member_routine.py` | `test_un_ejercicio_desactivado_en_el_catalogo_sin_configuracion_no_aparece_en_mi_rutina` |
-| backend | `backend/tests/test_member_routine.py` | `test_mi_rutina_con_el_catalogo_vacio_devuelve_el_dia_sin_ejercicios` |
-| backend | `backend/tests/test_member_routine.py` | `test_cargar_un_ejercicio_agregarlo_a_la_plantilla_y_asignarla_lo_deja_visible_en_mi_rutina` |
-| backend | `backend/tests/test_dev_seed_exercises.py` | `test_seed_de_ejercicios_crea_los_52_con_sus_vinculos_de_dia_activos` |
+| backend | `backend/tests/test_routines_invariants.py` | `test_ningun_modulo_de_app_importa_el_catalogo_global_de_dias` |
+| backend | `backend/tests/test_routines_invariants.py` | `test_los_endpoints_retirados_del_catalogo_global_devuelven_404` |
+| backend | `backend/tests/test_dev_seed_exercises.py` | `test_seed_de_ejercicios_crea_los_52` |
 | backend | `backend/tests/test_dev_seed_exercises.py` | `test_seed_de_ejercicios_dos_veces_no_duplica_ni_pisa_un_grupo_editado` |
+| backend | `backend/tests/test_dev_seed_exercises.py` | `test_seed_de_ejercicios_reporta_el_nombre_ya_cargado_en_vez_de_explotar` |
 | backend | `backend/tests/test_dev_seed_exercises.py` | `test_seed_de_ejercicios_se_niega_a_correr_fuera_de_desarrollo` |
 | backend | `backend/tests/test_dev_seed_exercises.py` | `test_seed_de_ejercicios_se_niega_con_database_url_remota` |
 | frontend | `frontend/src/pages/__tests__/Exercises.test.tsx` | `muestra el estado vacío de catálogo con la acción de crear ejercicio cuando no hay ninguno` |
 | frontend | `frontend/src/pages/__tests__/Exercises.test.tsx` | `ofrece la acción de crear ejercicio del estado vacío también a un Coach` |
 | frontend | `frontend/src/pages/__tests__/Exercises.test.tsx` | `mantiene el mensaje de sin resultados y no ofrece crear cuando la búsqueda no matchea` |
-| frontend | `frontend/src/pages/__tests__/RoutineTemplateDetail.test.tsx` | `explica que hay que cargar ejercicios desde el catálogo y ofrece ir a Ejercicios cuando el día no tiene ninguno` |
+| frontend | `frontend/src/pages/__tests__/Exercises.test.tsx` | `mantiene el mensaje de sin resultados y no ofrece crear cuando el filtro de grupo no matchea` |
 | frontend | `frontend/src/pages/__tests__/UserRoutine.test.tsx` | `indica que el día todavía no tiene ejercicios cargados` |
-| manual | — | Migración en desarrollo: `cd backend && alembic upgrade head`; antes y después, `SELECT count(*)` sobre `exercises`, `training_day_exercises` y `routine_template_exercises`. Confirmar que los ejercicios `custom-*` y sus filas de plantilla **siguen**, que los 52 ids del seed y sus dependientes ya no, y que `SELECT id, name, muscle_groups, day_order FROM training_days ORDER BY day_order` coincide con `TRAINING_DAYS` — en particular el Día 4 en `Cuádriceps, Isquios, Gemelos`, no `Piernas` (D11). |
-| manual | — | Recorrido completo con catálogo vacío (`make dev`, los 3 usuarios de `make seed-dev`): en `/exercises` ver el estado vacío "Catálogo vacío" y crear un ejercicio desde su acción; abrir una plantilla y ver el día con el ejercicio nuevo **ya activo**; asignar la plantilla y entrar con `dev.member@miniespacio.local` a "Mi rutina" para verificar que aparece sin ningún paso de activación extra. Repetir el estado vacío del día con un Coach. |
-| manual | — | `make seed-dev-exercises` en desarrollo: confirma 52 ejercicios con vínculos activos; correrlo dos veces seguidas no duplica nada. Después, con `ENVIRONMENT=production` en `backend/.env`, confirmar que corta con mensaje y sin tocar la base. |
-| manual | — | Producción (Railway): `railway run alembic upgrade head`; entrar como Dueño, verificar que `/exercises` muestra el estado vacío, que Rutinas y las plantillas abren sin error, y crear un ejercicio para confirmar el alta desde cero. |
+| manual | — | Migración en desarrollo: `cd backend && alembic upgrade head`; antes y después, `SELECT count(*)` sobre `exercises`. Confirmar que los ejercicios `custom-*` **siguen** y que los 52 ids del seed ya no. **Ronda 3**: la parte de `training_days` de esta fila (y la del Día 4 en `Cuádriceps, Isquios, Gemelos`, D11/I12) quedó sin objeto — `template-owned-routine-days` dropeó la tabla entera en una migración posterior. |
+| manual | — | Recorrido con catálogo vacío (`make dev`, los 3 usuarios de `make seed-dev`): en `/exercises` ver el estado vacío "Catálogo vacío" y crear un ejercicio desde su acción; con cualquier filtro aplicado sobre un catálogo lleno, ver "Sin resultados" y **no** la acción de crear; agregar el ejercicio nuevo a un día de una plantilla, asignarla y entrar con `dev.member@miniespacio.local` a "Mi rutina" para verificarlo. Repetir el estado vacío del día con un Coach. |
+| manual | — | `make seed-dev-exercises` en desarrollo: confirma 52 ejercicios; correrlo dos veces seguidas no duplica nada; con un ejercicio cargado a mano con uno de esos nombres, el seed lo saltea y lo reporta en vez de explotar. Después, con `ENVIRONMENT=production` en `backend/.env`, confirmar que corta con mensaje y sin tocar la base. |
+| manual | — | Producción (Railway): el deploy aplica las migraciones solo (`preDeployCommand`); entrar como Dueño, verificar que `/exercises` muestra el estado vacío, que las plantillas abren sin error, y crear un ejercicio para confirmar el alta desde cero.

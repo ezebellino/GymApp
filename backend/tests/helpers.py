@@ -216,3 +216,53 @@ def create_template_with_days(
     db_session.commit()
     db_session.refresh(template)
     return template
+
+
+def assign_template_copy(
+    client,
+    headers,
+    user_id,
+    template_id,
+    *,
+    status="active",
+    starts_on=None,
+):
+    """Copia una plantilla a un Miembro pasando por el **mismo** endpoint que
+    usa la UI (`POST /routines/users/{user_id}/templates`,
+    `member-routine-copies`, design D5/D12): nunca arma la copia a mano — si el
+    copiado (días, grupos musculares, ejercicios) se rompe, cualquier test que
+    dependa de esto (progreso, guardado de la copia, etc.) tiene que
+    enterarse. Devuelve el `RoutineAssignmentOut` ya parseado."""
+    payload = {"template_id": template_id, "status": status}
+    if starts_on is not None:
+        payload["starts_on"] = starts_on
+    response = client.post(
+        f"/routines/users/{user_id}/templates",
+        json=payload,
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def mark_set(
+    client,
+    headers,
+    day_id,
+    exercise_id,
+    set_index,
+    *,
+    weight_kg,
+    reps,
+    note=None,
+):
+    """`PUT /routines/my/days/{day_id}/exercises/{exercise_id}/sets/{set_index}`
+    (`routine-progress-tracking`, design D6) desde el propio Miembro. Devuelve
+    el `WorkoutSetLogOut` ya parseado."""
+    response = client.put(
+        f"/routines/my/days/{day_id}/exercises/{exercise_id}/sets/{set_index}",
+        json={"weight_kg": weight_kg, "reps": reps, "note": note},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    return response.json()

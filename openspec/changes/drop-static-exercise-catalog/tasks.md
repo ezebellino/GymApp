@@ -284,36 +284,36 @@ superado y no se re-ejecuta. El grupo 12 (cierre local) se reabre y se corre al 
 
 ### 14.b Hallazgo 2 (mayor) — el estado vacío se dispara con filtros activos
 
-- [ ] 14.19 `frontend/src/pages/Exercises.tsx`: el estado vacío de catálogo exige además sin filtro
+- [x] 14.19 `frontend/src/pages/Exercises.tsx`: el estado vacío de catálogo exige además sin filtro
       de grupo, sin filtro de tipo, `statusFilter === "all"` y `offset === 0`; con cualquier filtro
       o página distinta de la primera va el mensaje de "sin resultados", sin acción de crear. La
       spec dice "sin ningún filtro ni búsqueda aplicada".
-- [ ] 14.20 Extender
+- [x] 14.20 Extender
       `mantiene el mensaje de sin resultados y no ofrece crear cuando la búsqueda no matchea` o
       agregar un caso hermano que ejercite la rama de **filtro** (grupo muscular sin resultados
       sobre un catálogo lleno), no solo la de búsqueda.
 
 ### 14.c Hallazgos menores
 
-- [ ] 14.21 Hallazgo 4: `backend/scripts/seed_dev_exercises.py` sincroniza **solo** los ejercicios
+- [~] 14.21 **Superada por `template-owned-routine-days`**. Hallazgo 4: `backend/scripts/seed_dev_exercises.py` sincroniza **solo** los ejercicios
       que acaba de crear, y con el `muscle_group` **de la fila**, no el de la constante. Hoy
       reintroduce en dev la segunda fuente de verdad que el change retira.
-- [ ] 14.22 Hallazgo 4: `test_seed_de_ejercicios_dos_veces_no_duplica_ni_pisa_un_grupo_editado`
+- [~] 14.22 **Superada por `template-owned-routine-days`**. Hallazgo 4: `test_seed_de_ejercicios_dos_veces_no_duplica_ni_pisa_un_grupo_editado`
       pasa a mover el grupo por el endpoint y a verificar el `TrainingDayExercise` resultante, no
       solo la columna.
-- [ ] 14.23 Hallazgo 5: el seed detecta la colisión por `name_normalized` y la reporta con un
+- [x] 14.23 Hallazgo 5: el seed detecta la colisión por `name_normalized` y la reporta con un
       mensaje accionable en vez de dejar salir el `IntegrityError` crudo.
-- [ ] 14.24 Hallazgo 6: reemplazar "Sin días." en `frontend/src/pages/UserRoutine.tsx` por un texto
+- [x] 14.24 Hallazgo 6: reemplazar "Sin días." en `frontend/src/pages/UserRoutine.tsx` por un texto
       legible para el Miembro. **Consultar al Product Owner**: es una cadena de UI sin spec.
-- [ ] 14.25 Hallazgo 8: el test de D9 "ya agregado" verifica las dos mitades de la spec — que sigue
+- [~] 14.25 **Superada por `template-owned-routine-days`**. Hallazgo 8: el test de D9 "ya agregado" verifica las dos mitades de la spec — que sigue
       **activo** en el detalle y que sigue **en el plan del Miembro** —, no solo que el id aparezca.
 - [x] 14.26 Hallazgo 9: el test de I3 corre con `catalog_basic` (para que haya filas que romper) y
       compara `sort_order` además de los conteos. Cubre también `routine_template_exercises`: es la
       mitad de I6 que sobrevive, absorbida por I3 (design, sección Invariantes).
-- [ ] 14.27 Hallazgo 10: renombrar los dos tests que todavía hablan de un seed que no existe
+- [~] 14.27 **Superada por `template-owned-routine-days`**. Hallazgo 10: renombrar los dos tests que todavía hablan de un seed que no existe
       (`test_seed_vincula_los_ejercicios_de_pierna_a_los_grupos_musculares_nuevos`,
       `test_un_reseed_del_catalogo_no_borra_la_configuracion_de_la_plantilla`).
-- [ ] 14.28 Actualizar `backend/AGENTS.md` (task 11.1): el vínculo día↔ejercicio no tiene estado
+- [x] 14.28 Actualizar `backend/AGENTS.md` (task 11.1): el vínculo día↔ejercicio no tiene estado
       propio y `TrainingDayExercise` no lleva `is_active`.
 
 ### 14.d Consecuencias en el Plan de verificación
@@ -330,3 +330,28 @@ superado y no se re-ejecuta. El grupo 12 (cierre local) se reabre y se corre al 
 - [x] 14.29 Antes de cualquier verificación manual sobre un stack de Docker ya levantado, correr
       `docker compose restart backend`: el `Dockerfile` no usa `--reload` y es el segundo change
       seguido en el que se verifica código viejo.
+
+## 15. Ronda 3 — cierre después de dos changes encima
+
+Entre la ronda 2 y esta quedó el change parado mientras se implementaron y archivaron
+`template-owned-routine-days` y `member-routine-copies`. Los dos retiraron el catálogo global de
+días entero (`routine_catalog.py`, `TrainingDay`, `TrainingDayExercise`, `ensure_training_days`,
+`sync_exercise_day_links`), que es sobre lo que se apoyaban cinco de los hallazgos de la ronda 1.
+Las tasks marcadas `[~]` arriba quedaron **sin objeto**: el código que había que arreglar ya no
+existe y sus tests se borraron en esos changes.
+
+- [x] 15.1 14.21/14.22 (hallazgo 4, el seed reintroducía la segunda fuente de verdad al
+      sincronizar vínculos): el seed ya no sincroniza nada, no hay vínculos que sincronizar.
+- [x] 15.2 14.25 (hallazgo 8, el test de D9 "ya agregado"): D9 se retiró con
+      `RoutineTemplateExercise`; el requirement equivalente lo cubre ahora
+      `test_routine_templates.py` de `template-owned-routine-days` ("un ejercicio inactivo no se
+      puede agregar, pero uno ya agregado sobrevive en el detalle").
+- [x] 15.3 14.27 (hallazgo 10, nombres de test que hablaban de un seed inexistente): los dos
+      tests se borraron junto con el mecanismo que probaban.
+- [x] 15.4 14.28 (`backend/AGENTS.md`): los dos changes posteriores ya reescribieron la sección;
+      solo se sumó la nota de la colisión por `name_normalized` del seed (14.23).
+- [x] 15.5 Recortar la tabla de tests del `## Plan de verificación` a los casos que sobreviven
+      (I2, I5, I7 y los estados vacíos), con la nota de qué invariantes quedaron sin objeto y por
+      qué. `make check-plan` vuelve a salir en verde.
+- [x] 15.6 `make lint` + `make test` en verde con los cambios de esta ronda.
+- [ ] 15.7 Re-verificación (`/opsx:verify`) y, con veredicto PASA, `/opsx:sync` + `/opsx:archive`.

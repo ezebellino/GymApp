@@ -268,4 +268,28 @@ describe("vista de Ejercicios", () => {
     const buttons = screen.getAllByRole("button", { name: "Crear ejercicio" });
     expect(buttons.length).toBe(1);
   });
+
+  it("mantiene el mensaje de sin resultados y no ofrece crear cuando el filtro de grupo no matchea", async () => {
+    // Rama de **filtro** sobre un catálogo lleno: la spec limita "Catálogo
+    // vacío" a "sin ningún filtro ni búsqueda aplicada".
+    vi.mocked(api.get).mockImplementation((url: string, config?: any) => {
+      if (url === "/exercises/") {
+        const rows = config?.params?.muscle_group ? [] : [makeExercise({})];
+        return jsonResponse(rows, rows.length);
+      }
+      if (url === "/exercises/meta") return jsonResponse(META);
+      return jsonResponse({});
+    });
+
+    renderWithProviders(<Exercises />, { route: "/exercises" });
+    await screen.findByText("Press de banca");
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Filtrar por grupo muscular" }), {
+      target: { value: "Espalda" },
+    });
+
+    expect(await screen.findByText("Sin resultados")).toBeInTheDocument();
+    expect(screen.queryByText("Catálogo vacío")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Crear ejercicio" }).length).toBe(1);
+  });
 });

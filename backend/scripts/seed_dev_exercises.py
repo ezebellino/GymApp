@@ -108,24 +108,41 @@ def seed_dev_exercises(db: Session) -> dict:
     Sin guardas ni engine propio: recibe la sesión para poder correrse también
     sobre la SQLite de la suite de tests.
     """
-    existing_ids = {row.id for row in db.query(Exercise.id).all()}
+    existing = db.query(Exercise.id, Exercise.name_normalized).all()
+    existing_ids = {row.id for row in existing}
+    # La idempotencia es por `id`, pero `exercises.name_normalized` es `unique`:
+    # si el Dueño ya cargó a mano un ejercicio con uno de estos nombres, insertar
+    # explotaría con un `IntegrityError` crudo. Se detecta antes y se reporta.
+    existing_names = {row.name_normalized: row.id for row in existing}
+
     created = 0
+    collisions = []
     for entry in EXERCISE_LIBRARY:
         if entry["id"] in existing_ids:
+            continue
+        normalized = _normalize_exercise_name(entry["name"])
+        owner_id = existing_names.get(normalized)
+        if owner_id is not None:
+            collisions.append((entry["id"], entry["name"], owner_id))
             continue
         db.add(
             Exercise(
                 id=entry["id"],
                 name=entry["name"],
-                name_normalized=_normalize_exercise_name(entry["name"]),
+                name_normalized=normalized,
                 muscle_group=entry["muscle_group"],
                 is_active=True,
             )
         )
+        existing_names[normalized] = entry["id"]
         created += 1
 
     db.commit()
-    return {"created": created, "skipped": len(EXERCISE_LIBRARY) - created}
+    return {
+        "created": created,
+        "skipped": len(EXERCISE_LIBRARY) - created - len(collisions),
+        "collisions": collisions,
+    }
 
 
 def main():
@@ -157,6 +174,17 @@ def main():
         f"Ejercicios de desarrollo listos ({result['created']} creados, "
         f"{result['skipped']} ya existían)."
     )
+    if result["collisions"]:
+        print(
+            f"\n{len(result['collisions'])} ejercicio(s) del seed se saltearon porque ya hay "
+            "uno con el mismo nombre cargado a mano (el nombre es único en el catálogo):"
+        )
+        for seed_id, name, owner_id in result["collisions"]:
+            print(f"  - {name!r} (seed {seed_id}) choca con el ejercicio {owner_id}")
+        print(
+            "Renombrá o borrá esos ejercicios desde /exercises y volvé a correr el seed "
+            "si los querés con los datos de prueba."
+        )
 
 
 if __name__ == "__main__":

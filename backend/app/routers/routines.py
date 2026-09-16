@@ -1,10 +1,11 @@
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import date, datetime
 import textwrap
 import unicodedata
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from .. import models, schemas
@@ -12,6 +13,7 @@ from ..auth import get_current_user, require_role
 from ..deps import get_db
 from ..models import UserRole
 from ..progression import plan_sets
+from ..routine_days import day_title, serialize_day
 from ..utils import now_ar
 
 
@@ -40,74 +42,19 @@ def _require_member(user: models.User) -> models.User:
     return user
 
 
-def _day_title(day: models.RoutineTemplateDay, muscle_groups: list[str]) -> str:
-    """"Día N" o "Día N - <grupos unidos por '/'>" (`template-owned-routine-days`,
-    design D1): una sola fuente de verdad del título, acá y en
-    `routers/routine_templates.py` (duplicado a propósito: son dos módulos sin
-    dependencia entre sí, ver design D7)."""
-    suffix = f" - {'/'.join(muscle_groups)}" if muscle_groups else ""
-    return f"Día {day.position}{suffix}"
-
-
-def _resolve_plan_base(
-    link: models.RoutineTemplateDayExercise, overrides: dict[str, models.RoutineAssignmentBase]
-) -> tuple[int, int, float]:
-    override = overrides.get(link.exercise_id)
-    if override is not None:
-        return override.sets, override.reps, override.weight_kg
-    return link.base_sets, link.base_reps, link.base_weight_kg
-
-
-def _serialize_plan_exercise(
-    link: models.RoutineTemplateDayExercise, overrides: dict[str, models.RoutineAssignmentBase]
-) -> schemas.RoutineTemplateExerciseOut:
-    exercise = link.exercise
-    sets, reps, weight_kg = _resolve_plan_base(link, overrides)
-    planned = plan_sets(link.strategy, sets=sets, reps=reps, weight_kg=weight_kg)
-    return schemas.RoutineTemplateExerciseOut(
-        exercise_id=exercise.id,
-        name=exercise.name,
-        muscle_group=exercise.muscle_group,
-        base=schemas.ExerciseBaseOut(sets=sets, reps=reps, weight_kg=weight_kg),
-        strategy=link.strategy.value,
-        planned_sets=[
-            schemas.PlannedSetOut(index=item.index, weight_kg=item.weight_kg, reps=item.reps, note=item.note)
-            for item in planned
-        ],
-    )
-
-
-def _serialize_plan_day(
-    day: models.RoutineTemplateDay, overrides: dict[str, models.RoutineAssignmentBase]
-) -> schemas.RoutineTemplateDayOut:
-    muscle_groups = [item.muscle_group for item in sorted(day.muscle_groups, key=lambda m: m.sort_order)]
-    return schemas.RoutineTemplateDayOut(
-        day_id=day.id,
-        name=_day_title(day, muscle_groups),
-        muscle_groups=muscle_groups,
-        position=day.position,
-        exercises=[
-            _serialize_plan_exercise(link, overrides)
-            for link in sorted(day.exercises, key=lambda item: item.sort_order)
-        ],
-    )
-
-
 def _get_active_assignment(db: Session, user_id: str) -> models.RoutineAssignment | None:
-    """La asignación **Activa** del Miembro, con la plantilla y sus días
-    precargados (`template-owned-routine-days`, design D10): el overview, "Mi
-    rutina" (días) y el progreso siguen siempre esta asignación, nunca una
-    Alternativa."""
+    """La copia **Activa** del Miembro, con sus días precargados
+    (`member-routine-copies`, design D9): el overview y `GET /my/days` siguen
+    siempre esta asignación, nunca una Alternativa — a diferencia de la
+    pantalla de ejecución (D9, ver `routine_assignments.py`), que se alimenta
+    de `GET /routines/my/templates` y puede ser cualquier copia."""
     return (
         db.query(models.RoutineAssignment)
         .options(
-            joinedload(models.RoutineAssignment.template)
-            .joinedload(models.RoutineTemplate.days)
-            .joinedload(models.RoutineTemplateDay.muscle_groups),
-            joinedload(models.RoutineAssignment.template)
-            .joinedload(models.RoutineTemplate.days)
-            .joinedload(models.RoutineTemplateDay.exercises)
-            .joinedload(models.RoutineTemplateDayExercise.exercise),
+            joinedload(models.RoutineAssignment.days).joinedload(models.RoutineAssignmentDay.muscle_groups),
+            joinedload(models.RoutineAssignment.days)
+            .joinedload(models.RoutineAssignmentDay.exercises)
+            .joinedload(models.RoutineAssignmentDayExercise.exercise),
         )
         .filter(
             models.RoutineAssignment.user_id == user_id,
@@ -117,22 +64,25 @@ def _get_active_assignment(db: Session, user_id: str) -> models.RoutineAssignmen
     )
 
 
-def _get_member_day_or_400(db: Session, user_id: str, day_id: str) -> models.RoutineTemplateDay:
-    """El día tiene que pertenecer a **alguna** asignación (Activa o
-    Alternativa — la Alternativa existe para poder entrenarla) del Miembro
-    (design D10, invariante I12)."""
+def _get_member_day_or_400(db: Session, user_id: str, day_id: str) -> models.RoutineAssignmentDay:
+    """El día tiene que pertenecer a **alguna** copia (Activa o Alternativa —
+    la Alternativa existe para poder entrenarla) del Miembro (design D6,
+    invariante I10). Pedir el día de otro Miembro es indistinguible de pedir
+    uno inexistente."""
     day = (
-        db.query(models.RoutineTemplateDay)
-        .join(models.RoutineTemplate, models.RoutineTemplateDay.template_id == models.RoutineTemplate.id)
-        .join(models.RoutineAssignment, models.RoutineAssignment.template_id == models.RoutineTemplate.id)
+        db.query(models.RoutineAssignmentDay)
+        .join(
+            models.RoutineAssignment,
+            models.RoutineAssignmentDay.assignment_id == models.RoutineAssignment.id,
+        )
         .filter(
-            models.RoutineTemplateDay.id == day_id,
+            models.RoutineAssignmentDay.id == day_id,
             models.RoutineAssignment.user_id == user_id,
         )
         .first()
     )
     if not day:
-        raise HTTPException(status_code=400, detail="Ese día no pertenece a una plantilla asignada")
+        raise HTTPException(status_code=400, detail="Ese día no pertenece a una rutina asignada")
     return day
 
 
@@ -221,11 +171,11 @@ def _build_styled_progress_pdf(
     join_date: datetime,
     attendance_count: int,
     log_count: int,
-    unique_days: int,
+    session_count: int,
     unique_exercises: int,
     total_volume: float,
     last_training: datetime | None,
-    best_log: models.WorkoutLog | None,
+    best_log: models.WorkoutSetLog | None,
     top_improvements: list[tuple[str, float, float, float]],
     motivation: str,
     score: int,
@@ -261,8 +211,8 @@ def _build_styled_progress_pdf(
 
     cards = [
         ("ASISTENCIAS", str(attendance_count), "presencias registradas"),
-        ("RUTINAS", str(log_count), "cargas acumuladas"),
-        ("DIAS ACTIVOS", str(unique_days), "jornadas con avances"),
+        ("SERIES", str(log_count), "marcadas"),
+        ("SESIONES", str(session_count), "jornadas entrenadas"),
         ("VOLUMEN", f"{int(total_volume):,}".replace(",", "."), "carga total estimada"),
     ]
     start_x = 44
@@ -435,28 +385,36 @@ def _build_styled_progress_pdf(
 
 
 # Metas que completan cada componente del score. Coinciden con los umbrales de
-# `_motivation_for_metrics` ("excelente constancia" = 12 registros y 8 asistencias, "gran
+# `_motivation_for_metrics` ("excelente constancia" = 4 sesiones y 8 asistencias, "gran
 # momento" = 3 mejoras) para que el numero y el texto del PDF cuenten la misma historia.
-_SCORE_LOG_GOAL = 12
+#
+# `member-routine-copies` (design D14): el componente de "entrenamientos" se cuenta en
+# **sesiones** (`performed_on` distintos), no en filas de `WorkoutSetLog`. Con D3 cada
+# fila es una serie, no un ejercicio: contar filas hacía que una sola sesión de
+# 4 ejercicios x 3 series (12 filas) saturara un componente que antes pedía 3-4
+# sesiones. `_SCORE_LOG_GOAL = 12` queda reemplazada por `_SCORE_SESSION_GOAL = 4`,
+# la lectura fiel de "constancia": cuántas veces vino a entrenar.
+_SCORE_SESSION_GOAL = 4
 _SCORE_ATTENDANCE_GOAL = 8
 _SCORE_IMPROVEMENT_GOAL = 3
 
 
-def _progress_score(log_count: int, attendance_count: int, improvements: int) -> int:
-    """Puntaje 0-100 del reporte de progreso: 40 pts por registros, 30 por asistencia,
-    30 por ejercicios con mejora. Cada componente satura en su meta."""
-    log_points = 40 * min(max(log_count, 0), _SCORE_LOG_GOAL) / _SCORE_LOG_GOAL
+def _progress_score(session_count: int, attendance_count: int, improvements: int) -> int:
+    """Puntaje 0-100 del reporte de progreso: 40 pts por sesiones entrenadas
+    (design D14), 30 por asistencia, 30 por ejercicios con mejora. Cada
+    componente satura en su meta."""
+    session_points = 40 * min(max(session_count, 0), _SCORE_SESSION_GOAL) / _SCORE_SESSION_GOAL
     attendance_points = 30 * min(max(attendance_count, 0), _SCORE_ATTENDANCE_GOAL) / _SCORE_ATTENDANCE_GOAL
     improvement_points = 30 * min(max(improvements, 0), _SCORE_IMPROVEMENT_GOAL) / _SCORE_IMPROVEMENT_GOAL
-    return min(100, round(log_points + attendance_points + improvement_points))
+    return min(100, round(session_points + attendance_points + improvement_points))
 
 
-def _motivation_for_metrics(log_count: int, attendance_count: int, improvements: int) -> str:
+def _motivation_for_metrics(session_count: int, attendance_count: int, improvements: int) -> str:
     if improvements >= 3:
         return "Gran momento: ya se nota una evolucion clara en varios ejercicios. Segui asi."
-    if log_count >= 12 and attendance_count >= 8:
+    if session_count >= 4 and attendance_count >= 8:
         return "Excelente constancia. La disciplina que estas sosteniendo ya esta dando resultados."
-    if log_count >= 6:
+    if session_count >= 2:
         return "Muy buen avance. Cada registro suma y hace visible el progreso real."
     return "Buen comienzo. Lo importante es sostener el ritmo y seguir registrando cada entrenamiento."
 
@@ -465,25 +423,32 @@ def _collect_progress_snapshot(
     db: Session, user_id: str
 ) -> tuple[
     models.User,
-    list[models.WorkoutLog],
+    list[models.WorkoutSetLog],
     int,
     models.Payment | None,
     str,
     list[tuple[str, float, float, float]],
-    models.WorkoutLog | None,
-    list[models.WorkoutLog],
+    models.WorkoutSetLog | None,
+    list[models.WorkoutSetLog],
     float,
     int,
     int,
     datetime | None,
     str,
 ]:
+    """Agregados en el grano nuevo de `WorkoutSetLog` (`member-routine-copies`,
+    design D3): `total_volume` es `Σ reps × weight_kg` (ya no hay `sets_count`
+    que multiplicar), `session_count` cuenta `performed_on` distintos (design
+    D14: el componente de "entrenamientos" del score se mide en sesiones, no
+    en filas), e `improvements` compara el peso **máximo de la primera y la
+    última sesión** de cada ejercicio (una sesión = `performed_on`), no la
+    primera y la última fila."""
     client = _get_user_or_404(db, user_id)
     logs = (
-        db.query(models.WorkoutLog)
-        .options(joinedload(models.WorkoutLog.exercise))
-        .filter(models.WorkoutLog.user_id == user_id)
-        .order_by(models.WorkoutLog.performed_at.asc())
+        db.query(models.WorkoutSetLog)
+        .options(joinedload(models.WorkoutSetLog.exercise))
+        .filter(models.WorkoutSetLog.user_id == user_id)
+        .order_by(models.WorkoutSetLog.performed_at.asc())
         .all()
     )
     attendance_count = (
@@ -500,37 +465,36 @@ def _collect_progress_snapshot(
     settings = db.query(models.AppSettings).first()
     gym_name = settings.gym_name if settings and settings.gym_name else "Mini Espacio"
 
-    exercise_histories: dict[str, list[models.WorkoutLog]] = defaultdict(list)
+    exercise_histories: dict[str, list[models.WorkoutSetLog]] = defaultdict(list)
     for log in logs:
         exercise_histories[log.exercise_id].append(log)
 
     improvements: list[tuple[str, float, float, float]] = []
     for history in exercise_histories.values():
-        if len(history) < 2:
+        sessions_by_date: dict[date, float] = defaultdict(float)
+        for log in history:
+            sessions_by_date[log.performed_on] = max(sessions_by_date[log.performed_on], log.weight_kg)
+        if len(sessions_by_date) < 2:
             continue
-        first_weight = history[0].weight_kg or 0
-        last_weight = history[-1].weight_kg or 0
+        ordered_dates = sorted(sessions_by_date)
+        first_weight = sessions_by_date[ordered_dates[0]]
+        last_weight = sessions_by_date[ordered_dates[-1]]
         delta = last_weight - first_weight
         if delta > 0:
-            improvements.append(
-                (
-                    history[-1].exercise.name,
-                    first_weight,
-                    last_weight,
-                    delta,
-                )
-            )
+            improvements.append((history[-1].exercise.name, first_weight, last_weight, delta))
 
     improvements.sort(key=lambda item: item[3], reverse=True)
     best_log = max(logs, key=lambda item: item.weight_kg, default=None)
     recent_logs = list(reversed(logs[-5:]))
-    total_volume = sum((log.sets_count or 0) * (log.reps or 0) * log.weight_kg for log in logs)
-    # `day_id` distintos **no nulos** (design D7): un log de un día ya borrado
-    # queda con `day_id IS NULL` (D3) y no debe contarse como un día distinto.
-    unique_days = len({log.day_id for log in logs if log.day_id is not None})
+    total_volume = sum(log.reps * log.weight_kg for log in logs)
+    # Sesiones distintas (design D14): agregar series dentro de una misma
+    # sesión no mueve este número. Reemplaza a `unique_days`, que contaba
+    # `assignment_day_id` distintos, saturaba en 5 (a lo sumo 5 días por
+    # copia) y era ciego a repetir el mismo día muchas veces.
+    session_count = len({log.performed_on for log in logs})
     unique_exercises = len(exercise_histories)
     last_training = logs[-1].performed_at if logs else None
-    motivation = _motivation_for_metrics(len(logs), attendance_count, len(improvements[:3]))
+    motivation = _motivation_for_metrics(session_count, attendance_count, len(improvements[:3]))
 
     return (
         client,
@@ -542,10 +506,37 @@ def _collect_progress_snapshot(
         best_log,
         recent_logs,
         total_volume,
-        unique_days,
+        session_count,
         unique_exercises,
         last_training,
         motivation,
+    )
+
+
+@router.get(
+    "/progression/preview",
+    response_model=schemas.PlannedSetsPreviewOut,
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
+def preview_planned_sets(
+    strategy: schemas.ProgressionStrategyLiteral,
+    sets: int = Query(ge=1, le=10),
+    reps: int = Query(ge=1, le=100),
+    weight_kg: float = Query(ge=0, le=500),
+):
+    """`member-routine-copies`, design D13: previsualización **sin estado** del
+    plan de series — no recibe `template_id`, `assignment_id`, `day_id` ni
+    `exercise_id`, así sirve igual al editor de plantilla y al de la copia
+    (D8) y funciona sobre un día o un ejercicio que todavía no existen en la
+    base. Función pura sobre `plan_sets`: el handler no recibe `Session`."""
+    planned = plan_sets(
+        models.ProgressionStrategy(strategy), sets=sets, reps=reps, weight_kg=weight_kg
+    )
+    return schemas.PlannedSetsPreviewOut(
+        planned_sets=[
+            schemas.PlannedSetOut(index=item.index, weight_kg=item.weight_kg, reps=item.reps, note=item.note)
+            for item in planned
+        ]
     )
 
 
@@ -555,26 +546,27 @@ def _collect_progress_snapshot(
     dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
 def user_routine_overview(user_id: str, db: Session = Depends(get_db)):
-    """Días de la asignación **Activa** del usuario (`template-owned-routine-
-    days`, design D10). Sin asignación Activa: lista vacía con 200 (aunque
-    tenga Alternativas) — nunca 404, la UI ya tiene el estado "Todavía no
-    tenés una plantilla asignada"."""
+    """Días de la copia **Activa** del usuario (`member-routine-copies`,
+    design D6, D9 — requirement vigente de `member-routine-view`, no tocado
+    por este change). Sin copia Activa: lista vacía con 200 (aunque tenga
+    Alternativas) — nunca 404. `log_count` pasa a ser **series marcadas**
+    (design D6), no ejercicios cargados."""
     _get_user_or_404(db, user_id)
     assignment = _get_active_assignment(db, user_id)
     if assignment is None:
         return []
 
-    days = sorted(assignment.template.days, key=lambda item: item.position)
+    days = sorted(assignment.days, key=lambda item: item.position)
     day_ids = [day.id for day in days]
     logs = (
-        db.query(models.WorkoutLog)
-        .filter(models.WorkoutLog.user_id == user_id, models.WorkoutLog.day_id.in_(day_ids))
+        db.query(models.WorkoutSetLog)
+        .filter(models.WorkoutSetLog.user_id == user_id, models.WorkoutSetLog.assignment_day_id.in_(day_ids))
         .all()
     )
 
-    by_day: dict[str, list[models.WorkoutLog]] = defaultdict(list)
+    by_day: dict[str, list[models.WorkoutSetLog]] = defaultdict(list)
     for log in logs:
-        by_day[log.day_id].append(log)
+        by_day[log.assignment_day_id].append(log)
 
     result: list[schemas.RoutineDayProgress] = []
     for day in days:
@@ -584,7 +576,7 @@ def user_routine_overview(user_id: str, db: Session = Depends(get_db)):
         result.append(
             schemas.RoutineDayProgress(
                 day_id=day.id,
-                day_name=_day_title(day, muscle_groups),
+                day_name=day_title(day, muscle_groups),
                 muscle_groups=muscle_groups,
                 active_exercise_count=len(day.exercises),
                 log_count=len(day_logs),
@@ -596,42 +588,81 @@ def user_routine_overview(user_id: str, db: Session = Depends(get_db)):
 
 @router.get(
     "/users/{user_id}/logs",
-    response_model=list[schemas.WorkoutLogOut],
+    response_model=list[schemas.WorkoutSetLogOut],
     dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
 )
 def user_workout_logs(
     user_id: str,
     day_id: str | None = Query(default=None),
+    exercise_id: str | None = Query(default=None),
+    from_date: date | None = Query(default=None, alias="from"),
+    to_date: date | None = Query(default=None, alias="to"),
     limit: int = Query(default=40, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
+    """Histórico de marcas de serie (`member-routine-copies`, design D6): sirve
+    tanto al Coach/Dueño (vista de Progreso) como al propio Miembro (panel
+    "Historial" de "Mi rutina", vía `my_workout_logs`). Filtros sobre
+    `performed_on`, además del `day_id` que ya existía."""
     _get_user_or_404(db, user_id)
 
     query = (
-        db.query(models.WorkoutLog)
-        .options(joinedload(models.WorkoutLog.exercise))
-        .filter(models.WorkoutLog.user_id == user_id)
+        db.query(models.WorkoutSetLog)
+        .options(joinedload(models.WorkoutSetLog.exercise))
+        .filter(models.WorkoutSetLog.user_id == user_id)
     )
     if day_id:
-        query = query.filter(models.WorkoutLog.day_id == day_id)
+        query = query.filter(models.WorkoutSetLog.assignment_day_id == day_id)
+    if exercise_id:
+        query = query.filter(models.WorkoutSetLog.exercise_id == exercise_id)
+    if from_date:
+        query = query.filter(models.WorkoutSetLog.performed_on >= from_date)
+    if to_date:
+        query = query.filter(models.WorkoutSetLog.performed_on <= to_date)
 
-    logs = query.order_by(models.WorkoutLog.performed_at.desc()).limit(limit).all()
+    logs = query.order_by(models.WorkoutSetLog.performed_at.desc()).limit(limit).all()
     return [
-        schemas.WorkoutLogOut(
+        schemas.WorkoutSetLogOut(
             id=log.id,
             user_id=log.user_id,
-            day_id=log.day_id,
+            assignment_day_id=log.assignment_day_id,
             day_name=log.day_name,
             exercise_id=log.exercise_id,
             exercise_name=log.exercise.name,
             muscle_group=log.exercise.muscle_group,
-            sets_count=log.sets_count,
+            set_index=log.set_index,
             reps=log.reps,
             weight_kg=log.weight_kg,
             note=log.note,
+            performed_on=log.performed_on,
             performed_at=log.performed_at,
         )
         for log in logs
+    ]
+
+
+@router.get(
+    "/users/{user_id}/logged-exercises",
+    response_model=list[schemas.LoggedExerciseOut],
+    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+)
+def user_logged_exercises(user_id: str, db: Session = Depends(get_db)):
+    """Ejercicios **con registros** de este Miembro (design D6, D10): alimenta
+    el filtro de la vista de Progreso. Alimentado por el histórico, no por la
+    copia vigente — un ejercicio ya quitado de la copia sigue siendo
+    filtrable."""
+    _get_user_or_404(db, user_id)
+    exercises = (
+        db.query(models.Exercise)
+        .join(models.WorkoutSetLog, models.WorkoutSetLog.exercise_id == models.Exercise.id)
+        .filter(models.WorkoutSetLog.user_id == user_id)
+        .distinct()
+        .order_by(models.Exercise.name)
+        .all()
+    )
+    return [
+        schemas.LoggedExerciseOut(exercise_id=exercise.id, name=exercise.name, muscle_group=exercise.muscle_group)
+        for exercise in exercises
     ]
 
 
@@ -653,13 +684,13 @@ def user_progress_report(
         best_log,
         recent_logs,
         total_volume,
-        unique_days,
+        session_count,
         unique_exercises,
         last_training,
         motivation,
     ) = _collect_progress_snapshot(db, user_id)
     top_improvements = improvements[:3]
-    score = _progress_score(len(logs), attendance_count, len(top_improvements))
+    score = _progress_score(session_count, attendance_count, len(top_improvements))
 
     if top_improvements:
         target_name = top_improvements[0][0]
@@ -694,9 +725,9 @@ def user_progress_report(
     )
     add_line()
     add_line("Resumen general")
-    add_line(f"- Registros de rutina: {len(logs)}")
+    add_line(f"- Series marcadas: {len(logs)}")
     add_line(f"- Asistencias acumuladas: {attendance_count}")
-    add_line(f"- Dias entrenados con registros: {unique_days}")
+    add_line(f"- Sesiones entrenadas: {session_count}")
     add_line(f"- Ejercicios con historial: {unique_exercises}")
     add_line(f"- Volumen acumulado estimado: {int(total_volume):,}".replace(",", "."))
     add_line(
@@ -732,7 +763,7 @@ def user_progress_report(
     if recent_logs:
         for log in recent_logs:
             add_line(
-                f"- {log.performed_at.strftime('%d/%m/%Y')}: {log.exercise.name} | {log.weight_kg:g} kg | {log.reps or '-'} reps | {log.sets_count or '-'} series"
+                f"- {log.performed_at.strftime('%d/%m/%Y')}: {log.exercise.name} | serie #{log.set_index} | {log.weight_kg:g} kg | {log.reps} reps"
             )
     else:
         add_line("- Sin avances cargados todavia.")
@@ -749,7 +780,7 @@ def user_progress_report(
             join_date=client.membership_start_date or client.created_at,
             attendance_count=attendance_count,
             log_count=len(logs),
-            unique_days=unique_days,
+            session_count=session_count,
             unique_exercises=unique_exercises,
             total_volume=total_volume,
             last_training=last_training,
@@ -792,13 +823,14 @@ def user_progress_summary(
         best_log,
         _recent_logs,
         total_volume,
-        unique_days,
+        session_count,
         unique_exercises,
         last_training,
         motivation,
     ) = _collect_progress_snapshot(db, user_id)
 
     top_improvement = improvements[0] if improvements else None
+    score = _progress_score(session_count, attendance_count, len(improvements[:3]))
 
     # `member-routine-view`, requirement "El overview y el progreso siguen
     # siempre la asignación Activa" (design D10): `None` cuando el Miembro no
@@ -811,7 +843,7 @@ def user_progress_summary(
         gym_name=gym_name,
         log_count=len(logs),
         attendance_count=attendance_count,
-        unique_days=unique_days,
+        session_count=session_count,
         unique_exercises=unique_exercises,
         total_volume=total_volume,
         last_training=last_training,
@@ -826,181 +858,131 @@ def user_progress_summary(
         if top_improvement
         else None,
         motivation=motivation,
+        score=score,
         active_assignment=schemas.ActiveAssignmentSummary(
-            assignment_id=active_assignment.id, template_name=active_assignment.template.name
+            assignment_id=active_assignment.id, template_name=active_assignment.template_name
         )
         if active_assignment
         else None,
     )
 
 
-@router.post(
-    "/users/{user_id}/logs",
-    response_model=schemas.WorkoutLogOut,
-    status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
+@router.put(
+    "/my/days/{day_id}/exercises/{exercise_id}/sets/{set_index}",
+    response_model=schemas.WorkoutSetLogOut,
+    dependencies=[Depends(require_role(UserRole.member))],
 )
-def create_workout_log(
-    user_id: str,
-    payload: schemas.WorkoutLogCreate,
+def mark_set(
+    day_id: str,
+    exercise_id: str,
+    set_index: int,
+    payload: schemas.WorkoutSetMarkIn,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    target = _get_user_or_404(db, user_id)
-    if target.membership_status != models.MembershipStatus.active:
-        raise HTTPException(
-            status_code=400, detail="El usuario no tiene una membresía activa"
-        )
-    # El día tiene que pertenecer a alguna plantilla asignada al Miembro
-    # (Activa o Alternativa), y el ejercicio tiene que estar en ese día
-    # (`template-owned-routine-days`, design D10, invariante I12). Un
-    # ejercicio inactivo en el catálogo pero ya presente en el día sigue
-    # siendo registrable (D9): no se vuelve a chequear `Exercise.is_active`
-    # acá, solo pertenencia al día.
-    day = _get_member_day_or_400(db, user_id, payload.day_id)
+    """`PUT /routines/my/days/{day_id}/exercises/{exercise_id}/sets/{set_index}`
+    (`routine-progress-tracking`, design D6): marca o corrige una serie.
+    Upsert idempotente por `(user, day, exercise, set_index, hoy)` — el mismo
+    verbo sirve para marcar y para corregir, sin que un doble tap duplique la
+    serie (I9). **No** toca `models.Attendance`: marcar progreso no registra
+    asistencia (design D6, requirement explícito)."""
+    member = _require_member(current_user)
 
+    # 1) El día pertenece a alguna copia (Activa o Alternativa) del propio
+    # Miembro (I10): pedir el día de otro Miembro es indistinguible de pedir
+    # uno inexistente.
+    day = _get_member_day_or_400(db, member.id, day_id)
+
+    # 2) El par (día, ejercicio) existe en la copia.
     link = (
-        db.query(models.RoutineTemplateDayExercise)
-        .options(joinedload(models.RoutineTemplateDayExercise.exercise))
+        db.query(models.RoutineAssignmentDayExercise)
+        .options(joinedload(models.RoutineAssignmentDayExercise.exercise))
         .filter(
-            models.RoutineTemplateDayExercise.template_day_id == payload.day_id,
-            models.RoutineTemplateDayExercise.exercise_id == payload.exercise_id,
+            models.RoutineAssignmentDayExercise.assignment_day_id == day_id,
+            models.RoutineAssignmentDayExercise.exercise_id == exercise_id,
         )
         .first()
     )
     if not link:
-        raise HTTPException(status_code=400, detail="Ese ejercicio no esta en el dia seleccionado")
+        raise HTTPException(status_code=400, detail="Ese ejercicio no está en el día seleccionado")
 
-    log = models.WorkoutLog(
-        user_id=user_id,
-        day_id=payload.day_id,
-        day_name=f"Día {day.position}",
-        exercise_id=payload.exercise_id,
-        sets_count=payload.sets_count,
-        reps=payload.reps,
-        weight_kg=payload.weight_kg,
-        note=payload.note,
-        performed_at=datetime.utcnow(),
-        created_by_user_id=current_user.id,
-    )
-    db.add(log)
+    # 3) `set_index` dentro del plan vigente, recalculado en el momento (I8):
+    # esconder el botón en la UI no alcanza, la defensa real es acá.
+    planned = plan_sets(link.strategy, sets=link.base_sets, reps=link.base_reps, weight_kg=link.base_weight_kg)
+    if not (1 <= set_index <= len(planned)):
+        raise HTTPException(status_code=400, detail="Ese número de serie no está planificado")
 
-    today_start = now_ar().replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
-    tomorrow_start = today_start + timedelta(days=1)
-    existing_attendance = (
-        db.query(models.Attendance)
-        .filter(
-            models.Attendance.user_id == user_id,
-            models.Attendance.checkin_at >= today_start,
-            models.Attendance.checkin_at < tomorrow_start,
-        )
-        .first()
-    )
-    if not existing_attendance:
-        db.add(
-            models.Attendance(
-                user_id=user_id,
-                coach_id=current_user.id if current_user.role == models.UserRole.coach else None,
-                checkin_at=now_ar().replace(tzinfo=None),
+    today = now_ar().date()
+
+    def _find_existing() -> models.WorkoutSetLog | None:
+        return (
+            db.query(models.WorkoutSetLog)
+            .filter(
+                models.WorkoutSetLog.user_id == member.id,
+                models.WorkoutSetLog.assignment_day_id == day_id,
+                models.WorkoutSetLog.exercise_id == exercise_id,
+                models.WorkoutSetLog.set_index == set_index,
+                models.WorkoutSetLog.performed_on == today,
             )
+            .first()
         )
+
+    existing = _find_existing()
+    if existing is None:
+        # `day_name` es el snapshot de "Día {position}" a secas (design D3,
+        # corrección post-gate): el título con grupos musculares no es
+        # estable — si el Coach los cambia entre dos sesiones, el mismo día
+        # aparecería en el histórico bajo dos etiquetas distintas.
+        existing = models.WorkoutSetLog(
+            user_id=member.id,
+            assignment_day_id=day_id,
+            day_name=f"Día {day.position}",
+            exercise_id=exercise_id,
+            set_index=set_index,
+            weight_kg=payload.weight_kg,
+            reps=payload.reps,
+            note=payload.note,
+            performed_on=today,
+            performed_at=datetime.utcnow(),
+            created_by_user_id=member.id,
+        )
+        db.add(existing)
+        try:
+            db.flush()
+        except IntegrityError:
+            # I23: dos requests solapados del mismo `(user, day, exercise,
+            # set_index, hoy)` (reintento con mala señal, o reenvío desde
+            # otra pestaña) pisan el `UNIQUE` — el segundo corrige la fila
+            # que el primero ya insertó, en vez de un 500.
+            db.rollback()
+            existing = _find_existing()
+            if existing is None:
+                raise
+
+    existing.weight_kg = payload.weight_kg
+    existing.reps = payload.reps
+    existing.note = payload.note
+    existing.performed_at = datetime.utcnow()
 
     db.commit()
-    db.refresh(log)
+    db.refresh(existing)
 
-    exercise = db.get(models.Exercise, payload.exercise_id)
-    return schemas.WorkoutLogOut(
-        id=log.id,
-        user_id=log.user_id,
-        day_id=log.day_id,
-        day_name=log.day_name,
-        exercise_id=log.exercise_id,
+    exercise = link.exercise
+    return schemas.WorkoutSetLogOut(
+        id=existing.id,
+        user_id=existing.user_id,
+        assignment_day_id=existing.assignment_day_id,
+        day_name=existing.day_name,
+        exercise_id=existing.exercise_id,
         exercise_name=exercise.name,
         muscle_group=exercise.muscle_group,
-        sets_count=log.sets_count,
-        reps=log.reps,
-        weight_kg=log.weight_kg,
-        note=log.note,
-        performed_at=log.performed_at,
+        set_index=existing.set_index,
+        reps=existing.reps,
+        weight_kg=existing.weight_kg,
+        note=existing.note,
+        performed_on=existing.performed_on,
+        performed_at=existing.performed_at,
     )
-
-
-@router.patch(
-    "/users/{user_id}/logs/{log_id}",
-    response_model=schemas.WorkoutLogOut,
-    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
-)
-def update_workout_log(
-    user_id: str,
-    log_id: str,
-    payload: schemas.WorkoutLogUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    _get_user_or_404(db, user_id)
-
-    log = (
-        db.query(models.WorkoutLog)
-        .options(joinedload(models.WorkoutLog.exercise))
-        .filter(
-            models.WorkoutLog.id == log_id,
-            models.WorkoutLog.user_id == user_id,
-        )
-        .first()
-    )
-    if not log:
-        raise HTTPException(status_code=404, detail="Registro de rutina no encontrado")
-
-    updates = payload.model_dump(exclude_unset=True)
-    for field, value in updates.items():
-        setattr(log, field, value)
-    log.created_by_user_id = current_user.id
-
-    db.commit()
-    db.refresh(log)
-
-    return schemas.WorkoutLogOut(
-        id=log.id,
-        user_id=log.user_id,
-        day_id=log.day_id,
-        day_name=log.day_name,
-        exercise_id=log.exercise_id,
-        exercise_name=log.exercise.name,
-        muscle_group=log.exercise.muscle_group,
-        sets_count=log.sets_count,
-        reps=log.reps,
-        weight_kg=log.weight_kg,
-        note=log.note,
-        performed_at=log.performed_at,
-    )
-
-
-@router.delete(
-    "/users/{user_id}/logs/{log_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_role(UserRole.owner, UserRole.coach))],
-)
-def delete_workout_log(
-    user_id: str,
-    log_id: str,
-    db: Session = Depends(get_db),
-):
-    _get_user_or_404(db, user_id)
-
-    log = (
-        db.query(models.WorkoutLog)
-        .filter(
-            models.WorkoutLog.id == log_id,
-            models.WorkoutLog.user_id == user_id,
-        )
-        .first()
-    )
-    if not log:
-        raise HTTPException(status_code=404, detail="Registro de rutina no encontrado")
-
-    db.delete(log)
-    db.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(
@@ -1027,21 +1009,18 @@ def my_routine_days(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """Días de la asignación **Activa** del Miembro (design D10). Sin
-    asignación Activa: lista vacía con 200."""
+    """Días de la copia **Activa** del Miembro (`member-routine-copies`,
+    design D9 — requirement vigente de `member-routine-view`, no tocado por
+    este change). Sin copia Activa: lista vacía con 200. **No** es la fuente
+    de la pantalla de ejecución (D9): esa se alimenta de
+    `GET /routines/my/templates`, que puede ser cualquier copia."""
     member = _require_member(current_user)
     assignment = _get_active_assignment(db, member.id)
     if assignment is None:
         return []
 
-    overrides = {
-        override.exercise_id: override
-        for override in db.query(models.RoutineAssignmentBase)
-        .filter(models.RoutineAssignmentBase.assignment_id == assignment.id)
-        .all()
-    }
-    days = sorted(assignment.template.days, key=lambda item: item.position)
-    return [_serialize_plan_day(day, overrides) for day in days]
+    days = sorted(assignment.days, key=lambda item: item.position)
+    return [serialize_day(day) for day in days]
 
 
 @router.get(
@@ -1059,58 +1038,42 @@ def my_routine_overview(
 
 @router.get(
     "/my/logs",
-    response_model=list[schemas.WorkoutLogOut],
+    response_model=list[schemas.WorkoutSetLogOut],
     dependencies=[Depends(require_role(UserRole.member))],
 )
 def my_workout_logs(
     day_id: str | None = Query(default=None),
+    exercise_id: str | None = Query(default=None),
+    from_date: date | None = Query(default=None, alias="from"),
+    to_date: date | None = Query(default=None, alias="to"),
     limit: int = Query(default=40, ge=1, le=200),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Histórico propio del Miembro (design D6, D9): mismo endpoint que el del
+    staff, resuelto sobre el propio `user_id` — es la fuente del panel
+    "Historial" de "Mi rutina", que hace consultable el registro de un
+    ejercicio ya quitado de la copia."""
     member = _require_member(current_user)
-    return user_workout_logs(member.id, day_id, limit, db)
+    return user_workout_logs(member.id, day_id, exercise_id, from_date, to_date, limit, db)
 
 
-@router.post(
-    "/my/logs",
-    response_model=schemas.WorkoutLogOut,
-    status_code=status.HTTP_201_CREATED,
+@router.get(
+    "/my/logged-exercises",
+    response_model=list[schemas.LoggedExerciseOut],
     dependencies=[Depends(require_role(UserRole.member))],
 )
-def create_my_workout_log(
-    payload: schemas.WorkoutLogCreate,
+def my_logged_exercises(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Ejercicios **con registros** del propio Miembro (`member-routine-copies`,
+    design D15): espejo exacto de `GET /users/{user_id}/logged-exercises`,
+    resuelto sobre el `user_id` del token — misma delegación de tres líneas
+    que `/my/logs`, `/my/overview` y `/my/days`. Alimenta el filtro del panel
+    "Historial" desde el **histórico completo**, no de una ventana ni de la
+    copia vigente: un ejercicio ya quitado de la copia sigue siendo
+    filtrable. El scope `/my` no es un atajo para leer a otro Miembro (I10):
+    no acepta ningún `user_id` de la URL."""
     member = _require_member(current_user)
-    return create_workout_log(member.id, payload, db, current_user)
-
-
-@router.patch(
-    "/my/logs/{log_id}",
-    response_model=schemas.WorkoutLogOut,
-    dependencies=[Depends(require_role(UserRole.member))],
-)
-def update_my_workout_log(
-    log_id: str,
-    payload: schemas.WorkoutLogUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    member = _require_member(current_user)
-    return update_workout_log(member.id, log_id, payload, db, current_user)
-
-
-@router.delete(
-    "/my/logs/{log_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_role(UserRole.member))],
-)
-def delete_my_workout_log(
-    log_id: str,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    member = _require_member(current_user)
-    return delete_workout_log(member.id, log_id, db)
+    return user_logged_exercises(member.id, db)

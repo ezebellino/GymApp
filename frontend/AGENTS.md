@@ -60,8 +60,13 @@ src/services/
   me.ts                      # fetchers puros: fetchMe, updateMyTheme (PATCH /auth/me/theme)
   me.queries.ts              # hooks: useMeQuery, useUpdateMyThemeMutation, useSyncUserTheme
   auth.ts                    # fetchers puros del login: requestToken (con reintento), fetchMeWithToken, signIn
-  routineTemplates.ts         # fetchers de plantillas, base del catálogo y asignaciones (ver "Rutinas" abajo)
+  routineTemplates.ts         # fetchers de plantillas (CRUD, PUT de días) y "Mi rutina" (ver "Rutinas" abajo)
   routineTemplates.queries.ts # hooks de esos fetchers, incluido useSaveRoutineTemplateDaysMutation
+  routineAssignments.ts        # fetchers de la copia de un Miembro: detalle/guardado de días, marcar
+                               #   una serie, histórico (logs) y ejercicios con registros
+  routineAssignments.queries.ts # hooks: useAssignmentDetailQuery, useSaveAssignmentDaysMutation,
+                               #   useMarkSetMutation, useUserWorkoutLogsQuery/useMyWorkoutLogsQuery,
+                               #   useLoggedExercisesQuery
   exercises.ts                # fetchers del catálogo de ejercicios, incluida la subida de media (ver abajo)
   exercises.queries.ts        # hooks: useExercisesQuery, useExerciseMetaQuery (staleTime: Infinity), mutaciones CRUD
 ```
@@ -105,7 +110,7 @@ completo con acciones).
   | Ver / Mostrar detalle | `Eye` | `neutral` | `"Ver"` |
   | Editar | `PencilLine` | `neutral` | `"Editar"` |
   | Agregar precio | `CircleDollarSign` | `neutral` | `"Agregar precio"` |
-  | Ajustar base | `SlidersHorizontal` | `neutral` | `"Ajustar base"` |
+  | Progreso | `LineChart` | `neutral` | `"Progreso"` |
   | Anular / Desactivar | `Ban` | `destructive` | `"Anular"` / `"Desactivar"` |
   | Reactivar | `RotateCcw` | `neutral` | `"Reactivar"` |
   | Quitar / Borrar / Eliminar | `Trash2` | `destructive` | `"Quitar"` / `"Borrar"` |
@@ -300,25 +305,31 @@ completo con acciones).
   (`/invitacion/:channel/:token`, ruta pública) es
   donde un Miembro invitado verifica sus dos canales y define su contraseña; reemplaza al viejo
   `/register-client` (retirado, ya no hay auto-registro).
-- **Rutinas** (`add-routine-templates`, rehecho por `template-owned-routine-days`):
-  `pages/Routines.tsx` (`/routines`, owner/coach) es el listado de plantillas de rutina, migrado
-  al patrón "list page" igual que `Users.tsx` pero sin buscador ni paginación (son unidades, no
-  cientos) — columnas Nombre, Etiqueta (`Badge`), Días, Miembros y la acción "Ver" que navega a
-  `pages/RoutineTemplateDetail.tsx` (`/routines/:templateId`, fuera de `routePreload.ts` como
-  `UserDetail`: no se navega desde el sidebar). El botón "Crear plantilla" abre
-  `components/CreateRoutineTemplateDialog.tsx`: pide **solo nombre y etiqueta** (el backend crea
-  la plantilla y su Día 1 en el mismo request, `POST /routines/templates` — ya no hay selección
-  de días en el alta, se configuran después desde el detalle).
-  - **El detalle es un borrador con guardado explícito, no autosave** (design D11 de
-    `template-owned-routine-days` — reemplaza entero al modelo anterior, donde cada toggle/chip
-    disparaba su propia mutación). Todo lo que se edita en `RoutineTemplateDetail.tsx` vive en un
-    `useReducer` local (`DraftState`/`DraftAction`, días identificados por una `key` de cliente —
-    el `day_id` real para un día existente, `new-<n>` para uno nuevo) hasta que el usuario confirma
-    "Guardar configuración": un único `PUT /routines/templates/{id}/days` de reemplazo completo.
-    Una barra fija al pie con "Descartar" (vuelve el borrador al último estado guardado) y
-    "Guardar configuración" (deshabilitada mientras no hay cambios) es el único punto de escritura
-    — no hay ninguna mutación por acción suelta (agregar/quitar día o ejercicio, cambiar grupos
-    musculares, base o estrategia son todas ediciones locales del reducer).
+- **Rutinas** (`add-routine-templates`, rehecho por `template-owned-routine-days`, y de nuevo por
+  `member-routine-copies`): `pages/Routines.tsx` (`/routines`, owner/coach) es el listado de
+  plantillas de rutina, migrado al patrón "list page" igual que `Users.tsx` pero sin buscador ni
+  paginación (son unidades, no cientos) — columnas Nombre, Etiqueta (`Badge`), Días, Miembros y la
+  acción "Ver" que navega a `pages/RoutineTemplateDetail.tsx` (`/routines/:templateId`, fuera de
+  `routePreload.ts` como `UserDetail`: no se navega desde el sidebar). El botón "Crear plantilla"
+  abre `components/CreateRoutineTemplateDialog.tsx`: pide **solo nombre y etiqueta** (el backend
+  crea la plantilla y su Día 1 en el mismo request, `POST /routines/templates` — ya no hay
+  selección de días en el alta, se configuran después desde el detalle).
+  - **El editor de días es un borrador con guardado explícito, no autosave, y está compartido
+    entre la plantilla y la copia de un Miembro** (`member-routine-copies`, design D8, sobre el
+    modelo de borrador de `template-owned-routine-days` design D11). `lib/routineDraft.ts`
+    (`draftReducer`, `DraftState`/`DraftAction`/`DraftDay`/`DraftExercise`, días identificados por
+    una `key` de cliente — el `day_id` real para un día existente, `new-<n>` para uno nuevo — y
+    `deriveDraftDays`/`serializeDraft`/`toSavePayload`, sin React, testeable directo) y
+    `components/routine/RoutineDaysEditor.tsx` (las cards de día, la barra de guardado, el diálogo
+    de base, el cálculo de `dirty` y el `beforeunload`) son la **única** implementación de este
+    editor: `pages/RoutineTemplateDetail.tsx` y `pages/MemberRoutineEditor.tsx` son cáscaras que le
+    pasan `{ detail, onSave, isSaving, saveError }` — cada una con su propio hero (nombre de
+    plantilla vs. Miembro + `template_name`/`template_tag` snapshoteados de la copia), su propia
+    acción de volver y su propia query/mutación (`routineTemplates.queries.ts` para la plantilla,
+    `routineAssignments.queries.ts` para la copia). Confirmar "Guardar configuración" dispara un
+    único `PUT .../days` de reemplazo completo (mismo contrato para las dos rutas); no hay ninguna
+    mutación por acción suelta (agregar/quitar día o ejercicio, cambiar grupos musculares, base o
+    estrategia son todas ediciones locales del reducer).
   - **Cards de día** (máximo 5, mínimo 1 — el botón "Agregar día" se deshabilita en el tope y
     "Quitar día" no se ofrece con uno solo): título "Día N" derivado de la posición (no hay campo
     `name`), un multi-select de grupos musculares por día, y por ejercicio agregado: su base
@@ -331,36 +342,56 @@ completo con acciones).
     nueva, pero uno que el día ya tenía agregado antes de desactivarse sigue en el borrador.
   - **Salir con cambios sin guardar avisa antes de navegar**: `stores/unsavedChanges.ts`
     (`useUnsavedChangesStore`, un flag `dirty` global, sin persistencia — efímero mientras la
-    pestaña sigue abierta) es escrito únicamente por `RoutineTemplateDetail.tsx` (lo sincroniza
-    con un `useEffect` contra el borrador, lo apaga al desmontarse) y leído por
-    `hooks/useGuardedNavigate.ts`, que usan tanto el botón "Volver a Rutinas" de esa página como
-    los links de `components/Sidebar.tsx`. `main.jsx` usa `<BrowserRouter>` (react-router 7 sin
-    data router), así que `useBlocker` no está disponible: `useGuardedNavigate` es la alternativa
-    — si `dirty` está prendido, retiene la navegación pedida y expone `isConfirmOpen` para que el
+    pestaña sigue abierta) lo escribe `RoutineDaysEditor.tsx` (lo sincroniza con un `useEffect`
+    contra el borrador, lo apaga al desmontarse) y lo lee `hooks/useGuardedNavigate.ts`, que usan
+    tanto el botón de volver de `RoutineTemplateDetail.tsx`/`MemberRoutineEditor.tsx` como los
+    links de `components/Sidebar.tsx`. `main.jsx` usa `<BrowserRouter>` (react-router 7 sin data
+    router), así que `useBlocker` no está disponible: `useGuardedNavigate` es la alternativa — si
+    `dirty` está prendido, retiene la navegación pedida y expone `isConfirmOpen` para que el
     caller muestre un `ConfirmActionDialog` ("Descartar y salir" / "Seguir editando") en vez de
     navegar directo.
   `components/EditRoutineTemplateDialog.tsx` y `components/DeleteRoutineTemplateDialog.tsx`
   (esta última sobre `ConfirmActionDialog`, `destructive`) completan el CRUD; el 409 de nombre
   duplicado o de borrado con asignaciones vigentes se muestra tal cual lo redacta el backend.
-  La asignación de plantillas a un Miembro vive en su ficha:
-  `components/MemberTemplatesCard.tsx` (montada desde `pages/UserDetail.tsx` con un único bloque
-  `import` + render condicionado a `isMemberRole`, sin tocar nada más de ese archivo) lista sus
-  asignaciones con badge Activa/Alternativa y la autoría del último ajuste de base
-  ("Sin ajustes"/"Ajustada por X el dd/mm"), y monta — todas sobre `ConfirmActionDialog`, y **solo
-  cuando están abiertas** (nunca con el componente montado y `open={false}`: un `<dialog>` siempre
-  presente en el árbol hace que `getByRole("dialog", { hidden: true })` de otro modal abierto en
-  simultáneo encuentre dos elementos) — `components/AssignTemplateDialog.tsx`,
-  `components/RemoveAssignmentDialog.tsx` y `components/AdjustExerciseBaseDialog.tsx`. El botón
-  "+ Asignar plantilla" solo se ofrece con `canManageUser(...)` **y** `membership_status ===
-  "active"`; la lista de asignaciones sigue completa aunque la membresía esté dada de baja (la
-  regla de membresía activa solo condiciona el alta, nunca oculta lo ya asignado). `pages/
-  UserRoutine.tsx` (`/my-routine`, member) es la vista de solo lectura del cliente: elige entre sus
-  plantillas asignadas (`useMyTemplatesQuery`), navega los días de la elegida
-  (`useMyTemplateQuery`) y muestra `PlannedSetsList` por ejercicio activo — mismo componente que el
-  detalle de plantilla, así el plan se ve igual del lado del coach y del cliente. Sin ninguna
-  acción de marcar serie como hecha (spec `member-routine-view`, fuera de alcance). Tests:
-  `pages/__tests__/Routines.test.tsx`, `pages/__tests__/RoutineTemplateDetail.test.tsx`,
-  `pages/__tests__/UserRoutine.test.tsx` y `components/__tests__/MemberTemplatesCard.test.tsx`.
+  - **La asignación deja de ser una referencia en vivo: es una copia** (`member-routine-copies`).
+    Asignar una plantilla vive en la ficha del Miembro: `components/MemberTemplatesCard.tsx`
+    (montada desde `pages/UserDetail.tsx`, condicionada a `isMemberRole`) lista sus copias con
+    badge Activa/Alternativa; el icono `PencilLine`="Editar" navega al editor de esa copia
+    (`/users/:id/routine/:assignmentId`, `pages/MemberRoutineEditor.tsx`) — ya **no** hay un icono
+    "Ajustar base" ni un diálogo propio para eso: se ajusta la base de un ejercicio de la copia
+    como cualquier otro campo del editor de días. `components/AdjustExerciseBaseDialog.tsx` se
+    **borró**. `components/AssignTemplateDialog.tsx` y `RemoveAssignmentDialog.tsx` siguen (montados
+    solo cuando están abiertos, nunca `open={false}` con el componente presente — un `<dialog>`
+    siempre en el árbol hace que `getByRole("dialog", { hidden: true })` de otro modal abierto en
+    simultáneo encuentre dos elementos). El botón "+ Asignar plantilla" solo se ofrece con
+    `canManageUser(...)` **y** `membership_status === "active"`; la lista de copias sigue completa
+    aunque la membresía esté dada de baja.
+  - **Ejecución del Miembro** (`pages/UserRoutine.tsx`, `/my-routine`): ya no es de solo lectura.
+    El Miembro elige entre **todas** sus copias asignadas (Activas y Alternativas) — por defecto la
+    Activa y, sin ninguna, la más reciente — y marca cada serie planificada (`PUT
+    /routines/my/days/{day_id}/exercises/{exercise_id}/sets/{set_index}`,
+    `useMarkSetMutation`) con el peso y las reps reales; el campo viene precargado con lo
+    planificado o con lo ya marcado hoy (`logged` en cada `PlannedSetOut`), así corregir es el
+    mismo gesto que marcar. No hay ninguna fórmula de progresión en el frontend: el plan lo calcula
+    el backend por completo. Un panel secundario "Historial" (colapsado por defecto) muestra las
+    marcas propias filtrables por ejercicio (`useMyWorkoutLogsQuery`). Ojo: `GET /my/overview` y
+    `/my/days` (requirement vigente de `member-routine-view`) siguen resolviendo por la asignación
+    Activa — esta pantalla **no** los consume, se alimenta de `GET /routines/my/templates` +
+    `GET /routines/my/templates/{assignment_id}`, que son por asignación.
+  - **Progreso de un Miembro para Dueño/Coach** (`pages/MemberProgress.tsx`,
+    `/users/:id/progress`): histórico filtrable por ejercicio y período (`useUserWorkoutLogsQuery`,
+    `useLoggedExercisesQuery` — alimentado por el histórico, no por la copia vigente, así un
+    ejercicio ya quitado sigue siendo filtrable) más un gráfico `recharts` (`LineChart`, ya
+    dependencia, sin agregar ninguna nueva) de peso máximo por sesión, una línea por ejercicio. Sin
+    ninguna acción de marcar series: eso sigue siendo exclusivo del Miembro desde "Mi rutina". Se
+    llega desde el icono `LineChart`="Progreso" en la fila de un Miembro de `pages/Users.tsx` (solo
+    si `role === "member"`) y desde un acceso equivalente en `UserDetail`.
+  - **Fuera de alcance de este editor compartido, atención al leer código viejo**: no queda
+    `WorkoutLog`, `RoutineAssignmentBase` ni ningún endpoint de ajuste de base por cliente — todo
+    lo relacionado a "ajustar base" en un componente o test que no sea el editor de días es
+    residuo. Tests: `pages/__tests__/Routines.test.tsx`, `RoutineTemplateDetail.test.tsx`,
+    `UserRoutine.test.tsx`, `MemberRoutineEditor.test.tsx`, `MemberProgress.test.tsx` y
+    `components/__tests__/MemberTemplatesCard.test.tsx`.
 - **Ejercicios** (`add-exercise-catalog`): `pages/Exercises.tsx` (`/exercises`, owner/coach,
   registrada en `App.jsx` con `lazy(() => import("./pages/Exercises"))` **directo**, no por
   `routeImporters`) es el listado del catálogo, patrón "list page" con búsqueda por nombre
@@ -540,10 +571,11 @@ completo con acciones).
     estilos computados. Suma de `add-routine-templates`: `pages/__tests__/Routines.test.tsx`
     (columnas de plantilla, click en "Ver" navega al detalle, 409 de nombre duplicado mostrado
     inline en `CreateRoutineTemplateDialog`) y
-    `components/__tests__/MemberTemplatesCard.test.tsx` (estado Activa/Alternativa y autoría del
-    ajuste, "+ Asignar plantilla" oculto sin membresía activa pero la lista de asignaciones sigue
-    completa, confirmación antes de quitar una asignación). Mockean `services/routineTemplates.ts`
-    vía `vi.mock("@/lib/http")` (patrón `apiMock.ts`), sin backend.
+    `components/__tests__/MemberTemplatesCard.test.tsx` (estado Activa/Alternativa, "+ Asignar
+    plantilla" oculto sin membresía activa pero la lista de copias sigue completa, confirmación
+    antes de quitar una asignación; suma de `member-routine-copies`: ofrece "Editar" la copia y ya
+    no ofrece "Ajustar base"). Mockean `services/routineTemplates.ts`/`routineAssignments.ts` vía
+    `vi.mock("@/lib/http")` (patrón `apiMock.ts`), sin backend.
     `pages/__tests__/RoutineTemplateDetail.test.tsx` y `pages/__tests__/UserRoutine.test.tsx` se
     reescribieron enteros con `template-owned-routine-days` (ver el bullet de ese change más
     abajo, en vez de la versión de autosave que tenían acá).
@@ -578,8 +610,20 @@ completo con acciones).
     muestra 3×10 · 0 kg, editar la base de un ejercicio del día en el borrador y mandarla en el
     guardado, y los dos casos de `useGuardedNavigate` (avisa que hay cambios sin guardar al
     intentar volver a Rutinas, y que "Descartar" deja la plantilla como estaba).
-    `pages/__tests__/UserRoutine.test.tsx` también se reescribió: elegir entre plantillas
-    asignadas, aviso sin ninguna asignada, plan de solo lectura sin ninguna acción de marcar serie,
-    que un día sin ejercicios cargados lo indica, que solo se muestran los días de la plantilla
-    asignada, y que un ejercicio quitado del día de la plantilla ya no aparece en el plan del
-    miembro.
+    `pages/__tests__/UserRoutine.test.tsx` también se reescribió sobre el modelo de copia (antes de
+    volver a reescribirse con `member-routine-copies`, ver el bullet de ese change más abajo).
+    Suma de `member-routine-copies` (ejecución con marcado, ya no de solo lectura):
+    `pages/__tests__/UserRoutine.test.tsx` cubre elegir entre las copias asignadas, el estado vacío
+    solo cuando no hay ninguna copia (ni Activa ni Alternativa), marcar sobre una Alternativa sin
+    ninguna Activa, precargar el peso planificado al marcar una serie, mostrar una serie ya marcada
+    con lo ejecutado y permitir corregirla, ofrecer exactamente tantas acciones de marcar como
+    series planificadas (nunca una de más), que un día sin ejercicios cargados lo indica, que solo
+    se muestran los días de la copia asignada, y que un ejercicio quitado del día de la copia ya no
+    aparece en el plan. `pages/__tests__/MemberRoutineEditor.test.tsx` (archivo nuevo) cubre
+    guardar los días de la copia con un solo `PUT` a la asignación (no a la plantilla) y que no
+    deja agregar un sexto día. `pages/__tests__/MemberProgress.test.tsx` (archivo nuevo) cubre
+    filtrar el histórico por ejercicio, que el filtro ofrece un ejercicio que ya no está en la
+    copia (viene del histórico, no de la copia vigente) y el aviso explícito de "sin progreso
+    registrado" en vez de tabla y gráfico vacíos. Suma en `pages/__tests__/Users.test.tsx`: el
+    icon-button `LineChart`="Progreso" se expone solo en la fila de un Miembro, no en la de un
+    Coach.

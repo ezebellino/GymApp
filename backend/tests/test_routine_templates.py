@@ -4,7 +4,7 @@ aplicado vía `progression-strategies`).
 """
 
 from app import models
-from tests.helpers import COACH_EMAIL, OWNER_EMAIL, create_user
+from tests.helpers import COACH_EMAIL, OWNER_EMAIL, assign_template_copy, create_user
 
 
 def _create_template(client, headers, *, name="Fuerza 4 días", tag="FUERZA"):
@@ -527,32 +527,47 @@ def test_eliminar_una_plantilla_sin_asignaciones(client, owner_user, auth_header
     assert missing.status_code == 404
 
 
-def test_rechaza_eliminar_una_plantilla_con_asignaciones_e_informa_cuantos_miembros(
+def test_borrar_una_plantilla_con_una_copia_activa_es_409_y_lo_dice_en_el_mensaje(
     client, owner_user, auth_header, db_session
 ):
+    """I16: borrar se rechaza si y solo si hay al menos una copia **Activa**."""
     headers = auth_header(OWNER_EMAIL)
     template = _create_template(client, headers)
-
     member = create_user(
         db_session,
-        email="miembro-plantillas@example.com",
+        email="miembro-plantillas-activa@example.com",
         first_name="Miembro",
         role=models.UserRole.member,
     )
-    db_session.add(
-        models.RoutineAssignment(
-            user_id=member.id,
-            template_id=template["id"],
-            status=models.RoutineAssignmentStatus.active,
-        )
-    )
-    db_session.commit()
+    assign_template_copy(client, headers, member.id, template["id"], status="active")
 
     response = client.delete(f"/routines/templates/{template['id']}", headers=headers)
 
     assert response.status_code == 409, response.text
     assert "1" in response.json()["detail"]
-    assert "miembro" in response.json()["detail"].lower()
+    assert "activa" in response.json()["detail"].lower()
+
+
+def test_borrar_una_plantilla_con_solo_copias_alternativas_la_elimina(
+    client, owner_user, auth_header, db_session
+):
+    """I16: una plantilla con solo copias Alternativas se puede eliminar (a
+    diferencia de la guardia vieja, que bloqueaba con cualquier asignación).
+    Fixture separado del anterior (Activa vs. Alternativa degradada) para que
+    el par distinga la guardia nueva de la vieja."""
+    headers = auth_header(OWNER_EMAIL)
+    template = _create_template(client, headers)
+    member = create_user(
+        db_session,
+        email="miembro-plantillas-alternativa@example.com",
+        first_name="Miembro",
+        role=models.UserRole.member,
+    )
+    assign_template_copy(client, headers, member.id, template["id"], status="alternative")
+
+    response = client.delete(f"/routines/templates/{template['id']}", headers=headers)
+
+    assert response.status_code == 204, response.text
 
 
 def test_cambiar_la_estrategia_devuelve_el_plan_recalculado(client, owner_user, auth_header, catalog_basic):

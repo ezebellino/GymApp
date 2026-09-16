@@ -148,9 +148,6 @@ class User(Base):
     attendance = relationship(
         "Attendance", back_populates="user", foreign_keys="Attendance.user_id"
     )
-    workout_logs = relationship(
-        "WorkoutLog", back_populates="user", foreign_keys="WorkoutLog.user_id"
-    )
     membership_plan = relationship("MembershipPlan", foreign_keys=[membership_plan_id])
     plan_changed_by = relationship("User", remote_side=[id], foreign_keys=[plan_changed_by_user_id])
 
@@ -316,7 +313,6 @@ class Exercise(Base):
         String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    logs = relationship("WorkoutLog", back_populates="exercise", cascade="all, delete-orphan")
     training_types = relationship(
         "ExerciseTrainingType",
         cascade="all, delete-orphan",
@@ -341,35 +337,6 @@ class ExerciseTrainingType(Base):
     )
 
 
-class WorkoutLog(Base):
-    """Registro histórico de un entrenamiento (`member-routine-view`).
-
-    `day_id` es nullable con `ondelete="SET NULL"` (design D3): quitar un día de
-    una plantilla no borra su histórico, solo desvincula la FK. `day_name` es un
-    snapshot NOT NULL tomado al insertar (`"Día {position}"`), así el histórico
-    conserva una etiqueta legible aunque el día se borre después.
-    """
-
-    __tablename__ = "workout_logs"
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
-    day_id = Column(
-        String, ForeignKey("routine_template_days.id", ondelete="SET NULL"), nullable=True, index=True
-    )
-    day_name = Column(String, nullable=False)
-    exercise_id = Column(String, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False, index=True)
-    sets_count = Column(Integer, nullable=True)
-    reps = Column(Integer, nullable=True)
-    weight_kg = Column(Float, nullable=False, default=0)
-    note = Column(String, nullable=True)
-    performed_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
-    created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-
-    user = relationship("User", back_populates="workout_logs", foreign_keys=[user_id])
-    day = relationship("RoutineTemplateDay")
-    exercise = relationship("Exercise", back_populates="logs")
-
-
 class RoutineTemplate(Base):
     """Plantilla de rutina (`routine-templates`, design D1): los días son propiedad
     directa de la plantilla — nacen y mueren con ella, sin referenciar ningún
@@ -391,7 +358,14 @@ class RoutineTemplate(Base):
         cascade="all, delete-orphan",
         order_by="RoutineTemplateDay.position",
     )
-    assignments = relationship("RoutineAssignment", back_populates="template")
+    # `passive_deletes=True` (`member-routine-copies`, design D2b): el
+    # `ondelete="SET NULL"` de `RoutineAssignment.template_id` lo hace la base,
+    # no SQLAlchemy fila por fila — sin esto, borrar una plantilla con copias
+    # Alternativas dispararía un `UPDATE` por asignación en vez de dejar que la
+    # FK resuelva el `SET NULL` en un solo `DELETE`.
+    assignments = relationship(
+        "RoutineAssignment", back_populates="template", passive_deletes=True
+    )
 
     __table_args__ = (
         UniqueConstraint("name_normalized", name="uq_routine_templates_name_normalized"),
@@ -483,17 +457,30 @@ class RoutineTemplateDayExercise(Base):
 
 
 class RoutineAssignment(Base):
-    """Asignación de una plantilla a un Miembro (`routine-assignment`, design D6).
+    """Copia de rutina de un Miembro (`member-routine-copies`, design D2/D2b).
 
-    Como máximo una Activa por usuario, garantizado por el índice único parcial de
-    abajo (no solo por el código del endpoint, invariante I2).
+    Deja de ser una referencia a `RoutineTemplate`: sus días, grupos musculares
+    y ejercicios viven en tablas propias (`RoutineAssignmentDay` y las suyas,
+    design D1), copiados una sola vez al asignar (D5). `template_id` es
+    nullable con `ondelete="SET NULL"` — una plantilla borrada con solo copias
+    Alternativas deja `template_id IS NULL` sin tocar nada más de la copia
+    (D2b) — y `template_name`/`template_tag` son un snapshot tomado al copiar,
+    única fuente de la etiqueta de origen (nunca el nombre vivo de la
+    plantilla). Sin `UniqueConstraint(user_id, template_id)` (D2): reasignar la
+    misma plantilla crea una fila nueva, no un upsert. Como máximo una Activa
+    por usuario, garantizado por el índice único parcial de abajo (no solo por
+    el código del endpoint, invariante I5).
     """
 
     __tablename__ = "routine_assignments"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
-    template_id = Column(String, ForeignKey("routine_templates.id", ondelete="RESTRICT"), nullable=False, index=True)
+    template_id = Column(
+        String, ForeignKey("routine_templates.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    template_name = Column(String, nullable=False)
+    template_tag = Column(String, nullable=True)
     status = Column(Enum(RoutineAssignmentStatus), nullable=False)
     starts_on = Column(Date, nullable=False, default=date.today)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -501,12 +488,13 @@ class RoutineAssignment(Base):
 
     user = relationship("User", foreign_keys=[user_id])
     template = relationship("RoutineTemplate", back_populates="assignments")
-    base_overrides = relationship(
-        "RoutineAssignmentBase", cascade="all, delete-orphan", back_populates="assignment"
+    days = relationship(
+        "RoutineAssignmentDay",
+        cascade="all, delete-orphan",
+        order_by="RoutineAssignmentDay.position",
     )
 
     __table_args__ = (
-        UniqueConstraint("user_id", "template_id", name="uq_routine_assignments_user_template"),
         Index(
             "ix_routine_assignments_user_active",
             "user_id",
@@ -521,29 +509,137 @@ class RoutineAssignment(Base):
     )
 
 
-class RoutineAssignmentBase(Base):
-    """Ajuste de base (series × reps · kg) por cliente para un ejercicio de su
-    asignación, con autoría por fila (design D7). Precedencia sobre la base global
-    del catálogo al calcular el plan de ese Miembro (invariante I10)."""
+class RoutineAssignmentDay(Base):
+    """Día propio de la copia de un Miembro (`member-routine-copies`, design
+    D1): mismo patrón que `RoutineTemplateDay`, pero colgado de
+    `RoutineAssignment` en vez de `RoutineTemplate` — dos subárboles
+    estructuralmente idénticos, con la lógica compartida en
+    `app/routine_days.py` (design D8)."""
 
-    __tablename__ = "routine_assignment_bases"
+    __tablename__ = "routine_assignment_days"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     assignment_id = Column(
         String, ForeignKey("routine_assignments.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    exercise_id = Column(String, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False, index=True)
-    sets = Column(Integer, nullable=False)
-    reps = Column(Integer, nullable=False)
-    weight_kg = Column(Float, nullable=False)
-    adjusted_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    adjusted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    position = Column(Integer, nullable=False)
 
-    assignment = relationship("RoutineAssignment", back_populates="base_overrides")
+    muscle_groups = relationship(
+        "RoutineAssignmentDayMuscleGroup",
+        cascade="all, delete-orphan",
+        order_by="RoutineAssignmentDayMuscleGroup.sort_order",
+    )
+    exercises = relationship(
+        "RoutineAssignmentDayExercise",
+        cascade="all, delete-orphan",
+        order_by="RoutineAssignmentDayExercise.sort_order",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("assignment_id", "position", name="uq_routine_assignment_days_assignment_position"),
+    )
+
+
+class RoutineAssignmentDayMuscleGroup(Base):
+    """Grupo muscular (0..n) de un día de la copia (design D1). Mismo patrón que
+    `RoutineTemplateDayMuscleGroup`: PK compuesta, la fila **es** el atributo."""
+
+    __tablename__ = "routine_assignment_day_muscle_groups"
+
+    assignment_day_id = Column(
+        String, ForeignKey("routine_assignment_days.id", ondelete="CASCADE"), primary_key=True
+    )
+    muscle_group = Column(String, primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+
+
+class RoutineAssignmentDayExercise(Base):
+    """Ejercicio agregado a un día de la copia, con su base y su estrategia de
+    progresión propias (design D1): estar en esta tabla **es** estar en la
+    copia — editar acá no toca la plantilla origen ni ninguna otra copia
+    (invariante I3)."""
+
+    __tablename__ = "routine_assignment_day_exercises"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    assignment_day_id = Column(
+        String, ForeignKey("routine_assignment_days.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    exercise_id = Column(String, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False, index=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    strategy = Column(Enum(ProgressionStrategy), nullable=False, default=ProgressionStrategy.constant)
+    base_sets = Column(
+        Integer, nullable=False, default=DEFAULT_EXERCISE_BASE_SETS,
+        server_default=str(DEFAULT_EXERCISE_BASE_SETS),
+    )
+    base_reps = Column(
+        Integer, nullable=False, default=DEFAULT_EXERCISE_BASE_REPS,
+        server_default=str(DEFAULT_EXERCISE_BASE_REPS),
+    )
+    base_weight_kg = Column(
+        Float, nullable=False, default=DEFAULT_EXERCISE_BASE_WEIGHT_KG,
+        server_default=str(DEFAULT_EXERCISE_BASE_WEIGHT_KG),
+    )
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
     exercise = relationship("Exercise")
 
     __table_args__ = (
-        UniqueConstraint("assignment_id", "exercise_id", name="uq_routine_assignment_bases_assignment_exercise"),
+        UniqueConstraint(
+            "assignment_day_id", "exercise_id", name="uq_routine_assignment_day_exercises_day_exercise"
+        ),
+    )
+
+
+class WorkoutSetLog(Base):
+    """Registro histórico de progreso, grano **una fila = una serie**
+    (`routine-progress-tracking`, design D3, reemplaza a `WorkoutLog`).
+
+    El vínculo con la serie planificada que la originó es posicional: la tupla
+    `(assignment_day_id, exercise_id, set_index)` identifica "la serie #k de
+    ese ejercicio en ese día de esa copia" — las series planificadas no son
+    filas, salen de `plan_sets(...)` en cada lectura (design D3). `set_index`
+    usa la misma numeración 1-based que `PlannedSet.index`.
+
+    `assignment_day_id` es nullable con `ondelete="SET NULL"`: quitar un día de
+    la copia (o borrar la copia entera) no borra el histórico, solo desvincula
+    la FK (invariante I7). `day_name` es un snapshot NOT NULL tomado al
+    insertar, así el histórico conserva una etiqueta legible aunque el día se
+    borre después.
+
+    `performed_on` es la **sesión** (fecha calendario en
+    `America/Argentina/Buenos_Aires`, `now_ar()`): marcar dos veces la misma
+    serie el mismo día corrige la marca en vez de duplicarla (invariante I9),
+    vía el `UNIQUE` de abajo.
+    """
+
+    __tablename__ = "workout_set_logs"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    assignment_day_id = Column(
+        String, ForeignKey("routine_assignment_days.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    day_name = Column(String, nullable=False)
+    exercise_id = Column(String, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False, index=True)
+    set_index = Column(Integer, nullable=False)
+    reps = Column(Integer, nullable=False)
+    weight_kg = Column(Float, nullable=False)
+    note = Column(String, nullable=True)
+    performed_on = Column(Date, nullable=False, index=True)
+    performed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+    assignment_day = relationship("RoutineAssignmentDay")
+    exercise = relationship("Exercise")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "assignment_day_id", "exercise_id", "set_index", "performed_on",
+            name="uq_workout_set_logs_user_day_exercise_set_performed_on",
+        ),
     )
 
 

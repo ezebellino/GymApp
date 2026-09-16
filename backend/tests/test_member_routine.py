@@ -1,13 +1,13 @@
 """Tests de la vista del miembro (`routine_assignments.py::my_router` y los
 endpoints de `routines.py` que resuelven overview/logs/progreso sobre la
 asignación Activa; capability `member-routine-view`,
-`template-owned-routine-days`).
+`template-owned-routine-days`, `member-routine-copies`).
 """
 
 from app import models
 from app.auth import get_current_user
 from app.main import app
-from tests.helpers import OWNER_EMAIL, create_user
+from tests.helpers import OWNER_EMAIL, create_user, mark_set
 
 
 def _create_template(client, headers, *, name="Fuerza 4 días"):
@@ -139,98 +139,6 @@ def test_mi_rutina_muestra_solo_los_dias_y_ejercicios_de_la_plantilla_asignada(
     assert [item["exercise_id"] for item in days[1]["exercises"]] == ["legs-back-squat"]
 
 
-def test_un_ejercicio_quitado_del_dia_desaparece_del_plan_pero_sus_logs_siguen_consultables(
-    client, owner_user, auth_header, db_session, catalog_basic
-):
-    owner_headers = auth_header(OWNER_EMAIL)
-    member = _create_member(db_session)
-    template = _create_template(client, owner_headers)
-    created = _save_days(
-        client, owner_headers, template["id"],
-        [{"day_id": None, "muscle_groups": [], "exercises": [{"exercise_id": "chest-bench-press"}]}],
-    )
-    day_id = created["days"][0]["day_id"]
-    assignment = _assign(client, owner_headers, member.id, template["id"])
-
-    log_response = client.post(
-        f"/routines/users/{member.id}/logs",
-        json={"day_id": day_id, "exercise_id": "chest-bench-press", "sets_count": 3, "reps": 10, "weight_kg": 40},
-        headers=owner_headers,
-    )
-    assert log_response.status_code == 201, log_response.text
-
-    # Quitar el ejercicio del día (sin quitar el día).
-    _save_days(client, owner_headers, template["id"], [{"day_id": day_id, "muscle_groups": [], "exercises": []}])
-
-    member_headers = auth_header(member.email)
-    plan = client.get(f"/routines/my/templates/{assignment['id']}", headers=member_headers).json()
-    assert plan["days"][0]["exercises"] == []
-
-    logs = client.get(f"/routines/users/{member.id}/logs", headers=owner_headers)
-    assert logs.status_code == 200, logs.text
-    assert len(logs.json()) == 1
-    assert logs.json()[0]["exercise_id"] == "chest-bench-press"
-
-
-def test_quitar_un_dia_deja_sus_logs_con_day_id_nulo_y_conserva_el_nombre_del_dia(
-    client, owner_user, auth_header, db_session, catalog_basic
-):
-    owner_headers = auth_header(OWNER_EMAIL)
-    member = _create_member(db_session)
-    template = _create_template(client, owner_headers)
-    created = _save_days(
-        client, owner_headers, template["id"],
-        [
-            {"day_id": None, "muscle_groups": [], "exercises": [{"exercise_id": "chest-bench-press"}]},
-            {"day_id": None, "muscle_groups": [], "exercises": []},
-        ],
-    )
-    day_one_id = created["days"][0]["day_id"]
-    day_two_id = created["days"][1]["day_id"]
-    _assign(client, owner_headers, member.id, template["id"])
-
-    log_response = client.post(
-        f"/routines/users/{member.id}/logs",
-        json={"day_id": day_one_id, "exercise_id": "chest-bench-press", "sets_count": 3, "reps": 10, "weight_kg": 40},
-        headers=owner_headers,
-    )
-    assert log_response.status_code == 201, log_response.text
-
-    # Quitar el Día 1 (dejar solo el Día 2, que sobrevive con nueva posición).
-    _save_days(client, owner_headers, template["id"], [{"day_id": day_two_id, "muscle_groups": [], "exercises": []}])
-
-    logs = client.get(f"/routines/users/{member.id}/logs", headers=owner_headers).json()
-    assert len(logs) == 1
-    assert logs[0]["day_id"] is None
-    assert logs[0]["day_name"] == "Día 1"
-
-
-def test_un_cambio_del_coach_en_la_plantilla_se_ve_en_el_siguiente_request_del_miembro(
-    client, owner_user, auth_header, db_session, catalog_basic
-):
-    owner_headers = auth_header(OWNER_EMAIL)
-    member = _create_member(db_session)
-    template = _create_template(client, owner_headers)
-    created = _save_days(
-        client, owner_headers, template["id"],
-        [{"day_id": None, "muscle_groups": [], "exercises": [{"exercise_id": "chest-bench-press"}]}],
-    )
-    day_id = created["days"][0]["day_id"]
-    assignment = _assign(client, owner_headers, member.id, template["id"])
-
-    member_headers = auth_header(member.email)
-    before = client.get(f"/routines/my/templates/{assignment['id']}", headers=member_headers).json()
-    assert [item["exercise_id"] for item in before["days"][0]["exercises"]] == ["chest-bench-press"]
-
-    _save_days(
-        client, owner_headers, template["id"],
-        [{"day_id": day_id, "muscle_groups": [], "exercises": [{"exercise_id": "chest-cable-fly"}]}],
-    )
-
-    after = client.get(f"/routines/my/templates/{assignment['id']}", headers=member_headers).json()
-    assert [item["exercise_id"] for item in after["days"][0]["exercises"]] == ["chest-cable-fly"]
-
-
 # --- Overview/progreso siguen la asignación Activa (design D10) -------------
 
 
@@ -310,110 +218,150 @@ def test_el_progress_summary_sin_asignacion_activa_lo_indica_en_vez_de_usar_la_a
     assert response.json()["active_assignment"] is None
 
 
-# --- Alta de log: pertenencia al día/plantilla asignada (design D10, I12) ---
+# --- Histórico (`member-routine-copies`, design D6/D10) ---------------------
+# El alta de logs por staff (`POST /routines/users/{id}/logs`) se retiró
+# entero (D6): la única vía para registrar progreso es el propio Miembro,
+# marcando serie por serie (`mark_set`, cubierto en `test_workout_set_logs.py`).
 
 
-def test_registrar_un_log_contra_un_dia_de_otra_plantilla_es_400(
+def test_el_historico_del_miembro_filtra_por_ejercicio_y_periodo(
     client, owner_user, auth_header, db_session, catalog_basic
 ):
-    owner_headers = auth_header(OWNER_EMAIL)
-    member = _create_member(db_session)
-    assigned_template = _create_template(client, owner_headers, name="Asignada")
-    _assign(client, owner_headers, member.id, assigned_template["id"])
+    """Fixture con registros dentro **y fuera** del período pedido, y de
+    **otro** ejercicio: el filtro puede fallar de verdad si deja pasar
+    cualquiera de los dos."""
+    from datetime import date
 
-    other_template = _create_template(client, owner_headers, name="Otra, no asignada")
-    other_day_id = other_template["days"][0]["day_id"]
-
-    response = client.post(
-        f"/routines/users/{member.id}/logs",
-        json={"day_id": other_day_id, "exercise_id": "chest-bench-press", "sets_count": 3, "reps": 10, "weight_kg": 40},
-        headers=owner_headers,
-    )
-
-    assert response.status_code == 400, response.text
-
-
-def test_registrar_un_log_contra_un_ejercicio_que_no_esta_en_el_dia_es_400(
-    client, owner_user, auth_header, db_session, catalog_basic
-):
-    owner_headers = auth_header(OWNER_EMAIL)
-    member = _create_member(db_session)
-    template = _create_template(client, owner_headers)
-    created = _save_days(
-        client, owner_headers, template["id"],
-        [{"day_id": None, "muscle_groups": [], "exercises": [{"exercise_id": "chest-bench-press"}]}],
-    )
-    day_id = created["days"][0]["day_id"]
-    _assign(client, owner_headers, member.id, template["id"])
-
-    response = client.post(
-        f"/routines/users/{member.id}/logs",
-        # "legs-back-squat" existe en el catálogo pero no está en este día.
-        json={"day_id": day_id, "exercise_id": "legs-back-squat", "sets_count": 3, "reps": 10, "weight_kg": 40},
-        headers=owner_headers,
-    )
-
-    assert response.status_code == 400, response.text
-
-
-# --- Base ajustada por cliente y cambio de estrategia en vivo ---------------
-
-
-def test_el_plan_del_miembro_usa_la_base_ajustada_para_ese_cliente(
-    client, owner_user, auth_header, db_session, catalog_basic
-):
     owner_headers = auth_header(OWNER_EMAIL)
     member = _create_member(db_session)
     template = _create_template(client, owner_headers)
     _save_days(
-        client, owner_headers, template["id"],
-        [{"day_id": None, "muscle_groups": [], "exercises": [{"exercise_id": "chest-bench-press"}]}],
-    )
-    assignment = _assign(client, owner_headers, member.id, template["id"])
-
-    client.put(
-        f"/routines/users/{member.id}/templates/{assignment['id']}/bases/chest-bench-press",
-        json={"sets": 4, "reps": 6, "weight_kg": 50},
-        headers=owner_headers,
-    )
-
-    member_headers = auth_header(member.email)
-    response = client.get(f"/routines/my/templates/{assignment['id']}", headers=member_headers)
-
-    exercise = next(
-        item for item in response.json()["days"][0]["exercises"] if item["exercise_id"] == "chest-bench-press"
-    )
-    assert exercise["base"] == {"sets": 4, "reps": 6, "weight_kg": 50}
-    assert [(item["weight_kg"], item["reps"]) for item in exercise["planned_sets"]] == [(50, 6)] * 4
-
-
-def test_cambiar_la_estrategia_se_refleja_en_el_plan_del_miembro(
-    client, owner_user, auth_header, db_session, catalog_basic
-):
-    owner_headers = auth_header(OWNER_EMAIL)
-    member = _create_member(db_session)
-    template = _create_template(client, owner_headers)
-    created = _save_days(
         client, owner_headers, template["id"],
         [{"day_id": None, "muscle_groups": [], "exercises": [
-            {"exercise_id": "chest-bench-press", "base": {"sets": 4, "reps": 8, "weight_kg": 45}}
+            {"exercise_id": "chest-bench-press"}, {"exercise_id": "legs-back-squat"}
         ]}],
     )
-    day_id = created["days"][0]["day_id"]
     assignment = _assign(client, owner_headers, member.id, template["id"])
+    detail = client.get(
+        f"/routines/users/{member.id}/templates/{assignment['id']}", headers=owner_headers
+    ).json()
+    day_id = detail["days"][0]["day_id"]
 
-    _save_days(
-        client, owner_headers, template["id"],
-        [{"day_id": day_id, "muscle_groups": [], "exercises": [
-            {"exercise_id": "chest-bench-press", "strategy": "rest_pause"}
-        ]}],
-    )
+    def _log(exercise_id, set_index, performed_on):
+        db_session.add(
+            models.WorkoutSetLog(
+                user_id=member.id,
+                assignment_day_id=day_id,
+                day_name="Día 1",
+                exercise_id=exercise_id,
+                set_index=set_index,
+                reps=8,
+                weight_kg=40,
+                performed_on=performed_on,
+                created_by_user_id=member.id,
+            )
+        )
+
+    _log("chest-bench-press", 1, date(2024, 1, 10))  # dentro del período pedido
+    _log("chest-bench-press", 2, date(2024, 3, 1))  # fuera del período pedido
+    _log("legs-back-squat", 1, date(2024, 1, 15))  # dentro del período, otro ejercicio
+    db_session.commit()
 
     member_headers = auth_header(member.email)
-    response = client.get(f"/routines/my/templates/{assignment['id']}", headers=member_headers)
-
-    exercise = next(
-        item for item in response.json()["days"][0]["exercises"] if item["exercise_id"] == "chest-bench-press"
+    response = client.get(
+        "/routines/my/logs",
+        params={"exercise_id": "chest-bench-press", "from": "2024-01-01", "to": "2024-01-31"},
+        headers=member_headers,
     )
-    assert exercise["strategy"] == "rest_pause"
-    assert [item["reps"] for item in exercise["planned_sets"]] == [8, 7, 6, 5]
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["exercise_id"] == "chest-bench-press"
+    assert body[0]["set_index"] == 1
+
+
+def test_los_ejercicios_con_registros_incluyen_uno_quitado_de_la_copia(
+    client, owner_user, auth_header, db_session, catalog_basic
+):
+    """`GET /routines/users/{id}/logged-exercises` se alimenta del **histórico**,
+    no de la copia vigente (design D6, D10): un ejercicio ya quitado sigue
+    apareciendo si tiene marcas."""
+    owner_headers = auth_header(OWNER_EMAIL)
+    member = _create_member(db_session)
+    template = _create_template(client, owner_headers)
+    _save_days(
+        client, owner_headers, template["id"],
+        [{"day_id": None, "muscle_groups": [], "exercises": [{"exercise_id": "chest-bench-press"}]}],
+    )
+    assignment = _assign(client, owner_headers, member.id, template["id"])
+    detail = client.get(
+        f"/routines/users/{member.id}/templates/{assignment['id']}", headers=owner_headers
+    ).json()
+    day_id = detail["days"][0]["day_id"]
+
+    member_headers = auth_header(member.email)
+    mark_set(client, member_headers, day_id, "chest-bench-press", 1, weight_kg=40, reps=8)
+
+    client.put(
+        f"/routines/users/{member.id}/templates/{assignment['id']}/days",
+        json={"days": [{"day_id": day_id, "muscle_groups": [], "exercises": []}]},
+        headers=owner_headers,
+    )
+
+    response = client.get(f"/routines/users/{member.id}/logged-exercises", headers=owner_headers)
+    assert response.status_code == 200, response.text
+    assert [item["exercise_id"] for item in response.json()] == ["chest-bench-press"]
+
+
+# --- `GET /routines/my/logged-exercises` (`member-routine-copies`, design D15) --
+
+
+def test_el_miembro_lista_sus_ejercicios_con_registros_incluido_uno_quitado(
+    client, owner_user, auth_header, db_session, catalog_basic
+):
+    """Espejo del de staff, resuelto sobre el propio Miembro: marcar, quitar
+    el ejercicio de la copia, y verificar que sigue apareciendo en el propio
+    filtro (D15) — es la fuente del panel "Historial" cuando el ejercicio
+    quitado hace rato salió de la ventana de marcas recientes."""
+    owner_headers = auth_header(OWNER_EMAIL)
+    member = _create_member(db_session, email="miembro-logged-exercises@example.com")
+    template = _create_template(client, owner_headers)
+    _save_days(
+        client, owner_headers, template["id"],
+        [{"day_id": None, "muscle_groups": [], "exercises": [{"exercise_id": "chest-bench-press"}]}],
+    )
+    assignment = _assign(client, owner_headers, member.id, template["id"])
+    detail = client.get(
+        f"/routines/users/{member.id}/templates/{assignment['id']}", headers=owner_headers
+    ).json()
+    day_id = detail["days"][0]["day_id"]
+
+    member_headers = auth_header(member.email)
+    mark_set(client, member_headers, day_id, "chest-bench-press", 1, weight_kg=40, reps=8)
+
+    client.put(
+        f"/routines/users/{member.id}/templates/{assignment['id']}/days",
+        json={"days": [{"day_id": day_id, "muscle_groups": [], "exercises": []}]},
+        headers=owner_headers,
+    )
+
+    response = client.get("/routines/my/logged-exercises", headers=member_headers)
+
+    assert response.status_code == 200, response.text
+    assert [item["exercise_id"] for item in response.json()] == ["chest-bench-press"]
+
+
+def test_los_ejercicios_con_registros_del_miembro_no_aceptan_un_user_id_ajeno(
+    client, owner_user, auth_header, db_session, catalog_basic
+):
+    """El scope `/my` no es un atajo para leer a otro Miembro (I10): pedir
+    `/users/{otro}/logged-exercises` con un token de Miembro es 403, no una
+    forma alternativa de llegar al mismo dato."""
+    member = _create_member(db_session, email="miembro-a@example.com")
+    otro_member = _create_member(db_session, email="miembro-b@example.com")
+    member_headers = auth_header(member.email)
+
+    response = client.get(f"/routines/users/{otro_member.id}/logged-exercises", headers=member_headers)
+
+    assert response.status_code == 403, response.text

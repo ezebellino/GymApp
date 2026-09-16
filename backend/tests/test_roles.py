@@ -58,6 +58,29 @@ def test_member_accede_a_su_propio_perfil_de_rutina(client, client_user):
     assert response.status_code == 200, response.text
 
 
+def test_un_coach_no_tiene_endpoint_para_marcar_series_de_un_miembro(
+    client, coach_user, auth_header, db_session
+):
+    """I11/I17 (`member-routine-copies`): el alta de logs de staff se retiró
+    entero — `POST /routines/users/{id}/logs` ya no existe (405/404, no un
+    200 con la marca creada)."""
+    headers = auth_header(COACH_EMAIL)
+    member = create_user(
+        db_session,
+        email="miembro-marca-staff@example.com",
+        first_name="Miembro",
+        role=models.UserRole.member,
+    )
+
+    response = client.post(
+        f"/routines/users/{member.id}/logs",
+        json={"day_id": "x", "exercise_id": "y", "reps": 8, "weight_kg": 40},
+        headers=headers,
+    )
+
+    assert response.status_code in (404, 405), response.text
+
+
 # --- Permisos de gestion (require_can_manage_user) --------------------------
 
 

@@ -9,15 +9,12 @@ import {
   fetchRoutineTemplates,
   fetchUserAssignments,
   removeAssignment,
-  removeAssignmentBase,
   saveRoutineTemplateDays,
-  updateAssignmentBase,
   updateAssignmentStatus,
   updateRoutineTemplate,
   type AssignTemplateInput,
   type CreateRoutineTemplateInput,
   type SaveRoutineTemplateDaysInput,
-  type UpdateAssignmentBaseInput,
   type UpdateRoutineTemplateInput,
 } from "./routineTemplates";
 import { queryKeys } from "./queryKeys";
@@ -163,33 +160,3 @@ export function useRemoveAssignmentMutation(userId: string) {
   });
 }
 
-export function useUpdateAssignmentBaseMutation(userId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      assignmentId,
-      exerciseId,
-      input,
-    }: {
-      assignmentId: string;
-      exerciseId: string;
-      input: UpdateAssignmentBaseInput;
-    }) => updateAssignmentBase(userId, assignmentId, exerciseId, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.routineAssignments.all });
-    },
-  });
-}
-
-export function useRemoveAssignmentBaseMutation(userId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ assignmentId, exerciseId }: { assignmentId: string; exerciseId: string }) =>
-      removeAssignmentBase(userId, assignmentId, exerciseId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.routineAssignments.all });
-    },
-  });
-}

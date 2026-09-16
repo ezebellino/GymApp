@@ -5,7 +5,7 @@ grupos musculares, ejercicios y series explícitas), la asignación a miembros y
 de la progresión de peso. Reemplaza el modelo que hoy está en el código, donde los días son un
 catálogo fijo y las series se derivan de una estrategia; ver §5 y §6.
 
-Última revisión: 2026-09-06. Estado: borrador 1, con supuestos a confirmar.
+Última revisión: 2026-09-14. Estado: borrador 1, con supuestos a confirmar.
 
 ---
 
@@ -16,7 +16,7 @@ catálogo fijo y las series se derivan de una estrategia; ver §5 y §6.
 | R1 | ~~El **video o GIF** de un ejercicio es una **URL externa** (YouTube, GIF alojado) que se pega en el formulario. No hay subida de archivos en este MVP.~~ Implementado por `add-exercise-catalog`: un ejercicio tiene **los dos** campos, independientes y opcionales — URL externa **y** archivo propio (mp4/gif/jpg/png, hasta 25 MB). Si tiene los dos, el archivo propio tiene prioridad para mostrarse. | Upload a un storage propio. |
 | R2 | **Grupos musculares** y **tipos de entrenamiento** son listas fijas del sistema en el MVP (§2). El Dueño no las edita. | Catálogos administrables. |
 | R3 | Un ejercicio tiene **un** grupo muscular principal (opcional) y **cero o más** tipos de entrenamiento. | Varios grupos por ejercicio. |
-| R4 | La **plantilla es la fuente de la estructura** (días, ejercicios, series con reps y kg de referencia). La asignación a un miembro **no la copia**: la referencia en vivo y guarda solo la **carga actual del miembro** por ejercicio y serie. Si la plantilla cambia, los miembros ven el cambio; conservan sus kilos en los ejercicios que siguen existiendo. | Copiar la plantilla al asignarla (snapshot). |
+| R4 | ~~La plantilla es la fuente de la estructura; la asignación no la copia, la referencia en vivo.~~ Implementado al revés por `member-routine-copies`: **asignar copia** la plantilla (días, grupos musculares, ejercicios, base y estrategia) en el momento de asignar. Un cambio posterior del Coach en la plantilla **no** se ve reflejado en las copias ya asignadas; para que un miembro reciba una versión nueva hay que reasignarle la plantilla, lo que crea una copia nueva (no pisa la anterior). | La alternativa entonces descartada, referencia en vivo sin copiar, terminó siendo la que se abandonó. |
 | R5 | La **progresión de peso la hace el miembro** desde el portal: en cada sesión ajusta los kilos y las reps de cada serie y las marca como hechas. Los kilos con los que terminó quedan como **carga actual** para la próxima sesión. El Dueño también puede ajustarla desde la ficha. | Solo el coach progresa la carga. |
 | R6 | La **sesión de hoy** la elige el miembro entre los días de su plantilla activa. El sistema sugiere el siguiente al último completado. | Día fijo por día de la semana. |
 | R7 | Las **estrategias de progresión** existentes (Constante, Pirámide, etc.) quedan como **generador opcional de series** en el editor: precargan la lista de series a partir de una base y el editor las deja editables. No son parte del modelo de datos de la plantilla. | Retirarlas del todo, o mantenerlas como fuente de verdad de las series. |
@@ -107,8 +107,10 @@ Resuelve el dolor 2 de la visión: la rutina deja de vivir en un papel y el prog
 - Se puede reordenar días, ejercicios y series. Se puede duplicar una plantilla.
 - Eliminar una plantilla solo si no tiene asignaciones vigentes. Si tiene, se archiva: deja de
   ofrecerse para asignar, los miembros que la tienen la conservan.
-- Editar una plantilla asignada impacta a sus miembros (R4). El editor avisa cuántos miembros
-  la tienen antes de guardar cambios de estructura.
+- ~~Editar una plantilla asignada impacta a sus miembros (R4). El editor avisa cuántos miembros
+  la tienen antes de guardar cambios de estructura.~~ Revertido por `member-routine-copies` (R4):
+  editar la plantilla **no** impacta a los miembros ya asignados, porque cada uno tiene su propia
+  copia. El editor no necesita avisar nada al respecto.
 
 ### 3.3 Asignación
 
@@ -190,8 +192,8 @@ En orden de implementación sugerido.
 | R-2 | ~~Catálogo de ejercicios completo: CRUD con pantalla de alta, video/GIF por URL (y archivo propio), grupo muscular de lista fija, tipos de entrenamiento, desactivación.~~ Implementado por `add-exercise-catalog`. **Deprecar la base** (series × reps · kg del ejercicio) sigue pendiente y pasa a depender de R-4 (editor de series explícitas de la plantilla) — fuera de alcance de `add-exercise-catalog`. | R-1 | Alta |
 | R-3 | Días propios de la plantilla con grupos musculares planificados; retirar el catálogo fijo de días. Migración: cada plantilla existente copia sus días del catálogo. | R-1 | Alta |
 | R-4 | Editor de series explícitas por ejercicio del día (agregar, quitar, reordenar, reps · kg). Estrategias como generador opcional. Tipo de plantilla. | R-3 | Alta |
-| R-5 | Carga actual por miembro y serie en la asignación, inicializada desde la plantilla. Edición por el Dueño desde la ficha. | R-4 | Alta |
-| R-6 | Sesión del miembro: elegir día, ver video, ajustar kg/reps, marcar series, finalizar; actualiza la carga actual. Reemplaza `WorkoutLog` y la selección de días por usuario. | R-5 | Alta |
+| R-5 | Carga actual por miembro y serie en la asignación, inicializada desde la plantilla. Edición por el Dueño desde la ficha. **Parcial** vía `member-routine-copies`: la base de un ejercicio vive en la copia del miembro (`RoutineAssignmentDayExercise`), editable por Dueño/Coach desde el editor de esa copia — pero no hay un concepto de "carga actual" que se actualice solo con lo que el miembro marca; cada serie queda en el histórico (`WorkoutSetLog`) sin retroalimentar la base planificada. | R-4 | Alta |
+| R-6 | Sesión del miembro: elegir día, ver video, ajustar kg/reps, marcar series, finalizar; actualiza la carga actual. Reemplaza `WorkoutLog` y la selección de días por usuario. **Parcial** vía `member-routine-copies`: el miembro marca cada serie planificada con peso/reps reales desde "Mi rutina" (`WorkoutSetLog` reemplaza a `WorkoutLog`, grano una fila por serie) y puede corregir la marca de hoy. Sin video en la pantalla de ejecución, sin concepto de "sesión" que se "finaliza", y sin que marcar actualice ninguna carga persistida más allá del propio registro. | R-5 | Alta |
 | R-7 | Seguimiento: gráfico de kilo máximo por semana por ejercicio, récords, sesiones del mes, racha, "+2,5 kg vs. anterior". "Mi progreso" en el portal y en la ficha del miembro. | R-6 | Media |
 | R-8 | Dashboard: sesiones de hoy por miembro con plantilla y día, "Completó / En sala / Sin registro" (se detalla en `07-dashboard.md`). | R-6 | Media |
 | R-9 | Retirar el PDF de progreso y el resumen viejo (R8). | R-7 | Baja |

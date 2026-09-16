@@ -279,12 +279,14 @@ class RevenueReportItem(BaseSchema):
     total: float
 
 
-class WorkoutLogCreate(BaseSchema):
-    day_id: str
-    exercise_id: str
-    sets_count: Optional[Annotated[int, Field(ge=1, le=20)]] = None
-    reps: Optional[Annotated[int, Field(ge=1, le=200)]] = None
-    weight_kg: Annotated[float, Field(ge=0, le=500)] = 0
+class WorkoutSetMarkIn(BaseSchema):
+    """`PUT /routines/my/days/{day_id}/exercises/{exercise_id}/sets/{set_index}`
+    (`routine-progress-tracking`, design D6): marca o corrige una serie. Upsert
+    idempotente por `(user, day, exercise, set_index, hoy)` — el servidor
+    resuelve `performed_on`, no el cliente."""
+
+    weight_kg: Annotated[float, Field(ge=0, le=500)]
+    reps: Annotated[int, Field(ge=1, le=200)]
     note: Optional[Annotated[str, Field(max_length=220)]] = None
 
     @field_validator("note", mode="before")
@@ -296,38 +298,48 @@ class WorkoutLogCreate(BaseSchema):
         return value
 
 
-class WorkoutLogUpdate(BaseSchema):
-    sets_count: Optional[Annotated[int, Field(ge=1, le=20)]] = None
-    reps: Optional[Annotated[int, Field(ge=1, le=200)]] = None
-    weight_kg: Optional[Annotated[float, Field(ge=0, le=500)]] = None
-    note: Optional[Annotated[str, Field(max_length=220)]] = None
+class LoggedSetOut(BaseSchema):
+    """La marca de **hoy** de una serie planificada, embebida en
+    `PlannedSetOut` (design D6): un solo payload alimenta toda la pantalla de
+    ejecución, sin request extra para saber qué está marcado."""
 
-    @field_validator("note", mode="before")
-    @classmethod
-    def normalize_note(cls, value):
-        if isinstance(value, str):
-            value = value.strip()
-            return value or None
-        return value
+    weight_kg: float
+    reps: int
+    performed_at: datetime
 
 
-class WorkoutLogOut(BaseSchema):
+class WorkoutSetLogOut(BaseSchema):
+    """Una fila del histórico (`GET /routines/users/{id}/logs`,
+    `GET /routines/my/logs`), grano una fila = una serie (design D3): sin
+    `sets_count`, con `set_index`."""
+
     id: str
     user_id: str
-    # Optional (`template-owned-routine-days`, design D3): `day_id` queda en
-    # `NULL` cuando se borra el día de la plantilla; `day_name` es el snapshot
-    # que sigue identificando el registro.
-    day_id: Optional[str] = None
+    # Optional (design D3): `assignment_day_id` queda en `NULL` cuando se
+    # quita el día de la copia o se borra la copia entera; `day_name` es el
+    # snapshot que sigue identificando el registro.
+    assignment_day_id: Optional[str] = None
     day_name: str
     exercise_id: str
     exercise_name: str
-    # Optional (H1, corrección de verificación, parte 2): idem RoutineExerciseOption.
     muscle_group: Optional[str] = None
-    sets_count: Optional[int] = None
-    reps: Optional[int] = None
+    set_index: int
+    reps: int
     weight_kg: float
     note: Optional[str] = None
+    performed_on: date
     performed_at: datetime
+
+
+class LoggedExerciseOut(BaseSchema):
+    """`GET /routines/users/{user_id}/logged-exercises` (design D6, D10):
+    ejercicios **con registros** de ese Miembro, alimentado por el histórico —
+    no por la copia vigente, para que un ejercicio ya quitado siga siendo
+    filtrable."""
+
+    exercise_id: str
+    name: str
+    muscle_group: Optional[str] = None
 
 
 class RoutineDayProgress(BaseSchema):
@@ -363,7 +375,7 @@ class UserProgressSummary(BaseSchema):
     gym_name: str
     log_count: int
     attendance_count: int
-    unique_days: int
+    session_count: int
     unique_exercises: int
     total_volume: float
     last_training: Optional[datetime] = None
@@ -371,6 +383,7 @@ class UserProgressSummary(BaseSchema):
     best_weight_kg: Optional[float] = None
     top_improvement: Optional[ProgressImprovement] = None
     motivation: str
+    score: int
     active_assignment: Optional[ActiveAssignmentSummary] = None
 
 
@@ -484,12 +497,28 @@ def _normalize_tag(value):
 
 
 class PlannedSetOut(BaseSchema):
-    """Una serie calculada por el motor de progresión (`app/progression.py`)."""
+    """Una serie calculada por el motor de progresión (`app/progression.py`).
+
+    `logged` (`routine-progress-tracking`, design D6): la marca de **hoy** para
+    este `set_index`, solo cuando el llamador es el plan del Miembro
+    (`get_my_template`); `None` en cualquier otra serialización (plantilla,
+    editor de la copia por Dueño/Coach)."""
 
     index: int
     weight_kg: float
     reps: int
     note: Optional[str] = None
+    logged: Optional[LoggedSetOut] = None
+
+
+class PlannedSetsPreviewOut(BaseSchema):
+    """`GET /routines/progression/preview` (`member-routine-copies`, design
+    D13): previsualización sin estado del plan de series para una tupla
+    `(strategy, sets, reps, weight_kg)` — exactamente `plan_sets(...)`, con
+    `logged` siempre `None`. Sirve igual al editor de plantilla y al de la
+    copia (D8)."""
+
+    planned_sets: list[PlannedSetOut]
 
 
 class ExerciseBaseOut(BaseSchema):
@@ -653,51 +682,42 @@ class RoutineTemplateDaysUpdate(BaseSchema):
         return value
 
 
-class LastAdjustmentOut(BaseSchema):
-    by_name: str
-    at: datetime
-
-
 class RoutineAssignmentOut(BaseSchema):
+    """`member-routine-copies`, design D2b: `template_id` es `Optional` (queda
+    `None` si se borró la plantilla origen); `template_name`/`template_tag`
+    son siempre el snapshot tomado al copiar, nunca derivados de la relación
+    viva — así la etiqueta de una copia no cambia si alguien renombra o borra
+    la plantilla después."""
+
     id: str
     user_id: str
-    template_id: str
+    template_id: Optional[str] = None
     template_name: str
     template_tag: str
     status: RoutineAssignmentStatusLiteral
     starts_on: date
     created_at: datetime
-    adjustments_count: int
-    last_adjustment: Optional[LastAdjustmentOut] = None
-
-
-class RoutineAssignmentBaseOverrideIn(BaseSchema):
-    exercise_id: str
-    sets: Annotated[int, Field(ge=1)]
-    reps: Annotated[int, Field(ge=1)]
-    weight_kg: Annotated[float, Field(ge=0)]
 
 
 class RoutineAssignmentCreate(BaseSchema):
+    """`base_overrides` se retiró (design D4): un payload que lo incluya es
+    **422** (`extra="forbid"`), no un campo ignorado en silencio — mismo
+    criterio que D6 de `template-owned-routine-days` con `day_ids`."""
+
+    model_config = ConfigDict(extra="forbid")
+
     template_id: str
     status: RoutineAssignmentStatusLiteral
     starts_on: Optional[date] = None
-    base_overrides: list[RoutineAssignmentBaseOverrideIn] = Field(default_factory=list)
 
 
 class RoutineAssignmentUpdate(BaseSchema):
     status: RoutineAssignmentStatusLiteral
 
 
-class RoutineAssignmentBaseUpdate(BaseSchema):
-    sets: Annotated[int, Field(ge=1)]
-    reps: Annotated[int, Field(ge=1)]
-    weight_kg: Annotated[float, Field(ge=0)]
-
-
 class MemberRoutineTemplateOut(RoutineAssignmentOut):
     """`GET /routines/my/templates/{assignment_id}`: la asignación + el plan ya
-    calculado (solo días de la plantilla, y por día solo ejercicios activos)."""
+    calculado de la **copia** (design D6) — no de la plantilla origen."""
 
     days: list[RoutineTemplateDayOut]
 

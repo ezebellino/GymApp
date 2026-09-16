@@ -125,19 +125,35 @@ export type RoutineDayProgress = {
   last_performed_at?: string | null;
 };
 
-export type WorkoutLog = {
+// `member-routine-copies` (design D3, D6): reemplaza a `WorkoutLog` — grano
+// una fila = una serie marcada, no un ejercicio con `sets_count`.
+export type WorkoutSetLog = {
   id: string;
   user_id: string;
-  day_id: string;
+  // `null` cuando se quitó el día de la copia o se borró la copia entera
+  // (`SET NULL`, design D3/D7); `day_name` es el snapshot que sigue
+  // identificando el registro.
+  assignment_day_id: string | null;
   day_name: string;
   exercise_id: string;
   exercise_name: string;
   muscle_group: string | null;
-  sets_count?: number | null;
-  reps?: number | null;
+  set_index: number;
+  reps: number;
   weight_kg: number;
   note?: string | null;
-  performed_at: string;
+  performed_on: string; // ISO date
+  performed_at: string; // ISO datetime
+};
+
+// Ejercicios **con registros** de un Miembro (`GET
+// /routines/users/{id}/logged-exercises`, design D6/D10): alimenta el filtro
+// de la vista de Progreso, alimentado por el histórico, no por la copia
+// vigente — un ejercicio ya quitado sigue siendo filtrable.
+export type LoggedExercise = {
+  exercise_id: string;
+  name: string;
+  muscle_group: string | null;
 };
 
 export type ProgressImprovement = {
@@ -156,15 +172,21 @@ export type ActiveAssignmentRef = {
   template_name: string;
 };
 
+// `member-routine-copies` (design D14, corrección del gate): `unique_days`
+// saturaba en 5 (tope estructural de días por copia) y no crecía con la
+// constancia — `session_count` (`performed_on` distintos) lo reemplaza, y el
+// puntaje pasa a calcularlo el servidor (`score`): el cliente deja de
+// reimplementar la fórmula (`UserCard.tsx`).
 export type UserProgressSummary = {
   user_id: string;
   user_name: string;
   gym_name: string;
   log_count: number;
   attendance_count: number;
-  unique_days: number;
+  session_count: number;
   unique_exercises: number;
   total_volume: number;
+  score: number;
   last_training?: string | null;
   best_exercise_name?: string | null;
   best_weight_kg?: number | null;
@@ -188,11 +210,21 @@ export type ProgressionStrategy =
 
 export type RoutineAssignmentStatus = "active" | "alternative";
 
+// La marca de **hoy** de una serie planificada (`member-routine-copies`,
+// design D6): embebida en `PlannedSet.logged`, solo presente en el plan del
+// propio Miembro (`GET /routines/my/templates/{assignment_id}`).
+export type LoggedSet = {
+  weight_kg: number;
+  reps: number;
+  performed_at: string; // ISO datetime
+};
+
 export type PlannedSet = {
   index: number;
   weight_kg: number;
   reps: number;
   note?: string | null; // "20 s" | "al fallo" | null
+  logged?: LoggedSet | null;
 };
 
 export type ExerciseBase = {
@@ -246,17 +278,19 @@ export type RoutineTemplateDetail = {
 // para el propio listado del miembro (`GET /routines/my/templates`, "sin
 // datos de otros" — el backend no expone ahí nada que un Miembro no deba ver
 // de sí mismo).
+// `member-routine-copies` (design D2b): `template_id` queda `null` si se
+// borró la plantilla origen (una copia Alternativa la sobrevive);
+// `template_name`/`template_tag` son siempre el snapshot tomado al copiar,
+// nunca el nombre vivo de la plantilla.
 export type RoutineAssignment = {
   id: string;
   user_id: string;
-  template_id: string;
+  template_id: string | null;
   template_name: string;
   template_tag: string;
   status: RoutineAssignmentStatus;
   starts_on?: string | null;
   created_at: string;
-  adjustments_count: number;
-  last_adjustment: { by_name: string; at: string } | null;
 };
 
 // Detalle de la asignación desde el punto de vista del miembro

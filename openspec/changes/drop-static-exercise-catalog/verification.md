@@ -1,161 +1,171 @@
 # Verificación: drop-static-exercise-catalog
 
-**Fecha**: 2026-09-12
-**Veredicto**: FALLA
-**Diff verificado**: working tree contra `ecab5f2`, acotado a los archivos de este change
+**Fecha**: 2026-09-14
+**Veredicto**: PASA CON RESERVAS
+**Diff verificado**: el delta de la **ronda 3** (working tree, acotado a los archivos de este
+change) sobre el código ya commiteado en `1dc66e1`
 **Riesgo declarado**: alto
 **Paso 0**: lint OK · test OK · plan OK
 
-> **Nota de alcance.** Las tasks 13.1–13.3 (Railway) quedaron deliberadamente sin ejecutar: son
-> operaciones sobre infraestructura viva que hace el usuario. No hay ninguna task de código
-> pendiente; por eso se verificó con 61/64.
+> **Ronda 3.** La ronda 1 salió FALLA (10 hallazgos). Entre la ronda 2 y esta, el change quedó
+> parado mientras se implementaron y archivaron **dos changes encima**:
+> `template-owned-routine-days` (retiró entero el catálogo global de días —
+> `app/routine_catalog.py`, `TrainingDay`, `TrainingDayExercise`, `RoutineTemplateExercise`,
+> `ensure_training_days`, `sync_exercise_day_links`) y `member-routine-copies` (la asignación pasó
+> a ser una copia propia). Eso volvió **sin objeto** cinco de los diez hallazgos de la ronda 1
+> (4, 7, 8, 9, 10) y obligó a recortar los artifacts: la tabla de tests del `## Plan de
+> verificación` bajó de 27 a 12 casos, se borró el delta spec de `routine-templates` entero y se
+> reescribieron los otros dos. Ese recorte es lo que más se revisó en esta ronda, porque
+> sincronizar los delta specs originales habría **revertido** los dos changes posteriores.
 >
-> **Otro change en paralelo**: otra sesión viene trabajando en `simplify-settings-view`. La
-> revisión se acotó a los archivos de este change.
+> **Nota de alcance.** Las tasks 13.1–13.3 (Railway) siguen deliberadamente sin ejecutar: son
+> operaciones sobre infraestructura viva que hace el usuario. La 15.7 es esta verificación. No
+> hay ninguna task de código pendiente.
+>
+> **Árbol mezclado**: el working tree contiene además el trabajo sin commitear de
+> `member-routine-copies`. La revisión se acotó a los archivos de este change.
 
 ## Paso 0 — gate mecánico
 
 | Chequeo | Comando | Resultado |
 |---|---|---|
-| Plan de verificación | `make check-plan CHANGE=drop-static-exercise-catalog` | OK (exit 0, `riesgo=alto`, los 23 casos existen) |
+| Plan de verificación | `make check-plan CHANGE=drop-static-exercise-catalog` | OK (exit 0, `riesgo=alto`, los 12 casos existen) |
 | Lint | `make lint` | OK (exit 0; ruff limpio, eslint 0 errores / 43 warnings preexistentes, `tsc` limpio) |
-| Tests | `make test` | OK (exit 0; backend 260 passed, frontend 179 passed / 33 archivos) |
+| Tests | `make test` | OK (exit 0; backend 283 passed, frontend 209 passed / 36 archivos) |
 
 `openspec validate drop-static-exercise-catalog --strict` → válido.
 
 ## Escenarios de la spec
 
-QA levantó el stack de Docker y verificó **todos los escenarios de las tres delta specs: PASA**,
-ninguno NO VERIFICABLE. Incluye el recorrido de primer uso completo (el Dueño crea su primer
-ejercicio → lo agrega a una plantilla → la asigna → el Miembro lo ve en "Mi rutina", sin ningún
-paso de activación intermedio), los tres estados vacíos con su texto literal, las dos ramas de
-D9, la migración (58 filas → 6, conservando los `custom-*` y los 4 `training_days`), el seed
-opcional con sus guardas, y el `403` del Miembro / `201` del Coach.
+QA levantó el stack de Docker con `docker compose up -d --build backend` (rebuild explícito, no
+solo restart: la nota operativa de la ronda 1 se respetó y esta vez no se verificó código viejo) y
+recorrió los 11 escenarios de las dos delta specs recortadas.
 
-**El bloqueante B1 no lo encontró QA**: probó el round trip `Pecho → Espalda → Pecho`, que pasa.
-La rama que falla es `Pecho → null → Pecho`, que ninguna spec nombra explícitamente y que el
-Code Reviewer encontró razonando sobre el código.
+| Escenario | Cómo se verificó | Resultado |
+|---|---|---|
+| `exercise-catalog` / Un catálogo recién instalado no tiene ejercicios | DB de dev reseteada a cero (`down -v` + migraciones + `make seed-dev`, sin `seed-dev-exercises`); `SELECT count(*) FROM exercises` = 0 antes de tocar la UI | PASA |
+| `exercise-catalog` / Un ejercicio borrado no vuelve a aparecer | Crear y borrar "QA Borrar Temp", después usar el sistema con normalidad (crear otro ejercicio, crear una plantilla, abrir el buscador de un día); nunca reaparece | PASA |
+| `exercise-catalog` / Un ejercicio desactivado no vuelve a ofrecerse por su cuenta | Desactivar "QA Sentadilla Temp" (badge "Inactivo", persiste tras reload); el buscador del día de plantilla responde "Sin resultados." | PASA |
+| `exercise-catalog` / Catálogo vacío en la pantalla de ejercicios | UI con catálogo en 0; los tres textos leídos carácter por carácter | PASA |
+| `exercise-catalog` / Un Coach también puede crear el primer ejercicio desde el estado vacío | Mismo estado vacío como Coach; la acción abre el alta y se creó un ejercicio de verdad | PASA |
+| `exercise-catalog` / Una búsqueda sin resultados conserva su propio mensaje | Búsqueda `"zzz-no-existe"` sobre un catálogo con datos; sin acción de crear | PASA |
+| `exercise-catalog` / Un filtro sin resultados tampoco muestra el catálogo como vacío | **Tres variantes**: filtro de grupo "Antebrazo", filtro de estado "Activos" sin activos, y página 2 vaciada por un borrado. En los tres, "SIN RESULTADOS", nunca "Catálogo vacío", nunca la acción de crear | PASA |
+| `member-routine-view` / Ver el plan de un día con varios ejercicios | Día 1 de la copia activa del Miembro, con plan por serie y acción de marcar | PASA |
+| `member-routine-view` / Un ejercicio no agregado a ese día no aparece en el plan | Día 2 de la misma copia: solo el único ejercicio agregado, con sus 4 series | PASA |
+| `member-routine-view` / Cada serie planificada tiene una acción para marcarla | Botón "Marcar"/"Corregir" por serie | PASA |
+| `member-routine-view` / Un día sin ningún ejercicio muestra un mensaje | Copia Alternativa con Día 1 vacío: texto literal, sin ninguna acción ofrecida al Miembro | PASA |
+| *(fuera de spec)* Copia sin ningún día → "Rutina sin días" | Se intentó desde la UI y pegándole a la API | **NO VERIFICABLE** |
+
+**El NO VERIFICABLE, en detalle**: `RoutineTemplateDaysUpdate` declara
+`Field(min_length=1, max_length=5)`, así que la API rechaza una lista de días vacía, y `copy_days`
+siempre copia al menos los días de la plantilla origen (que nace con su Día 1 desde el `POST`).
+El estado solo es alcanzable manipulando la base a mano. **Contradice al hallazgo menor 4 del
+Code Reviewer**, que lo daba por alcanzable desde la UI; la evidencia de QA está mejor fundada
+(leyó el schema y lo intentó contra la API real), así que el hallazgo queda rebajado a "texto sin
+spec ni test", sin la parte de "rama alcanzable".
 
 ## QA manual
 
-Corrida completa (riesgo alto, no se omite). Stack de Docker real, los tres roles.
-
-**Dato operativo que conviene registrar**: QA encontró el contenedor `backend` corriendo 4 horas
-con código viejo (el `Dockerfile` no usa `--reload`), lo que produjo un `409` y un `is_active`
-espurios en el primer intento. Se resolvió con `docker compose restart backend` y no se volvió a
-reproducir. **Cualquier verificación manual sobre un stack ya levantado tiene que reiniciar
-`backend` después de que el Dev toque código** — si no, se verifica una versión que no es la del
-diff. Es el segundo change seguido en el que esto muerde.
+Corrida completa (riesgo alto, no se omite). Stack de Docker real, los tres roles, con rebuild
+del contenedor `backend` antes de empezar.
 
 ## Hallazgos
 
-1. **[bloqueante]** `backend/app/routers/routines.py:99` — la desactivación **no es monótona**
-   cuando el grupo muscular pasa por `null`. `new_link_is_active = all(link.is_active for link in
-   existing_links)` se apoya en que exista **algún** vínculo apagado; al limpiar el grupo,
-   `desired_day_ids` queda vacío, el loop borra **todos** los vínculos, y la llamada siguiente
-   encuentra `existing_links == []` → `all([]) is True` → el vínculo nuevo nace activo.
-   **Falla con** (reproducido, 100% alcanzable desde la UI): crear un ejercicio en "Pecho" →
-   desactivarlo (botón Desactivar) → reactivarlo → `PATCH {"muscle_group": null}` (el Dueño limpia
-   el grupo en el diálogo de edición) → `PATCH {"muscle_group": "Pecho"}` → `GET /routines/days`
-   devuelve el vínculo de `day-1` con **`is_active: true`**. El staff lo había desactivado a
-   propósito y vuelve solo.
-   Rompe el invariante **I9** de este change y el **I10** del change anterior.
-   `test_cambiar_el_grupo_muscular_de_ida_y_vuelta_no_reactiva_un_vinculo_desactivado`
-   (`backend/tests/test_exercises.py:588`) elige `Pecho → Espalda → Pecho`, **la única rama donde
-   siempre sobrevive un vínculo apagado**. La rama `Pecho → null → Pecho` no la cubre ningún test.
-
-2. **[mayor]** `frontend/src/pages/Exercises.tsx:71-98` y `:302` — el estado vacío del catálogo se
-   dispara también con filtros activos. `EmptyState` solo bifurca por `debouncedQ`, pero la
-   pantalla tiene tres filtros más (`muscleGroup`, `trainingType`, `statusFilter`) y paginación,
-   todos enviados al backend.
-   **Falla con**: catálogo de 20 ejercicios, ninguno de "Hombros"; el Dueño elige el filtro de
-   grupo "Hombros" sin escribir nada → la pantalla afirma **"Catálogo vacío · Todavía no cargaste
-   ningún ejercicio"** sobre un catálogo lleno, y ofrece crear el primero. Igual con
-   `statusFilter="inactive"` sin inactivos, o al borrar filas estando en la página 2.
-   La spec es explícita: *"cuando el catálogo está completamente vacío (**sin ningún filtro ni
-   búsqueda aplicada**)"*. Los tres tests nuevos de `Exercises.test.tsx` solo ejercitan la rama de
-   búsqueda. La condición debería exigir además sin grupo, sin tipo, `statusFilter === "all"` y
-   `offset === 0`.
-
-3. **[mayor]** `backend/app/routers/routines.py:159-184` — retirar el pisado de
-   `name`/`muscle_groups`/`day_order` deja una divergencia real **sin migración que la repare**.
-   El commit inmediatamente anterior (`add-exercise-catalog`) cambió `TRAINING_DAYS[*].muscle_groups`
-   (`"Triceps"`→`"Tríceps"`, `"Biceps"`→`"Bíceps"`, `["Piernas"]`→`["Cuádriceps","Isquios","Gemelos"]`)
-   **sin traer migración de datos**, y se reparaba solo porque `_ensure_seed_data` reescribía
-   `training_days.muscle_groups` en cada request. Este change retira esa reparación.
-   **Falla con**: una base cuyo `training_days` se creó antes de ese commit y que no corrió esa
-   versión del código — que es exactamente el caso de producción, porque las tasks 9.1–9.5 de
-   Railway del change anterior quedaron sin ejecutar. Tras `alembic upgrade head`,
-   `GET /routines/days` devuelve `muscle_groups: ["Piernas"]` para el Día 4 **para siempre**: no
-   hay ningún camino que lo corrija. En la UI el día se titula "Piernas" mientras sus ejercicios
-   dicen "Cuádriceps"/"Isquios"/"Gemelos". Es solo presentación, pero es permanente y la ven los
-   tres roles. Incumple retroactivamente la regla dura **D2.2** que el propio design escribe.
-   **Chequeo antes de archivar**: `SELECT id, muscle_groups FROM training_days ORDER BY day_order;`
-   en producción; si no coincide con `routine_catalog.py::TRAINING_DAYS`, hace falta un `UPDATE`.
-
-4. **[menor]** `backend/scripts/seed_dev_exercises.py:166-167` — el seed reintroduce la segunda
-   fuente de verdad que este change retira: sincroniza **los 52**, no los recién creados, y pasa
-   `entry["muscle_group"]` (la constante) en vez del valor de la fila.
-   **Falla con**: correr el seed, mover un ejercicio de grupo desde la UI, correr el seed otra vez
-   → el vínculo vuelve al día viejo. Es el bug de la reserva 1 en versión dev-only.
-   `test_seed_de_ejercicios_dos_veces_no_duplica_ni_pisa_un_grupo_editado` no lo detecta: edita
-   `muscle_group` directo en el ORM sin mover el vínculo, y no verifica ningún `TrainingDayExercise`.
-
-5. **[menor]** `backend/scripts/seed_dev_exercises.py:141-158` — el seed explota con
-   `IntegrityError` crudo si el Dueño ya cargó un ejercicio con uno de los 52 nombres. La
-   idempotencia es por `id`, pero `exercises.name_normalized` es `unique`. Dev-only, pero es el
-   flujo natural (cargar a mano y después querer datos de prueba).
-
-6. **[menor]** `frontend/src/pages/UserRoutine.tsx:192` — "Sin días." es una cadena de UI sin spec
-   ni test. La separación de `!selectedDay` de la lista vacía es correcta, pero el texto es
-   telegráfico y el Miembro con una plantilla sin días ve una caja con eso y nada más.
-
-7. **[menor]** `backend/app/routers/routine_templates.py:108-119` vs
-   `routine_assignments.py:427-434` — inconsistencia entre el detalle de plantilla y "Mi rutina"
-   cuando `Exercise.is_active=False` y el vínculo está activo: el Miembro lo ve en su plan y el
-   Coach **no** lo ve en el detalle, así que no tiene cómo sacarlo. Baja probabilidad (requiere
-   `PUT /routines/days/{id}/selection`, sin consumidor en el frontend).
-
-8. **[menor]** `backend/tests/test_routine_templates.py:337-362` — el test de D9 "ya agregado" no
-   verifica lo que la spec afirma. La spec dice *"sigue apareciendo **activo** … **y en el plan
-   del cliente**"*; el test solo asserta que el id está en el detalle. Verificado a mano: las dos
-   cosas se cumplen hoy. No es un bug, es un candado que falta sobre media afirmación.
-
-9. **[menor]** `backend/tests/test_routines_seed.py:33-60` — el test de I3 no puede fallar por la
-   rama que importa: corre sin `catalog_basic`, así que `before == after == (0, 0)`. Detectaría
-   "crea filas", no "borra/modifica", que es donde vivía el daño real. Compara solo conteos, no
-   `is_active`/`sort_order`.
-
-10. **[menor]** Nombres de test que hablan de un seed que ya no existe:
-    `test_seed_vincula_los_ejercicios_de_pierna_a_los_grupos_musculares_nuevos`
-    (`test_exercises.py:391`) y `test_un_reseed_del_catalogo_no_borra_la_configuracion_de_la_plantilla`
-    (`test_routine_templates.py:253`). Los dos se reescribieron para no depender del seed pero
-    conservan el nombre.
+1. **[mayor]** `openspec/changes/drop-static-exercise-catalog/design.md:542` — **I2 quedó
+   declarado como cubierto y no tiene ningún candado.** La fila que la tabla recortada le asigna
+   es `backend/tests/test_routines_invariants.py::test_ningun_modulo_de_app_importa_el_catalogo_global_de_dias`,
+   pero ese test es de `template-owned-routine-days` y su conjunto `retired_symbols` es
+   `{routine_catalog, TRAINING_DAYS, TrainingDay, TrainingDayExercise, ensure_training_days,
+   sync_exercise_day_links}` — **`EXERCISE_LIBRARY` no está**.
+   **Falla con**: pegar `EXERCISE_LIBRARY = [...]` en `backend/app/routers/exercises.py` y derivar
+   algo de ahí → `make test` verde y `make check-plan` verde (solo matchea nombres de caso). El
+   invariante que es la razón de ser del change es hoy el único sin red.
+2. **[mayor]** — **el requirement "El catálogo no se repone automáticamente" no tiene ningún
+   test.** Al dar I3 por superado entero se perdió su mitad viva: "no crea, borra ni modifica
+   ninguna fila de `exercises`". Ninguno de los 12 casos de la tabla recortada cubre los tres
+   escenarios de ese requirement (los dos de `test_routines_invariants.py` son de otros changes,
+   los cinco de `test_dev_seed_exercises.py` son el seed, los cinco de frontend son estados
+   vacíos). Verificado: no queda ningún test que compare el conteo de `exercises` antes/después de
+   pegarle a endpoints de Rutinas.
+   **Falla con**: reintroducir un `db.add(Exercise(...))` de conveniencia en cualquier endpoint de
+   Rutinas (el patrón exacto que este change retiró) → suite verde, y el requirement que se va a
+   sincronizar a `openspec/specs/` queda sin candado. I5 ("con `exercises` vacía nada responde
+   500") tampoco tiene fila propia, aunque está cubierto de forma difusa porque `conftest.py` deja
+   el catálogo vacío para toda la suite.
+3. **[menor]** `frontend/src/pages/Exercises.tsx:326` — con `offset > 0` y **cero** filtros, el
+   mensaje que sale es "No encontramos ejercicios que coincidan con los filtros aplicados", sin
+   que haya ninguno. `setOffset(0)` solo se dispara en el `useEffect` de
+   `[debouncedQ, muscleGroup, trainingType, statusFilter, limit]`.
+   **Falla con** (reproducido por QA, variante 7c): 11 ejercicios, ir a la página 2 y borrar desde
+   ahí el único ítem → mensaje de filtros inexistentes, y el indicador queda en "pag 2 / 1" y
+   "Mostrando 11-10 de 10". **No viola el requirement verificado** (que exige el mensaje correcto,
+   no el índice) porque nunca muestra "Catálogo vacío". El arreglo natural es clampear el `offset`
+   cuando `offset >= total`, no tocar el mensaje.
+4. **[menor]** `frontend/src/pages/UserRoutine.tsx:200` y `:211` — los dos textos nuevos ("Rutina
+   sin días" y "Esta rutina todavía no tiene días cargados. Consultá con tu coach.") son una
+   decisión de producto tomada **sin consultar al Product Owner**, que es lo que la task 14.24
+   pedía explícitamente, y no tienen ni requirement ni test. Además el texto le pide una acción al
+   Miembro ("Consultá con tu coach") justo donde el requirement hermano dice "SHALL NOT pedirle
+   ninguna acción al Miembro". Atenuante: QA confirmó que la rama **no es alcanzable** sin tocar
+   la base (ver el NO VERIFICABLE de arriba), así que es deuda de registro, no un texto que un
+   Miembro vaya a leer hoy.
+5. **[menor]** `backend/scripts/seed_dev_exercises.py:183` — el reporte de colisión imprime
+   `choca con el ejercicio {owner_id}`, y `/exercises` no busca por id.
+   **Falla con**: un Dueño que cargó "Dominadas" a mano (id UUID) y corre `make seed-dev-exercises`
+   → lee "choca con el ejercicio 7f3c1a2e-…" y tiene que ir a la base para saber cuál es. El
+   `name` de la fila existente está a un `row.name` del query que ya se hace. La contabilidad
+   (`created + skipped + collisions == 52`), la normalización y el caso de dos entradas del seed
+   que normalicen igual entre sí están **bien** (verificado).
+6. **[menor]** `tasks.md` grupo 15 — el recorte de artifacts no está registrado: no menciona ni el
+   borrado de `specs/routine-templates/spec.md` entero ni la reescritura de los otros dos delta
+   specs, que son los cambios de artifact más grandes de la ronda. Ligado: la "Nota de ronda 3"
+   de `proposal.md` dice "(d) los estados vacíos accionables de la UI" en plural, pero el del
+   editor de plantillas ya no existe — `RoutineDaysEditor.tsx:346` dice "Todavía no hay ejercicios
+   cargados para este día. Buscalos arriba para agregarlos.", sin acción "Ir a Ejercicios", y no
+   debería existir porque el picker ya no es por grupo muscular.
 
 ## Categorías sin hallazgos
 
-- **Migración `bfc5002838bf`**: los 52 ids coinciden exactamente con `EXERCISE_LIBRARY`
-  (verificado por script, sin diferencias en ninguna dirección). Las cinco FK a `exercises.id`
-  tienen `ondelete="CASCADE"` en las migraciones reales, no solo en `models.py`: no puede fallar
-  por FK. `downgrade()` no-op documentado. **Cadena de Alembic con un solo head**:
-  `… → d5f74a834ac0 → e79526156f68 → c387dcc091c2 → bfc5002838bf`, sin ramas pese al change en
-  paralelo.
-- **El bug de FK**: cerrado. `sync_exercise_day_links` es el único insertor de
-  `TrainingDayExercise` y sus tres callers llaman a `ensure_training_days` antes.
-- **El `commit()` de `ensure_training_days`**: sin riesgo. Los 21 call sites la invocan como
-  primera sentencia del handler, sin estado pendiente. Queda estrictamente mejor que antes.
-- **N+1 en `_offered_as_new_option`**: no hay; `_serialize_detail` ya carga los links con
-  `joinedload`.
-- **Extracción del doble candado a `dev_guards.py`**: fiel, no se debilitó, y se evalúa antes de
-  `create_engine` (verificado con centinela).
-- **Textos literales del frontend**: los seis coinciden carácter por carácter con las specs, y el
-  caso "sin resultados" conserva su propio mensaje sin ofrecer crear.
-- **Riesgo declarado**: **alto es correcto**, por dos gatillos independientes (toca
-  `backend/migrations/**` y borra datos existentes).
-- **Tasks marcadas `[x]` que no estén hechas**: ninguna.
+- **Los delta specs reescritos no revierten los dos changes posteriores.** Contrastados
+  requirement por requirement contra `openspec/specs/`:
+  `specs/member-routine-view/spec.md` transcribe "Ver el plan calculado por serie" **palabra por
+  palabra** como está hoy (copia y no plantilla, acción de marcar cada serie, los tres escenarios
+  vigentes intactos) y solo le suma la oración del día sin ejercicios más su escenario;
+  `specs/exercise-catalog/spec.md` agrega dos requirements que **no existen** en la spec vigente
+  (los 11 títulos verificados) y no chocan con "Listado del catálogo con búsqueda y filtros"; y el
+  borrado del delta de `routine-templates` no pierde nada, porque el escenario equivalente
+  ("Buscador sin resultados") ya está en la spec vigente.
+- **Seed de ejercicios**: contabilidad, normalización (la misma función que usa el router: NFC +
+  strip + casefold) y colisión entre dos entradas del propio seed, todo correcto. Los 52 nombres
+  normalizan a 52 valores distintos.
+- **Condición del estado vacío**: cubre las cuatro ramas que pide la spec; se verificó que no haya
+  un quinto filtro en el estado de la página.
+- **Checklist del rol**: sin cambios a `models.py` ni migraciones en este delta, ningún contrato
+  de API tocado, sin endpoints nuevos, sin secretos ni URLs hardcodeadas, strings de UI en español
+  y código en inglés, y ninguna task marcada `[x]` que no esté hecha (las `[~]` están
+  correctamente justificadas por 15.1–15.4).
+- **Cadena de migraciones**: lineal y con un solo head
+  (`c387dcc091c2 → bfc5002838bf → 030412411aba → 3887b713f57d → 423f909a614f`).
+- **Riesgo declarado**: **alto sigue siendo correcto**. El delta de la ronda 3 aislado sería
+  medio, pero el criterio se aplica al diff del change, y ese sigue conteniendo `bfc5002838bf`,
+  que borra 52 filas de `exercises` en producción. Lo recortable es el alcance del QA manual (las
+  filas manuales de `training_days` ya están anotadas como sin objeto), no el nivel.
 
 ## Sin verificar
 
-- **Grupo 13 (Railway)**: 13.1–13.3 sin ejecutar por decisión de alcance. El hallazgo 3 hace que
-  esto importe más que de costumbre: el estado real de `training_days` en producción hay que
-  mirarlo antes de dar el change por cerrado.
+- **Grupo 13 (Railway)**: 13.1–13.3 sin ejecutar por decisión de alcance. El hallazgo 3 de la
+  ronda 1 (la divergencia de `training_days` en producción) **ya no aplica**: la tabla se dropeó
+  entera en una migración posterior de `template-owned-routine-days`.
+- **Estado de una copia sin días**: no alcanzable sin tocar la base (ver el NO VERIFICABLE).
+
+## Fuera de alcance, registrado para un change aparte
+
+- **`alembic upgrade head` desde una base Postgres vacía falla.**
+  `e790291219f2_unify_clients_into_users` explota con
+  `psycopg.errors.UnsafeNewEnumValueUsage: unsafe use of new value "user" of enum type userrole`:
+  el valor se agrega al enum en `9f8a7c6b5d4e` y se usa en el mismo `upgrade head` corrido de
+  punta a punta. QA lo esquivó corriendo `alembic upgrade 9f8a7c6b5d4e` primero y después
+  `alembic upgrade head`. **No es de este change**, pero rompe cualquier setup desde cero (dev
+  nuevo, CI, disaster recovery) y confirma con un caso concreto la nota ya conocida de que el gate
+  de `/opsx:verify` no detecta migraciones rotas: `make test` usa SQLite con `create_all` y nunca
+  corre Alembic.

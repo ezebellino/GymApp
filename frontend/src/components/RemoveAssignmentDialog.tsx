@@ -11,10 +11,11 @@ type Props = {
   assignment: RoutineAssignment;
 };
 
-// Quitar una asignación completa (design.md D6/D11 de
-// add-routine-templates): irreversible, se pierden sus ajustes de base por
-// cascade, y quitar la Activa no promueve ninguna Alternativa (invariante
-// I12) — ambas cosas se dicen explícitamente acá.
+// Quitar una asignación completa (`member-routine-copies`, design D7):
+// irreversible, la copia (sus días y ejercicios) se borra por cascade y sus
+// marcas de progreso quedan con `assignment_day_id` nulo en el histórico, y
+// quitar la Activa no promueve ninguna Alternativa (invariante I12) — ambas
+// cosas se dicen explícitamente acá.
 export default function RemoveAssignmentDialog({
   open,
   onOpenChange,
@@ -40,7 +41,7 @@ export default function RemoveAssignmentDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Quitar asignación"
-      description={`Vas a quitar "${assignment.template_name}" de ${user.full_name}. Se pierden los ajustes de base de esta asignación y, si era la plantilla Activa, no se promueve ninguna Alternativa automáticamente.`}
+      description={`Vas a quitar "${assignment.template_name}" de ${user.full_name}. Se pierde esta copia de rutina y, si era la Activa, no se promueve ninguna Alternativa automáticamente.`}
       confirmLabel="Quitar asignación"
       pendingLabel="Quitando..."
       destructive

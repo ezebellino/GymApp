@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { Eye, Info, PencilLine, Search, UserPlus } from "lucide-react";
+import { Eye, Info, LineChart, PencilLine, Search, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUsersQuery } from "@/services/users.queries";
@@ -377,6 +377,13 @@ export default function Users() {
                               setEditUserOpen(true);
                             }}
                           />
+                          {user.role === "member" ? (
+                            <RowActionButton
+                              icon={LineChart}
+                              label="Progreso"
+                              onClick={() => navigate(`/users/${user.id}/progress`)}
+                            />
+                          ) : null}
                         </div>
                       </TableCell>
                     </TableRow>

@@ -1,15 +1,14 @@
 import { useState } from "react";
-import { LayoutTemplate, SlidersHorizontal, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { LayoutTemplate, PencilLine, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import DataError from "@/components/DataError";
 import AssignTemplateDialog from "@/components/AssignTemplateDialog";
 import RemoveAssignmentDialog from "@/components/RemoveAssignmentDialog";
-import AdjustExerciseBaseDialog from "@/components/AdjustExerciseBaseDialog";
 import RowActionButton from "@/components/RowActionButton";
 import { useUserAssignmentsQuery } from "@/services/routineTemplates.queries";
-import { formatDate } from "@/lib/utils";
 import type { RoutineAssignment, RoutineAssignmentStatus, User } from "@/types";
 
 type Props = {
@@ -27,15 +26,16 @@ const STATUS_BADGE_CLASS: Record<RoutineAssignmentStatus, string> = {
   alternative: "border-border text-muted-foreground",
 };
 
-// Plantillas asignadas al Miembro, desde su ficha (design.md D11 de
-// add-routine-templates). Toda la lógica de la card vive acá: query de
-// asignaciones, badges de estado, autoría del ajuste, y los tres diálogos
-// (asignar / quitar / ajustar base) — `UserDetail.tsx` solo la monta
-// condicionada a `isMemberRole` (D11, ver el bloque de import+render).
+// Copias de rutina asignadas al Miembro, desde su ficha (`member-routine-
+// copies`, design D10). Toda la lógica de la card vive acá: query de
+// asignaciones, badges de estado, y los dos diálogos (asignar / quitar) — el
+// icono Editar navega al editor de la copia (`MemberRoutineEditor.tsx`), sin
+// diálogo propio. `UserDetail.tsx` solo la monta condicionada a
+// `isMemberRole`.
 export default function MemberTemplatesCard({ user, canManage }: Props) {
+  const navigate = useNavigate();
   const [assignOpen, setAssignOpen] = useState(false);
   const [removingAssignment, setRemovingAssignment] = useState<RoutineAssignment | null>(null);
-  const [adjustingAssignment, setAdjustingAssignment] = useState<RoutineAssignment | null>(null);
 
   const { data, isPending, isError, refetch } = useUserAssignmentsQuery(user.id);
   // `Array.isArray` (no solo `data ?? []`) a propósito: `UserDetail.test.tsx`
@@ -96,9 +96,9 @@ export default function MemberTemplatesCard({ user, canManage }: Props) {
                     {canManage ? (
                       <div className="flex gap-2">
                         <RowActionButton
-                          icon={SlidersHorizontal}
-                          label="Ajustar base"
-                          onClick={() => setAdjustingAssignment(assignment)}
+                          icon={PencilLine}
+                          label="Editar"
+                          onClick={() => navigate(`/users/${user.id}/routine/${assignment.id}`)}
                         />
                         <RowActionButton
                           icon={Trash2}
@@ -109,11 +109,6 @@ export default function MemberTemplatesCard({ user, canManage }: Props) {
                       </div>
                     ) : null}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {assignment.adjustments_count === 0 || !assignment.last_adjustment
-                      ? "Sin ajustes"
-                      : `Ajustada por ${assignment.last_adjustment.by_name} el ${formatDate(assignment.last_adjustment.at)}`}
-                  </p>
                 </li>
               ))}
             </ul>
@@ -147,15 +142,6 @@ export default function MemberTemplatesCard({ user, canManage }: Props) {
               onOpenChange={(open) => setRemovingAssignment(open ? removingAssignment : null)}
               user={user}
               assignment={removingAssignment}
-            />
-          ) : null}
-
-          {adjustingAssignment ? (
-            <AdjustExerciseBaseDialog
-              open={Boolean(adjustingAssignment)}
-              onOpenChange={(open) => setAdjustingAssignment(open ? adjustingAssignment : null)}
-              user={user}
-              assignment={adjustingAssignment}
             />
           ) : null}
         </>

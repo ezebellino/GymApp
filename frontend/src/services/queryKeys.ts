@@ -7,6 +7,8 @@ import type {
 import type { AttendanceParams, PeriodRange as AttendancePeriodRange } from "./attendance";
 import type { MembershipPlansParams } from "./membershipPlans";
 import type { ExercisesParams } from "./exercises";
+import type { WorkoutLogsParams } from "./routineAssignments";
+import type { PlannedSetsPreviewInput } from "./progression";
 
 // Único lugar del repo donde se escribe un string de key (dec. 3). Jerarquía
 // [dominio, vista, params] para poder invalidar por prefijo de dominio
@@ -47,8 +49,33 @@ export const queryKeys = {
   routineAssignments: {
     all: ["routineAssignments"] as const,
     byUser: (userId: string) => ["routineAssignments", "byUser", userId] as const,
+    // `member-routine-copies` (design D6, D8, D10): detalle de la copia para
+    // el editor de Dueño/Coach, histórico filtrable (staff y propio) y
+    // ejercicios con registros (filtro de la vista de Progreso).
+    detail: (userId: string, assignmentId: string) =>
+      ["routineAssignments", "detail", userId, assignmentId] as const,
+    logs: (userId: string, params: WorkoutLogsParams) =>
+      ["routineAssignments", "logs", userId, params] as const,
+    loggedExercises: (userId: string) =>
+      ["routineAssignments", "loggedExercises", userId] as const,
     my: () => ["routineAssignments", "my"] as const,
     myDetail: (assignmentId: string) => ["routineAssignments", "myDetail", assignmentId] as const,
+    myLogs: (params: WorkoutLogsParams) => ["routineAssignments", "myLogs", params] as const,
+    // Prefijo sin `params` (hallazgo menor 6 del `verification.md`): la
+    // invalidación de `useMarkSetMutation` alcanza cualquier combinación de
+    // filtros del panel "Historial" — antes escrito inline en
+    // `routineAssignments.queries.ts`.
+    myLogsAll: () => ["routineAssignments", "myLogs"] as const,
+    // D15: espejo de `loggedExercises` para el propio Miembro — histórico
+    // completo, sin ventana, alimenta el filtro del panel "Historial".
+    myLoggedExercises: () => ["routineAssignments", "myLoggedExercises"] as const,
+  },
+  // `member-routine-copies` (design D13, corrección del gate): previsualización
+  // sin estado del plan de series — key = la tupla completa, así volver a una
+  // estrategia ya vista cuesta cero requests (`staleTime: Infinity`).
+  progression: {
+    all: ["progression"] as const,
+    preview: (input: PlannedSetsPreviewInput) => ["progression", "preview", input] as const,
   },
   // add-membership-plans (design D4): dominio nuevo.
   membershipPlans: {

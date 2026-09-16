@@ -68,16 +68,33 @@ function SkeletonRow() {
   );
 }
 
-function EmptyState({ query, onCreate }: { query?: string; onCreate: () => void }) {
-  if (query) {
+// El estado "Catálogo vacío" es el de un catálogo realmente vacío: la spec pide
+// "sin ningún filtro ni búsqueda aplicada". Con cualquier filtro activo —o fuera de
+// la primera página— va el mensaje de "sin resultados", sin ofrecer crear.
+function EmptyState({
+  query,
+  filtered,
+  onCreate,
+}: {
+  query?: string;
+  filtered: boolean;
+  onCreate: () => void;
+}) {
+  if (filtered) {
     return (
       <div className="flex flex-col items-center justify-center py-14 text-center">
         <div className="mb-3 rounded-full border border-border bg-surface-2/30 px-4 py-2 text-label-caps uppercase text-muted-foreground">
           Sin resultados
         </div>
         <p className="max-w-md text-sm leading-6 text-muted-foreground">
-          No encontramos ejercicios que coincidan con{" "}
-          <span className="font-medium text-foreground">"{query}"</span>.
+          {query ? (
+            <>
+              No encontramos ejercicios que coincidan con{" "}
+              <span className="font-medium text-foreground">"{query}"</span>.
+            </>
+          ) : (
+            "No encontramos ejercicios que coincidan con los filtros aplicados."
+          )}
         </p>
       </div>
     );
@@ -299,7 +316,17 @@ export default function Exercises() {
               {!isPending && !isError && rows.length === 0 && (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={6} className="p-0">
-                    <EmptyState query={debouncedQ} onCreate={() => setCreateOpen(true)} />
+                    <EmptyState
+                      query={debouncedQ}
+                      filtered={
+                        Boolean(debouncedQ) ||
+                        Boolean(muscleGroup) ||
+                        Boolean(trainingType) ||
+                        statusFilter !== "all" ||
+                        offset > 0
+                      }
+                      onCreate={() => setCreateOpen(true)}
+                    />
                   </TableCell>
                 </TableRow>
               )}

@@ -43,6 +43,9 @@ function makeUser(overrides: Partial<User> = {}): User {
   };
 }
 
+// `member-routine-copies` (design D2b, D4): `RoutineAssignment` ya no trae
+// `adjustments_count`/`last_adjustment` (el ajuste de base por cliente se
+// retiró entero).
 function makeAssignment(overrides: Partial<RoutineAssignment> = {}): RoutineAssignment {
   return {
     id: "assign-1",
@@ -53,8 +56,6 @@ function makeAssignment(overrides: Partial<RoutineAssignment> = {}): RoutineAssi
     status: "active",
     starts_on: "2026-01-01",
     created_at: "2026-01-01T00:00:00",
-    adjustments_count: 0,
-    last_adjustment: null,
     ...overrides,
   };
 }
@@ -79,16 +80,10 @@ function mockAssignments(assignments: RoutineAssignment[]) {
 }
 
 describe("card de plantillas asignadas en la ficha del usuario", () => {
-  it("lista las plantillas asignadas con su estado", async () => {
+  it("lista las copias asignadas con su estado", async () => {
     mockAssignments([
       makeAssignment({ id: "a-1", status: "active", template_name: "Fuerza 4 días" }),
-      makeAssignment({
-        id: "a-2",
-        status: "alternative",
-        template_name: "Hipertrofia",
-        adjustments_count: 1,
-        last_adjustment: { by_name: "Coach Eze", at: "2026-01-05T00:00:00" },
-      }),
+      makeAssignment({ id: "a-2", status: "alternative", template_name: "Hipertrofia" }),
     ]);
 
     renderWithProviders(<MemberTemplatesCard user={makeUser({})} canManage />);
@@ -97,8 +92,6 @@ describe("card de plantillas asignadas en la ficha del usuario", () => {
     expect(screen.getByText("Activa")).toBeInTheDocument();
     expect(screen.getByText("Hipertrofia")).toBeInTheDocument();
     expect(screen.getByText("Alternativa")).toBeInTheDocument();
-    expect(screen.getByText("Sin ajustes")).toBeInTheDocument();
-    expect(screen.getByText(/Ajustada por Coach Eze el/)).toBeInTheDocument();
   });
 
   it("no ofrece asignar plantilla a un miembro sin membresia activa", async () => {
@@ -112,7 +105,7 @@ describe("card de plantillas asignadas en la ficha del usuario", () => {
     expect(screen.queryByRole("button", { name: "+ Asignar plantilla" })).toBeNull();
   });
 
-  it("sigue listando las plantillas de un miembro sin membresia activa", async () => {
+  it("sigue listando las copias de un miembro sin membresia activa", async () => {
     mockAssignments([makeAssignment({ template_name: "Fuerza 4 días" })]);
 
     renderWithProviders(
@@ -149,17 +142,18 @@ describe("card de plantillas asignadas en la ficha del usuario", () => {
     });
   });
 
-  it("ofrece ajustar base y quitar como icon-buttons en cada asignacion", async () => {
+  // Task 6.5: candado directo del retiro de D4 — con una copia en el
+  // fixture y las dos aserciones juntas, la positiva (Editar se renderizó)
+  // garantiza que la fila realmente montó antes de asertar la ausencia.
+  it("ofrece Editar la copia y ya no ofrece Ajustar base", async () => {
     mockAssignments([makeAssignment({ id: "a-1", template_name: "Fuerza 4 días" })]);
 
     renderWithProviders(<MemberTemplatesCard user={makeUser({})} canManage />);
 
     await screen.findByText("Fuerza 4 días");
     const row = getRowByText("Fuerza 4 días", "li");
-    const adjustButton = within(row).getByRole("button", { name: "Ajustar base" });
-    const removeButton = within(row).getByRole("button", { name: "Quitar" });
 
-    expect(adjustButton.textContent).toBe("");
-    expect(removeButton.textContent).toBe("");
+    expect(within(row).getByRole("button", { name: "Editar" })).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "Ajustar base" })).toBeNull();
   });
 });

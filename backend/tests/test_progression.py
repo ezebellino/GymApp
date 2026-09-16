@@ -1,16 +1,21 @@
-"""Tests del motor de progresión (`app/progression.py`, capability `progression-strategies`).
+"""Tests del motor de progresión (`app/progression.py`, capability `progression-strategies`)
+y de `GET /routines/progression/preview` (`member-routine-copies`, design D13).
 
-Función pura: no usa `client` ni `db_session`, solo `plan_sets`. Los valores exactos
-son los escenarios numéricos de
+Las primeras clases son función pura: no usan `client` ni `db_session`, solo `plan_sets`.
+Los valores exactos son los escenarios numéricos de
 `openspec/changes/add-routine-templates/specs/progression-strategies/spec.md`,
 incluidos los tres pisos de borde (Pirámide 3 reps, Rest-pause 1 rep, Invertida
-2,5 kg) y el redondeo half-up de `1,5 × R` con R impar.
+2,5 kg) y el redondeo half-up de `1,5 × R` con R impar. Los tests del endpoint de
+previsualización sí usan `client`/`db_session`: verifican que el endpoint sin
+estado no diverge del `PUT` de guardado (el punto de toda la decisión D13).
 """
 
 from decimal import Decimal
 
+from app import models
 from app.models import ProgressionStrategy
 from app.progression import plan_sets, round_to_weight_step
+from tests.helpers import OWNER_EMAIL, create_user
 
 
 def _as_tuples(planned):
@@ -147,3 +152,86 @@ def test_el_redondeo_de_medio_paso_va_para_arriba():
     """
     assert round(Decimal("8.5")) == 8  # banker's rounding de Python, para contraste
     assert round_to_weight_step(Decimal("21.25")) == Decimal("22.5")
+
+
+# --- `GET /routines/progression/preview` (design D13) ------------------------
+
+
+def test_la_previsualizacion_devuelve_el_mismo_plan_que_el_guardado(
+    client, owner_user, auth_header, catalog_basic
+):
+    """El test que detecta divergencia, no solo que el endpoint responde: la
+    misma tupla `(strategy, sets, reps, weight_kg)` tiene que producir
+    exactamente los `planned_sets` que el `PUT` de días persiste y devuelve."""
+    headers = auth_header(OWNER_EMAIL)
+    template = client.post(
+        "/routines/templates", json={"name": "Previsualización", "tag": "PREV"}, headers=headers
+    ).json()
+    saved = client.put(
+        f"/routines/templates/{template['id']}/days",
+        json={
+            "days": [
+                {
+                    "day_id": None,
+                    "muscle_groups": [],
+                    "exercises": [
+                        {
+                            "exercise_id": "chest-bench-press",
+                            "strategy": "pyramid",
+                            "base": {"sets": 4, "reps": 8, "weight_kg": 45},
+                        }
+                    ],
+                }
+            ]
+        },
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+    saved_planned = saved.json()["days"][0]["exercises"][0]["planned_sets"]
+
+    preview = client.get(
+        "/routines/progression/preview",
+        params={"strategy": "pyramid", "sets": 4, "reps": 8, "weight_kg": 45},
+        headers=headers,
+    )
+
+    assert preview.status_code == 200, preview.text
+    preview_planned = preview.json()["planned_sets"]
+    assert preview_planned == saved_planned
+    assert all(item["logged"] is None for item in preview_planned)
+
+
+def test_la_previsualizacion_le_responde_403_a_un_miembro(client, db_session, auth_header):
+    create_user(
+        db_session,
+        email="miembro-preview@example.com",
+        first_name="Miembro",
+        role=models.UserRole.member,
+    )
+    headers = auth_header("miembro-preview@example.com")
+
+    response = client.get(
+        "/routines/progression/preview",
+        params={"strategy": "constant", "sets": 3, "reps": 10, "weight_kg": 40},
+        headers=headers,
+    )
+
+    assert response.status_code == 403, response.text
+
+
+def test_la_previsualizacion_rechaza_una_base_fuera_de_rango(client, owner_user, auth_header):
+    headers = auth_header(OWNER_EMAIL)
+
+    too_few_sets = client.get(
+        "/routines/progression/preview",
+        params={"strategy": "constant", "sets": 0, "reps": 10, "weight_kg": 40},
+        headers=headers,
+    )
+    too_many_sets = client.get(
+        "/routines/progression/preview",
+        params={"strategy": "constant", "sets": 999, "reps": 10, "weight_kg": 40},
+        headers=headers,
+    )
+
+    assert too_few_sets.status_code == 422, too_few_sets.text
+    assert too_many_sets.status_code == 422, too_many_sets.text

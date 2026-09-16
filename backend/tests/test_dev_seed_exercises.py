@@ -13,7 +13,11 @@ import pytest
 
 from app import models
 from scripts import seed_dev_exercises as seed_module
-from scripts.seed_dev_exercises import EXERCISE_LIBRARY, seed_dev_exercises
+from scripts.seed_dev_exercises import (
+    EXERCISE_LIBRARY,
+    _normalize_exercise_name,
+    seed_dev_exercises,
+)
 
 
 def test_seed_de_ejercicios_crea_los_52(db_session):
@@ -22,7 +26,7 @@ def test_seed_de_ejercicios_crea_los_52(db_session):
     son propios de cada plantilla."""
     result = seed_dev_exercises(db_session)
 
-    assert result == {"created": 52, "skipped": 0}
+    assert result == {"created": 52, "skipped": 0, "collisions": []}
 
     exercises = db_session.query(models.Exercise).all()
     assert len(exercises) == 52
@@ -31,7 +35,7 @@ def test_seed_de_ejercicios_crea_los_52(db_session):
 
 def test_seed_de_ejercicios_dos_veces_no_duplica_ni_pisa_un_grupo_editado(db_session):
     first = seed_dev_exercises(db_session)
-    assert first == {"created": 52, "skipped": 0}
+    assert first == {"created": 52, "skipped": 0, "collisions": []}
 
     # Editar el grupo muscular de uno, simulando la edición de un Dueño en la UI.
     edited = db_session.query(models.Exercise).filter_by(id="chest-bench-press").one()
@@ -39,11 +43,38 @@ def test_seed_de_ejercicios_dos_veces_no_duplica_ni_pisa_un_grupo_editado(db_ses
     db_session.commit()
 
     second = seed_dev_exercises(db_session)
-    assert second == {"created": 0, "skipped": 52}
+    assert second == {"created": 0, "skipped": 52, "collisions": []}
 
     assert db_session.query(models.Exercise).count() == 52
     still_edited = db_session.query(models.Exercise).filter_by(id="chest-bench-press").one()
     assert still_edited.muscle_group == "Espalda"
+
+
+def test_seed_de_ejercicios_reporta_el_nombre_ya_cargado_en_vez_de_explotar(db_session):
+    """`exercises.name_normalized` es único: si el Dueño ya cargó a mano un
+    ejercicio con uno de los 52 nombres, el seed lo saltea y lo reporta, en vez
+    de dejar salir un `IntegrityError` crudo (hallazgo 5 de la verificación)."""
+    entry = next(e for e in EXERCISE_LIBRARY if e["id"] == "chest-bench-press")
+    db_session.add(
+        models.Exercise(
+            id="custom-propio",
+            name=entry["name"].upper(),
+            name_normalized=_normalize_exercise_name(entry["name"]),
+            muscle_group="Pecho",
+            is_active=True,
+        )
+    )
+    db_session.commit()
+
+    result = seed_dev_exercises(db_session)
+
+    assert result["created"] == 51
+    assert result["collisions"] == [("chest-bench-press", entry["name"], "custom-propio")]
+    # El ejercicio cargado a mano queda intacto y el del seed no se creó.
+    assert db_session.query(models.Exercise).filter_by(id="chest-bench-press").one_or_none() is None
+    assert db_session.query(models.Exercise).filter_by(id="custom-propio").one().name == (
+        entry["name"].upper()
+    )
 
 
 def _forbid_engine(monkeypatch):

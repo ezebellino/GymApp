@@ -1,5 +1,19 @@
 ## Why
 
+> **Nota de ronda 3 (2026-09-14).** El change quedó parado tras la verificación FALLA de la
+> ronda 1 y, entre medio, se implementaron y archivaron dos changes encima:
+> `template-owned-routine-days` retiró **entero** el catálogo global de días de entrenamiento
+> (`app/routine_catalog.py`, `TrainingDay`, `TrainingDayExercise`, `ensure_training_days`,
+> `sync_exercise_day_links`) y `member-routine-copies` convirtió la asignación en una copia
+> propia. Eso volvió sin objeto buena parte del *What Changes* de abajo: todo lo que habla de
+> "el vínculo entre un ejercicio y su día" describe un mecanismo que ya no existe — no porque
+> este change lo haya corregido, sino porque el siguiente lo borró. **Lo que este change sigue
+> aportando, y lo único que sus delta specs piden ahora**, es (a) que el catálogo de ejercicios
+> arranque y pueda quedarse vacío, sin ningún sembrado automático, (b) el seed opcional de
+> desarrollo con su doble candado, (c) la migración que borró los 52 ejercicios sembrados y
+> (d) los estados vacíos accionables de la UI. El texto original se conserva tal cual para que
+> el historial se lea; esta nota es la que manda.
+
 `add-exercise-catalog` le dio a `/exercises` un CRUD completo para que el Dueño edite el grupo
 muscular de un ejercicio, pero el sembrado automático que corre en ~20 endpoints de Rutinas sigue
 derivando el día donde aparece cada ejercicio del seed desde una constante en código

@@ -261,6 +261,31 @@ describe("vista de Usuarios", () => {
     expect(cells[5]).toHaveTextContent("-");
   });
 
+  it("expone el icon-button Progreso solo en la fila de un Miembro", async () => {
+    // Fixture con un Coach, no solo el Miembro: si el icono se renderizara
+    // sin la condición de rol, este test se pone rojo.
+    mockUsersList([
+      makeUser({ id: "u-1", full_name: "Ana Gomez", role: "member" }),
+      makeUser({
+        id: "u-2",
+        full_name: "Beto Lopez",
+        role: "coach",
+        membership_status: "none",
+        membership_indicator: "none",
+        membership_start_date: null,
+      }),
+    ]);
+
+    renderWithProviders(<Users />, { route: "/users" });
+
+    await screen.findByText("Ana Gomez");
+    const memberRow = getRowByText("Ana Gomez");
+    const coachRow = getRowByText("Beto Lopez");
+
+    expect(within(memberRow).getByRole("button", { name: "Progreso" })).toBeInTheDocument();
+    expect(within(coachRow).queryByRole("button", { name: "Progreso" })).toBeNull();
+  });
+
   it("el boton Ver de una fila navega a la ficha del usuario", async () => {
     mockUsersList([makeUser({})]);
 

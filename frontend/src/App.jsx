@@ -32,6 +32,12 @@ const InvitationAccept = lazy(() => import("./pages/InvitationAccept"));
 const NewCoachPage = lazy(() => import("./pages/NewCoach"));
 const UserDetail = lazy(() => import("./pages/UserDetail"));
 const RoutineTemplateDetail = lazy(() => import("./pages/RoutineTemplateDetail"));
+// `member-routine-copies` (design D10): sin entrada en el Sidebar, mismo
+// tratamiento que UserDetail/RoutineTemplateDetail — se llega desde la fila
+// de una copia en `MemberTemplatesCard` (editor) y desde el icono Progreso de
+// `Users.tsx`/`UserDetail.tsx` (vista de progreso).
+const MemberRoutineEditor = lazy(() => import("./pages/MemberRoutineEditor"));
+const MemberProgress = lazy(() => import("./pages/MemberProgress"));
 // `add-membership-plans` (design D4): sin entrada en el Sidebar, se llega
 // desde el botón "Planes" de Payments — mismo tratamiento que UserDetail y
 // RoutineTemplateDetail, sin pasar por `routeImporters`.
@@ -148,6 +154,22 @@ export default function App() {
                     element={
                       <ProtectedRoute roles={["owner", "coach"]}>
                         <UserDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/users/:id/routine/:assignmentId"
+                    element={
+                      <ProtectedRoute roles={["owner", "coach"]}>
+                        <MemberRoutineEditor />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/users/:id/progress"
+                    element={
+                      <ProtectedRoute roles={["owner", "coach"]}>
+                        <MemberProgress />
                       </ProtectedRoute>
                     }
                   />

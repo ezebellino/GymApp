@@ -90,18 +90,21 @@ def _get_exercise_or_404(db: Session, exercise_id: str) -> models.Exercise:
 
 
 def _exercise_in_use(db: Session, exercise_id: str) -> bool:
-    """Requirement "Borrar un ejercicio que nunca se usó": solo cuenta como uso
-    estar agregado a un día de plantilla, tener un registro de entrenamiento, o
-    tener un ajuste de base por cliente."""
+    """Requirement "Borrar un ejercicio que nunca se usó" (`member-routine-copies`,
+    design D4/I13: ya no hay ajuste de base por cliente que consultar): solo
+    cuenta como uso estar agregado a un día de plantilla, estar agregado a la
+    copia de rutina de algún Miembro, o tener una marca de progreso registrada."""
     return (
         db.query(models.RoutineTemplateDayExercise.id)
         .filter(models.RoutineTemplateDayExercise.exercise_id == exercise_id)
         .first()
         is not None
-        or db.query(models.WorkoutLog.id).filter(models.WorkoutLog.exercise_id == exercise_id).first()
+        or db.query(models.RoutineAssignmentDayExercise.id)
+        .filter(models.RoutineAssignmentDayExercise.exercise_id == exercise_id)
+        .first()
         is not None
-        or db.query(models.RoutineAssignmentBase.id)
-        .filter(models.RoutineAssignmentBase.exercise_id == exercise_id)
+        or db.query(models.WorkoutSetLog.id)
+        .filter(models.WorkoutSetLog.exercise_id == exercise_id)
         .first()
         is not None
     )

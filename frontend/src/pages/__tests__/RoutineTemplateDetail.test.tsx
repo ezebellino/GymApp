@@ -88,6 +88,11 @@ function mockGet(template: RoutineTemplateDetailType, exercises: Exercise[] = []
     if (url === "/exercises/meta") {
       return jsonResponse({ muscle_groups: [], training_types: [] });
     }
+    // D13 (corrección del gate): la carga inicial siembra la caché de
+    // previsualización con los `planned_sets` del detalle (`RESET`), así que
+    // en la mayoría de los casos esto no se llega a pedir; un ejercicio
+    // recién agregado (base 3×10·0kg, sin seed) sí lo dispara.
+    if (url === "/routines/progression/preview") return jsonResponse({ planned_sets: [] });
     return jsonResponse([]);
   });
 }
@@ -289,6 +294,134 @@ describe("detalle de plantilla de rutina — borrador y guardado", () => {
 
     expect(await screen.findByText("Tenés cambios sin guardar")).toBeInTheDocument();
     expect(screen.queryByText("Listado de plantillas")).toBeNull();
+  });
+
+  // D13 (corrección del gate, `verification.md`): el editor pide la
+  // previsualización al servidor en vez de dejar el plan mostrado
+  // desactualizado hasta guardar.
+
+  function mockGetWithPreview(
+    template: RoutineTemplateDetailType,
+    previewFor: Record<string, { index: number; weight_kg: number; reps: number; note: null }[]>
+  ) {
+    vi.mocked(api.get).mockImplementation((url: string, config?: any) => {
+      if (url === "/routines/templates/tpl-1") return jsonResponse(template);
+      if (url === "/exercises/") return jsonResponse([], { "x-total-count": "0" });
+      if (url === "/exercises/meta") {
+        return jsonResponse({ muscle_groups: [], training_types: [] });
+      }
+      if (url === "/routines/progression/preview") {
+        const params = config?.params ?? {};
+        const key = `${params.strategy}-${params.sets}-${params.reps}-${params.weight_kg}`;
+        return jsonResponse({ planned_sets: previewFor[key] ?? [] });
+      }
+      return jsonResponse([]);
+    });
+  }
+
+  it("recalcula el plan mostrado al cambiar la estrategia, sin guardar", async () => {
+    const template = makeTemplate({});
+    // Plan distinguible del inicial (45 kg): si el editor no llamara al
+    // endpoint de previsualización, este texto nunca aparecería.
+    mockGetWithPreview(template, {
+      "rest_pause-4-8-45": [{ index: 1, weight_kg: 999, reps: 8, note: null }],
+    });
+
+    renderAt("/routines/tpl-1");
+    await screen.findByText("Press banca");
+
+    fireEvent.click(screen.getByRole("button", { name: "Rest-pause" }));
+
+    expect(await screen.findByText(/999 kg × 8/)).toBeInTheDocument();
+    // Sin guardar: la previsualización no dispara ningún `PUT`.
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
+  it("deja guardar aunque la previsualización falle", async () => {
+    const template = makeTemplate({});
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url === "/routines/templates/tpl-1") return jsonResponse(template);
+      if (url === "/exercises/") return jsonResponse([], { "x-total-count": "0" });
+      if (url === "/exercises/meta") {
+        return jsonResponse({ muscle_groups: [], training_types: [] });
+      }
+      if (url === "/routines/progression/preview") {
+        return Promise.reject(new Error("network error"));
+      }
+      return jsonResponse([]);
+    });
+    vi.mocked(api.put).mockImplementation(() => jsonResponse(template));
+
+    renderAt("/routines/tpl-1");
+    await screen.findByText("Press banca");
+
+    fireEvent.click(screen.getByRole("button", { name: "Rest-pause" }));
+
+    expect(
+      await screen.findByText("No pudimos recalcular la previsualización.")
+    ).toBeInTheDocument();
+
+    const saveButton = screen.getByRole("button", { name: /Guardar configuración/ });
+    expect(saveButton).toBeEnabled();
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith("/routines/templates/tpl-1/days", {
+        days: [
+          {
+            day_id: "day-1",
+            muscle_groups: ["Pecho", "Tríceps"],
+            exercises: [
+              { exercise_id: "ex-1", strategy: "rest_pause", base: { sets: 4, reps: 8, weight_kg: 45 } },
+            ],
+          },
+        ],
+      });
+    });
+  });
+
+  // I19 (corrección del gate, restringida a offline): `networkMode: "online"`
+  // (default de `queryClient.ts`) deja la query de previsualización en
+  // `fetchStatus: "paused"` sin conexión — ni `isFetching` ni `isError` se
+  // prenden, así que sin el fix el plan de la tupla anterior queda mostrado
+  // en silencio como si fuera el vigente.
+  it("avisa 'Sin conexión' en vez de mostrar en silencio el plan de la tupla vieja", async () => {
+    const template = makeTemplate({});
+    mockGet(template);
+
+    renderAt("/routines/tpl-1");
+    await screen.findByText("Press banca");
+    // Plan inicial (constant, sembrado en caché desde el detalle, D13): la
+    // base sobre la que después afirmamos que no cambió en silencio.
+    expect((await screen.findAllByText(/45 kg × 8/)).length).toBeGreaterThan(0);
+
+    const originalOnLine = window.navigator.onLine;
+    Object.defineProperty(window.navigator, "onLine", {
+      value: false,
+      configurable: true,
+    });
+    window.dispatchEvent(new Event("offline"));
+
+    try {
+      // La tupla cambia (constant -> rest_pause) y no está en caché: dispara
+      // un fetch que la query pausa por falta de conexión.
+      fireEvent.click(screen.getByRole("button", { name: "Rest-pause" }));
+
+      expect(
+        await screen.findByText(/Sin conexión: no pudimos recalcular/)
+      ).toBeInTheDocument();
+      // Sigue viéndose el plan viejo (atenuado, con el aviso), pero
+      // explícitamente marcado como no vigente en vez de en silencio.
+      expect(screen.getAllByText(/45 kg × 8/).length).toBeGreaterThan(0);
+      // Guardar nunca se bloquea por el estado de la previsualización.
+      expect(screen.getByRole("button", { name: /Guardar configuración/ })).toBeEnabled();
+    } finally {
+      Object.defineProperty(window.navigator, "onLine", {
+        value: originalOnLine,
+        configurable: true,
+      });
+      window.dispatchEvent(new Event("online"));
+    }
   });
 
   it("descarta el borrador y deja la plantilla como estaba", async () => {

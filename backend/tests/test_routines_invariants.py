@@ -56,6 +56,34 @@ def test_los_endpoints_retirados_del_catalogo_global_devuelven_404(client, owner
         assert response.status_code == 404, f"{path}: {response.text}"
 
 
+def test_el_ajuste_de_base_por_cliente_no_existe_en_el_modelo_ni_en_la_api():
+    """I13 (`member-routine-copies`, design D4): `RoutineAssignmentBase` y
+    `WorkoutLog` no existen en `app.models`, y ningún módulo bajo `app/`
+    define o importa esos nombres ni las rutas `/bases/` retiradas."""
+    from app import models
+
+    assert not hasattr(models, "RoutineAssignmentBase")
+    assert not hasattr(models, "WorkoutLog")
+
+    retired_symbols = {"RoutineAssignmentBase", "WorkoutLog"}
+    offenders = []
+    for module_info in pkgutil.walk_packages(app.__path__, prefix="app."):
+        module = importlib.import_module(module_info.name)
+        found = retired_symbols & set(vars(module).keys())
+        if found:
+            offenders.append(f"{module_info.name}: {sorted(found)}")
+    assert offenders == []
+
+    for module_info in pkgutil.walk_packages(app.__path__, prefix="app."):
+        module = importlib.import_module(module_info.name)
+        source = getattr(module, "__file__", None)
+        if not source:
+            continue
+        with open(source, encoding="utf-8") as handle:
+            content = handle.read()
+        assert "/bases/{exercise_id}" not in content, module_info.name
+
+
 def test_el_endpoint_de_base_del_catalogo_devuelve_404(client, owner_user, auth_header):
     """I9: `PUT /routines/exercises/{id}` (la base editable del catálogo,
     design D7) se retiró sin reemplazo — 404, no 405 ni 200."""

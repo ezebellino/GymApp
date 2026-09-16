@@ -4,7 +4,7 @@ Documento de producto. Define qué es el MVP de Gym App, para quién, qué inclu
 y cuándo se considera listo. Los documentos por módulo (`02` a `07`) detallan cada área; las
 specs de OpenSpec (`openspec/specs/`) siguen siendo la fuente de verdad del comportamiento fino.
 
-Última revisión: 2026-09-06.
+Última revisión: 2026-09-14.
 
 ---
 
@@ -121,7 +121,7 @@ arriba. Esta lista se convierte en changes de OpenSpec; acá solo queda el inven
 | Tarifa única global (`default_fee`) y `late_fee_grace_days` | `AppSettings` | Contradice D2: la cuota es por plan, no global. | Reemplazar por planes de membresía. Evaluar si la gracia sigue teniendo sentido a nivel gimnasio. |
 | Mensaje y fecha de último recordatorio de pago | `AppSettings.payment_reminder_*` | D3: sin recordatorios. | Deprecar campos y UI asociada. |
 | Vista **Reportes** como página y sección de navegación | `frontend/src/pages/Reports.tsx`, `/reports` | D7. | Mover su contenido al Dashboard y retirar la ruta. |
-| Rutina "legacy" por usuario (selección de días por usuario, log por ejercicio con `sets_count`), catálogo fijo de 4 días, base por ejercicio y PDF de progreso | `backend/app/routers/routines.py`, `TrainingDay`, `TrainingDayExercise`, `WorkoutLog`, `Exercise.base_*` | Contradicen el modelo de `04-rutinas.md`: días propios por plantilla, series explícitas, sesión por series. | Reemplazar según la brecha R-2 a R-9 de `04-rutinas.md`. |
+| ~~Rutina "legacy" por usuario (selección de días por usuario, log por ejercicio con `sets_count`), catálogo fijo de 4 días, base por ejercicio~~ | `TrainingDay`, `TrainingDayExercise`, `WorkoutLog`, `Exercise.base_*` | Contradecían el modelo de `04-rutinas.md`: días propios por plantilla, series explícitas, registro por serie. | Retirado por `template-owned-routine-days` (días propios por plantilla, base movida a `RoutineTemplateDayExercise`) y `member-routine-copies` (`WorkoutLog` → `WorkoutSetLog`, una fila por serie). El PDF de progreso (R-9 de `04-rutinas.md`) todavía no se retiró. |
 | Página **Nuevo coach** con contraseña a mano | `frontend/src/pages/NewCoach.tsx` | Duplica el diálogo de alta de usuario y contradice D4 (acceso por link). | Unificar en el alta de usuario + invitación. |
 | Envío del email de invitación y verificación de contacto por link | `backend/app/notifications.py`, `NOTIFICATIONS_BACKEND`, `SMTP_*`, tokens por canal de `MemberInvitation` | D11: sin emails, el link se entrega a mano y abrirlo no prueba nada sobre el canal. | Un solo link de invitación; retirar el envío y la verificación por canal. Queda la verificación manual del Dueño. |
 | ~~Endpoints sin verificación de sesión ni rol~~ | `settings` (GET/PUT/PATCH), `payments` (listado y detalle), `attendance` (listado) | Cualquier request sin token los leía o escribía. | Corregido por `secure-staff-endpoints` (2026-09-11), spec `staff-endpoint-authorization`. |

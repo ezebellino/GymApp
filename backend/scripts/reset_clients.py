@@ -9,7 +9,7 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
 from app.config import settings
-from app.models import Attendance, Payment, User, UserRole, WorkoutLog
+from app.models import Attendance, Payment, User, UserRole, WorkoutSetLog
 
 CONFIRM_TOKEN = "MINI-ESPACIO"
 
@@ -49,7 +49,9 @@ def main():
                 db.query(Attendance).filter(Attendance.user_id.in_(member_ids)).delete(synchronize_session=False)
             )
             logs_count = (
-                db.query(WorkoutLog).filter(WorkoutLog.user_id.in_(member_ids)).delete(synchronize_session=False)
+                db.query(WorkoutSetLog)
+                .filter(WorkoutSetLog.user_id.in_(member_ids))
+                .delete(synchronize_session=False)
             )
             db.query(User).filter(User.id.in_(member_ids)).delete(synchronize_session=False)
 

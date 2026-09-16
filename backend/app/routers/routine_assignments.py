@@ -1,14 +1,19 @@
-"""Asignación de plantillas a Miembros (`routine-assignment`) y vista del cliente
-(`member-routine-view`).
+"""Copia de plantillas a Miembros (`routine-assignment`) y ejecución del
+Miembro (`member-routine-view`, `routine-progress-tracking`).
 
-Dos routers en el mismo módulo (design D9):
-- `router` (`/routines/users/{user_id}/templates`, Dueño/Coach): alta, cambio de
-  estado, baja y ajuste de base por cliente.
-- `my_router` (`/routines/my/templates`, Miembro): solo lectura de las propias
-  asignaciones y el plan ya calculado.
+Dos routers en el mismo módulo (design D9 de `add-routine-templates`, vigente):
+- `router` (`/routines/users/{user_id}/templates`, Dueño/Coach): copiar,
+  cambiar de estado, quitar y editar la copia de un Miembro.
+- `my_router` (`/routines/my/templates`, rol member): lectura de las propias
+  copias y el plan ya calculado, con la marca de hoy adjunta.
+
+`member-routine-copies` (design D2): asignar deja de ser una referencia y pasa
+a ser una **copia** independiente y editable (D5, D8). El ajuste de base por
+cliente (`RoutineAssignmentBase`) se retiró entero (D4): la base de un
+ejercicio de la copia se edita directo en `RoutineAssignmentDayExercise`.
 """
 
-from datetime import date, datetime
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
@@ -17,7 +22,8 @@ from .. import models, schemas
 from ..auth import get_current_user, require_role
 from ..deps import get_db, require_can_manage_user
 from ..models import UserRole
-from ..progression import plan_sets
+from ..routine_days import ASSIGNMENT_DESCRIPTOR, copy_days, replace_days, serialize_day
+from ..utils import now_ar
 from .routines import _get_user_or_404, _require_member
 
 router = APIRouter(
@@ -53,24 +59,29 @@ def _get_template_with_days(db: Session, template_id: str) -> models.RoutineTemp
     return template
 
 
-def _validate_exercise_in_template(db: Session, template: models.RoutineTemplate, exercise_id: str) -> None:
-    day_ids = [template_day.id for template_day in template.days]
-    exists = (
-        db.query(models.RoutineTemplateDayExercise)
+def _get_assignment_with_days(db: Session, user_id: str, assignment_id: str) -> models.RoutineAssignment:
+    assignment = (
+        db.query(models.RoutineAssignment)
+        .options(
+            joinedload(models.RoutineAssignment.days).joinedload(models.RoutineAssignmentDay.muscle_groups),
+            joinedload(models.RoutineAssignment.days)
+            .joinedload(models.RoutineAssignmentDay.exercises)
+            .joinedload(models.RoutineAssignmentDayExercise.exercise),
+        )
         .filter(
-            models.RoutineTemplateDayExercise.template_day_id.in_(day_ids),
-            models.RoutineTemplateDayExercise.exercise_id == exercise_id,
+            models.RoutineAssignment.id == assignment_id,
+            models.RoutineAssignment.user_id == user_id,
         )
         .first()
     )
-    if not exists:
-        raise HTTPException(status_code=400, detail="Ese ejercicio no pertenece a la plantilla asignada")
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Asignación no encontrada")
+    return assignment
 
 
 def _get_assignment_or_404(db: Session, user_id: str, assignment_id: str) -> models.RoutineAssignment:
     assignment = (
         db.query(models.RoutineAssignment)
-        .options(joinedload(models.RoutineAssignment.template))
         .filter(
             models.RoutineAssignment.id == assignment_id,
             models.RoutineAssignment.user_id == user_id,
@@ -83,8 +94,8 @@ def _get_assignment_or_404(db: Session, user_id: str, assignment_id: str) -> mod
 
 
 def _degrade_active_assignment(db: Session, user_id: str) -> None:
-    """Cualquier Activa previa del Miembro pasa a Alternativa (design D6). `flush()`
-    antes del insert/update de la nueva fila para no chocar contra el índice único
+    """Cualquier Activa previa del Miembro pasa a Alternativa. `flush()` antes
+    del insert/update de la nueva fila para no chocar contra el índice único
     parcial dentro de la misma transacción."""
     db.query(models.RoutineAssignment).filter(
         models.RoutineAssignment.user_id == user_id,
@@ -93,73 +104,20 @@ def _degrade_active_assignment(db: Session, user_id: str) -> None:
     db.flush()
 
 
-def _upsert_base_override(
-    db: Session,
-    assignment_id: str,
-    exercise_id: str,
-    sets: int,
-    reps: int,
-    weight_kg: float,
-    adjusted_by_user_id: str,
-) -> models.RoutineAssignmentBase:
-    override = (
-        db.query(models.RoutineAssignmentBase)
-        .filter(
-            models.RoutineAssignmentBase.assignment_id == assignment_id,
-            models.RoutineAssignmentBase.exercise_id == exercise_id,
-        )
-        .first()
-    )
-    if override is None:
-        override = models.RoutineAssignmentBase(assignment_id=assignment_id, exercise_id=exercise_id)
-        db.add(override)
-    override.sets = sets
-    override.reps = reps
-    override.weight_kg = weight_kg
-    override.adjusted_by_user_id = adjusted_by_user_id
-    override.adjusted_at = datetime.utcnow()
-    return override
-
-
-def _resolve_base(
-    link: models.RoutineTemplateDayExercise, overrides: dict[str, models.RoutineAssignmentBase]
-) -> tuple[int, int, float]:
-    """Única precedencia del sistema (`template-owned-routine-days`, design D4):
-    el ajuste de base por cliente si existe, si no la base propia del par
-    (día, ejercicio)."""
-    override = overrides.get(link.exercise_id)
-    if override is not None:
-        return override.sets, override.reps, override.weight_kg
-    return link.base_sets, link.base_reps, link.base_weight_kg
-
-
-def _serialize_assignment(db: Session, assignment: models.RoutineAssignment) -> schemas.RoutineAssignmentOut:
-    template = assignment.template
-    overrides = (
-        db.query(models.RoutineAssignmentBase)
-        .filter(models.RoutineAssignmentBase.assignment_id == assignment.id)
-        .order_by(models.RoutineAssignmentBase.adjusted_at.desc())
-        .all()
-    )
-    last_adjustment = None
-    if overrides:
-        latest = overrides[0]
-        adjuster = db.get(models.User, latest.adjusted_by_user_id) if latest.adjusted_by_user_id else None
-        last_adjustment = schemas.LastAdjustmentOut(
-            by_name=adjuster.full_name if adjuster else "—",
-            at=latest.adjusted_at,
-        )
+def _serialize_assignment(assignment: models.RoutineAssignment) -> schemas.RoutineAssignmentOut:
+    """La etiqueta de origen sale **siempre** del snapshot (`template_name`/
+    `template_tag`), nunca de la relación viva con `RoutineTemplate` (design
+    D2b): una copia huérfana (plantilla borrada) sigue mostrando su nombre de
+    origen tal cual estaba al momento de copiar."""
     return schemas.RoutineAssignmentOut(
         id=assignment.id,
         user_id=assignment.user_id,
         template_id=assignment.template_id,
-        template_name=template.name,
-        template_tag=template.tag or "",
+        template_name=assignment.template_name,
+        template_tag=assignment.template_tag or "",
         status=assignment.status.value,
         starts_on=assignment.starts_on,
         created_at=assignment.created_at,
-        adjustments_count=len(overrides),
-        last_adjustment=last_adjustment,
     )
 
 
@@ -175,16 +133,15 @@ def list_user_assignments(
     target = _get_user_or_404(db, user_id)
     require_can_manage_user(current_user, target.role)
 
-    # Sin filtrar por `membership_status` (invariante I13): dar de baja la
-    # membresía no oculta las asignaciones existentes.
+    # Sin filtrar por `membership_status`: dar de baja la membresía no oculta
+    # las asignaciones existentes.
     assignments = (
         db.query(models.RoutineAssignment)
-        .options(joinedload(models.RoutineAssignment.template))
         .filter(models.RoutineAssignment.user_id == target.id)
         .order_by(models.RoutineAssignment.created_at.desc())
         .all()
     )
-    return [_serialize_assignment(db, assignment) for assignment in assignments]
+    return [_serialize_assignment(assignment) for assignment in assignments]
 
 
 @router.post("", response_model=schemas.RoutineAssignmentOut, status_code=status.HTTP_201_CREATED)
@@ -194,12 +151,17 @@ def create_assignment(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_role(UserRole.owner, UserRole.coach)),
 ):
+    """Asignar **copia** la plantilla (design D5): `create_assignment` siempre
+    inserta una fila nueva — nunca un upsert (D2, se cayó el
+    `UniqueConstraint(user_id, template_id)`) —, y recién después de validar
+    membresía y rol copia días, grupos musculares y ejercicios en una sola
+    transacción."""
     target = _get_user_or_404(db, user_id)
     require_can_manage_user(current_user, target.role)
 
-    # Design D8: la membresía activa condiciona solo el alta. Mismo código (409)
-    # para "no es Miembro" y "sin membresía activa" — la spec exige ambas cosas
-    # a la vez y el design las resuelve con un único chequeo.
+    # La membresía activa condiciona solo el alta. Mismo código (409) para
+    # "no es Miembro" y "sin membresía activa" — la spec exige ambas cosas a
+    # la vez y el design las resuelve con un único chequeo.
     if target.role != UserRole.member or target.membership_status != models.MembershipStatus.active:
         raise HTTPException(
             status_code=409,
@@ -212,48 +174,23 @@ def create_assignment(
     if status_value == models.RoutineAssignmentStatus.active:
         _degrade_active_assignment(db, target.id)
 
-    assignment = (
-        db.query(models.RoutineAssignment)
-        .filter(
-            models.RoutineAssignment.user_id == target.id,
-            models.RoutineAssignment.template_id == template.id,
-        )
-        .first()
+    assignment = models.RoutineAssignment(
+        user_id=target.id,
+        template_id=template.id,
+        template_name=template.name,
+        template_tag=template.tag,
+        status=status_value,
+        starts_on=payload.starts_on or date.today(),
+        created_by_user_id=current_user.id,
     )
-    if assignment is None:
-        assignment = models.RoutineAssignment(
-            user_id=target.id,
-            template_id=template.id,
-            status=status_value,
-            starts_on=payload.starts_on or date.today(),
-            created_by_user_id=current_user.id,
-        )
-        db.add(assignment)
-    else:
-        # Reasignar la misma plantilla al mismo miembro es un upsert (design D6):
-        # actualiza estado (y fecha si se indicó) en vez de un 409 o una fila
-        # duplicada — `UniqueConstraint(user_id, template_id)` es la red de
-        # seguridad, no el camino esperado.
-        assignment.status = status_value
-        if payload.starts_on:
-            assignment.starts_on = payload.starts_on
+    db.add(assignment)
     db.flush()
 
-    for override in payload.base_overrides:
-        _validate_exercise_in_template(db, template, override.exercise_id)
-        _upsert_base_override(
-            db,
-            assignment.id,
-            override.exercise_id,
-            override.sets,
-            override.reps,
-            override.weight_kg,
-            current_user.id,
-        )
+    copy_days(db, source_template=template, assignment_id=assignment.id, current_user_id=current_user.id)
 
     db.commit()
     db.refresh(assignment)
-    return _serialize_assignment(db, assignment)
+    return _serialize_assignment(assignment)
 
 
 @router.patch("/{assignment_id}", response_model=schemas.RoutineAssignmentOut)
@@ -275,7 +212,7 @@ def update_assignment_status(
 
     db.commit()
     db.refresh(assignment)
-    return _serialize_assignment(db, assignment)
+    return _serialize_assignment(assignment)
 
 
 @router.delete("/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -289,67 +226,70 @@ def delete_assignment(
     require_can_manage_user(current_user, target.role)
     assignment = _get_assignment_or_404(db, user_id, assignment_id)
 
-    # Borra la asignación y sus ajustes de base por cascade. NO promueve ninguna
-    # Alternativa a Activa (requirement explícito, invariante I12): quitar es lo
-    # único que pasa acá, sin ningún efecto secundario sobre otras asignaciones.
+    # Borra la copia y sus días/ejercicios por cascade. Las marcas de progreso
+    # que la referencian quedan con `assignment_day_id IS NULL` (`SET NULL`,
+    # design D3/D7): no se tocan acá. NO promueve ninguna Alternativa a Activa
+    # (requirement explícito): quitar es lo único que pasa, sin efecto
+    # secundario sobre otras asignaciones.
     db.delete(assignment)
     db.commit()
 
 
-@router.put("/{assignment_id}/bases/{exercise_id}", response_model=schemas.RoutineAssignmentOut)
-def upsert_assignment_base(
+@router.get("/{assignment_id}", response_model=schemas.MemberRoutineTemplateOut)
+def get_assignment_detail(
     user_id: str,
     assignment_id: str,
-    exercise_id: str,
-    payload: schemas.RoutineAssignmentBaseUpdate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_role(UserRole.owner, UserRole.coach)),
 ):
+    """Detalle de la copia para el editor de Dueño/Coach (design D6, D8):
+    mismo shape que `MemberRoutineTemplateOut`, sin marca de hoy adjunta
+    (`logged` queda `None`: eso es exclusivo del plan del propio Miembro)."""
     target = _get_user_or_404(db, user_id)
     require_can_manage_user(current_user, target.role)
-    assignment = _get_assignment_or_404(db, user_id, assignment_id)
-    template = _get_template_with_days(db, assignment.template_id)
-    _validate_exercise_in_template(db, template, exercise_id)
+    assignment = _get_assignment_with_days(db, user_id, assignment_id)
 
-    _upsert_base_override(
-        db, assignment.id, exercise_id, payload.sets, payload.reps, payload.weight_kg, current_user.id
-    )
+    days = sorted(assignment.days, key=lambda item: item.position)
+    days_out = [serialize_day(day) for day in days]
 
-    db.commit()
-    db.refresh(assignment)
-    return _serialize_assignment(db, assignment)
+    assignment_out = _serialize_assignment(assignment)
+    return schemas.MemberRoutineTemplateOut(**assignment_out.model_dump(), days=days_out)
 
 
-@router.delete("/{assignment_id}/bases/{exercise_id}", response_model=schemas.RoutineAssignmentOut)
-def remove_assignment_base(
+@router.put("/{assignment_id}/days", response_model=schemas.MemberRoutineTemplateOut)
+def save_assignment_days(
     user_id: str,
     assignment_id: str,
-    exercise_id: str,
+    payload: schemas.RoutineTemplateDaysUpdate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_role(UserRole.owner, UserRole.coach)),
 ):
+    """Guardado de la copia de un Miembro por Dueño o Coach (design D6, D8):
+    mismo contrato de reemplazo completo con identidad explícita que el `PUT`
+    de plantillas, delegado en `routine_days.replace_days` — afecta
+    **únicamente** a esta copia (I3): ni a la plantilla origen ni a ninguna
+    otra copia."""
     target = _get_user_or_404(db, user_id)
     require_can_manage_user(current_user, target.role)
     assignment = _get_assignment_or_404(db, user_id, assignment_id)
 
-    override = (
-        db.query(models.RoutineAssignmentBase)
-        .filter(
-            models.RoutineAssignmentBase.assignment_id == assignment.id,
-            models.RoutineAssignmentBase.exercise_id == exercise_id,
-        )
-        .first()
+    replace_days(
+        db,
+        assignment.id,
+        payload.days,
+        descriptor=ASSIGNMENT_DESCRIPTOR,
+        current_user_id=current_user.id,
     )
-    if not override:
-        raise HTTPException(status_code=404, detail="No hay un ajuste de base para ese ejercicio")
-    db.delete(override)
 
     db.commit()
-    db.refresh(assignment)
-    return _serialize_assignment(db, assignment)
+
+    assignment = _get_assignment_with_days(db, user_id, assignment_id)
+    days_out = [serialize_day(day) for day in sorted(assignment.days, key=lambda item: item.position)]
+    assignment_out = _serialize_assignment(assignment)
+    return schemas.MemberRoutineTemplateOut(**assignment_out.model_dump(), days=days_out)
 
 
-# --- Endpoints del Miembro (`member-routine-view`) --------------------------
+# --- Endpoints del Miembro (`member-routine-view`, `routine-progress-tracking`) --
 
 
 @my_router.get("", response_model=list[schemas.RoutineAssignmentOut])
@@ -357,50 +297,43 @@ def list_my_templates(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Todas las copias del Miembro (Activas y Alternativas), ordenadas por
+    `created_at desc` (design D6, D9): un Miembro sin ninguna Activa puede
+    elegir y entrenar cualquiera de sus Alternativas."""
     member = _require_member(current_user)
     assignments = (
         db.query(models.RoutineAssignment)
-        .options(joinedload(models.RoutineAssignment.template))
         .filter(models.RoutineAssignment.user_id == member.id)
         .order_by(models.RoutineAssignment.created_at.desc())
         .all()
     )
-    return [_serialize_assignment(db, assignment) for assignment in assignments]
+    return [_serialize_assignment(assignment) for assignment in assignments]
 
 
-def _serialize_member_exercise(
-    link: models.RoutineTemplateDayExercise, overrides: dict[str, models.RoutineAssignmentBase]
-) -> schemas.RoutineTemplateExerciseOut:
-    exercise = link.exercise
-    sets, reps, weight_kg = _resolve_base(link, overrides)
-    planned = plan_sets(link.strategy, sets=sets, reps=reps, weight_kg=weight_kg)
-    return schemas.RoutineTemplateExerciseOut(
-        exercise_id=exercise.id,
-        name=exercise.name,
-        muscle_group=exercise.muscle_group,
-        base=schemas.ExerciseBaseOut(sets=sets, reps=reps, weight_kg=weight_kg),
-        strategy=link.strategy.value,
-        planned_sets=[
-            schemas.PlannedSetOut(index=item.index, weight_kg=item.weight_kg, reps=item.reps, note=item.note)
-            for item in planned
-        ],
+def _logged_sets_today(
+    db: Session, *, user_id: str, assignment_day_ids: list[str]
+) -> dict[tuple[str, str, int], schemas.LoggedSetOut]:
+    """Marcas de **hoy** (`performed_on = now_ar().date()`) de los días de esta
+    copia, indexadas por `(assignment_day_id, exercise_id, set_index)` (design
+    D6): un solo query para toda la pantalla de ejecución."""
+    if not assignment_day_ids:
+        return {}
+    today = now_ar().date()
+    logs = (
+        db.query(models.WorkoutSetLog)
+        .filter(
+            models.WorkoutSetLog.user_id == user_id,
+            models.WorkoutSetLog.assignment_day_id.in_(assignment_day_ids),
+            models.WorkoutSetLog.performed_on == today,
+        )
+        .all()
     )
-
-
-def _serialize_member_day(
-    day: models.RoutineTemplateDay, overrides: dict[str, models.RoutineAssignmentBase]
-) -> schemas.RoutineTemplateDayOut:
-    muscle_groups = [item.muscle_group for item in sorted(day.muscle_groups, key=lambda m: m.sort_order)]
-    return schemas.RoutineTemplateDayOut(
-        day_id=day.id,
-        name=f"Día {day.position}" + (f" - {'/'.join(muscle_groups)}" if muscle_groups else ""),
-        muscle_groups=muscle_groups,
-        position=day.position,
-        exercises=[
-            _serialize_member_exercise(link, overrides)
-            for link in sorted(day.exercises, key=lambda item: item.sort_order)
-        ],
-    )
+    return {
+        (log.assignment_day_id, log.exercise_id, log.set_index): schemas.LoggedSetOut(
+            weight_kg=log.weight_kg, reps=log.reps, performed_at=log.performed_at
+        )
+        for log in logs
+    }
 
 
 @my_router.get("/{assignment_id}", response_model=schemas.MemberRoutineTemplateOut)
@@ -409,47 +342,26 @@ def get_my_template(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """Sin `configs_by_key` ni predicados de fallback (design D10): los
-    ejercicios que ve el Miembro son exactamente los de
-    `routine_template_day_exercises` de los días de la plantilla asignada
-    (I7) — estar en la tabla **es** estar en el plan. Los cambios del Coach se
-    ven en el próximo request (I8): la asignación es una referencia, no una
-    copia."""
+    """Lee la **copia** del Miembro (design D6, ya no la plantilla): los
+    ejercicios que ve son exactamente los de `routine_assignment_day_exercises`
+    de esta copia (I14), sin importar qué le haya pasado desde entonces a la
+    plantilla origen (I4). Cada `PlannedSetOut` gana `logged` con la marca de
+    **hoy** del mismo `set_index`, solo para índices dentro del plan vigente."""
     member = _require_member(current_user)
+    assignment = _get_assignment_with_days(db, member.id, assignment_id)
 
-    assignment = (
-        db.query(models.RoutineAssignment)
-        .options(
-            joinedload(models.RoutineAssignment.template)
-            .joinedload(models.RoutineTemplate.days)
-            .joinedload(models.RoutineTemplateDay.muscle_groups),
-            joinedload(models.RoutineAssignment.template)
-            .joinedload(models.RoutineTemplate.days)
-            .joinedload(models.RoutineTemplateDay.exercises)
-            .joinedload(models.RoutineTemplateDayExercise.exercise),
-        )
-        .filter(
-            models.RoutineAssignment.id == assignment_id,
-            models.RoutineAssignment.user_id == member.id,
-        )
-        .first()
-    )
-    if not assignment:
-        # 404, no 403: pedir la asignación de otro Miembro no filtra existencia
-        # (invariante I7).
-        raise HTTPException(status_code=404, detail="Asignación no encontrada")
+    days = sorted(assignment.days, key=lambda item: item.position)
+    logged = _logged_sets_today(db, user_id=member.id, assignment_day_ids=[day.id for day in days])
 
-    template = assignment.template
-    days = sorted(template.days, key=lambda item: item.position)
+    def _logged_provider_factory(day_id: str):
+        def _provider(exercise_id: str, set_index: int) -> schemas.LoggedSetOut | None:
+            return logged.get((day_id, exercise_id, set_index))
 
-    overrides = {
-        override.exercise_id: override
-        for override in db.query(models.RoutineAssignmentBase)
-        .filter(models.RoutineAssignmentBase.assignment_id == assignment.id)
-        .all()
-    }
+        return _provider
 
-    days_out = [_serialize_member_day(day, overrides) for day in days]
+    days_out = [
+        serialize_day(day, logged_provider_factory=_logged_provider_factory) for day in days
+    ]
 
-    assignment_out = _serialize_assignment(db, assignment)
+    assignment_out = _serialize_assignment(assignment)
     return schemas.MemberRoutineTemplateOut(**assignment_out.model_dump(), days=days_out)
