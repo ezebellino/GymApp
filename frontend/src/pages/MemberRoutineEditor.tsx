@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { ArrowLeft, LayoutTemplate } from "lucide-react";
+import { ArrowLeft, FileDown, LayoutTemplate } from "lucide-react";
 import {
   useAssignmentDetailQuery,
   useSaveAssignmentDaysMutation,
@@ -12,7 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import DataError from "@/components/DataError";
 import RoutineDaysEditor from "@/components/routine/RoutineDaysEditor";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
-import { toastSuccess } from "@/lib/toast";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { useSettingsStore } from "@/stores/settings";
+import { readIntensityScale } from "@/lib/intensity";
 
 // Editor de la copia de rutina de un Miembro (`member-routine-copies`, design
 // D8/D10): cáscara sobre `RoutineDaysEditor`, igual que
@@ -24,6 +26,10 @@ export default function MemberRoutineEditor() {
   const { id: userId, assignmentId } = useParams<{ id: string; assignmentId: string }>();
 
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const gymName = useSettingsStore((s) => s.settings.gym_name);
+  const trainerName = useSettingsStore((s) => s.settings.admin_name);
 
   const { data: user } = useUserQuery(userId);
   const {
@@ -67,6 +73,34 @@ export default function MemberRoutineEditor() {
     }
   }
 
+  // Exporta la copia **tal como está guardada** (`assignment`), no el
+  // borrador del editor: si hay cambios sin guardar, el PDF no los trae.
+  async function handleExportPdf() {
+    if (!assignment) return;
+    setIsExporting(true);
+    try {
+      // `@react-pdf/renderer` pesa: el módulo se baja recién acá, no en la
+      // carga de la vista.
+      const { exportRoutinePdf } = await import("@/lib/routinePdf");
+      await exportRoutinePdf({
+        memberName: user?.full_name ?? "Miembro",
+        templateName: assignment.template_name,
+        templateTag: assignment.template_tag,
+        startsOn: assignment.starts_on,
+        days: assignment.days,
+        gymName,
+        trainerName,
+        // Misma preferencia de escala que usa el editor (`lib/intensity.ts`):
+        // el PDF imprime la intensidad como la viene leyendo quien exporta.
+        intensityScale: readIntensityScale(),
+      });
+    } catch {
+      toastError("No se pudo generar el PDF", "Intentá nuevamente en unos instantes.");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <section className="hero-aura rounded-xl border border-border p-6">
@@ -98,6 +132,18 @@ export default function MemberRoutineEditor() {
               </div>
             </div>
           </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleExportPdf}
+            disabled={isExporting}
+            title="Descargar la planilla de entrenamiento en PDF"
+            className="border-border bg-surface-2/40 text-foreground hover:border-primary/30 hover:bg-surface-2/70"
+          >
+            <FileDown className="mr-2 h-4 w-4" />
+            {isExporting ? "Generando..." : "Exportar PDF"}
+          </Button>
         </div>
       </section>
 

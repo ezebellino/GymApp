@@ -16,6 +16,13 @@ vi.mock("@/lib/http", async () => {
   return createApiMock();
 });
 
+// `MemberRoutineEditor` baja `@/lib/routinePdf` con un `import()` dinámico:
+// mockear el módulo entero evita renderizar un PDF de verdad en el test (y
+// el `vi.mock` intercepta igual el import dinámico).
+vi.mock("@/lib/routinePdf", () => ({
+  exportRoutinePdf: vi.fn(() => Promise.resolve()),
+}));
+
 function makeAssignmentDetail(
   overrides: Partial<MemberRoutineTemplate> = {}
 ): MemberRoutineTemplate {
@@ -41,6 +48,8 @@ function makeAssignmentDetail(
             muscle_group: "Pecho",
             base: { sets: 4, reps: 8, weight_kg: 45 },
             strategy: "constant",
+            rir: null,
+            rest_seconds: null,
             planned_sets: [
               { index: 1, weight_kg: 45, reps: 8, note: null },
               { index: 2, weight_kg: 45, reps: 8, note: null },
@@ -129,7 +138,13 @@ describe("editor de la copia de rutina de un Miembro", () => {
             day_id: "day-1",
             muscle_groups: ["Pecho"],
             exercises: [
-              { exercise_id: "ex-1", strategy: "constant", base: { sets: 4, reps: 8, weight_kg: 45 } },
+              {
+                exercise_id: "ex-1",
+                strategy: "constant",
+                base: { sets: 4, reps: 8, weight_kg: 45 },
+                rir: null,
+                rest_seconds: null,
+              },
             ],
           },
           { day_id: null, muscle_groups: [], exercises: [] },
@@ -205,5 +220,27 @@ describe("editor de la copia de rutina de un Miembro", () => {
     // `Badge` vacío): `data-slot="badge"` es el selector estable del
     // componente (`components/ui/badge.tsx`).
     expect(document.querySelector('[data-slot="badge"]')).toBeNull();
+  });
+
+  it("exporta la copia guardada a la planilla en PDF", async () => {
+    const detail = makeAssignmentDetail({});
+    mockGet(detail);
+    const { exportRoutinePdf } = await import("@/lib/routinePdf");
+
+    renderAt("/users/u-1/routine/assign-1");
+    await screen.findByText("Press banca");
+
+    fireEvent.click(screen.getByRole("button", { name: /Exportar PDF/ }));
+
+    await waitFor(() => {
+      expect(exportRoutinePdf).toHaveBeenCalledWith(
+        expect.objectContaining({
+          templateName: "Fuerza 4 días",
+          templateTag: "FUERZA",
+          startsOn: "2026-01-01",
+          days: detail.days,
+        })
+      );
+    });
   });
 });

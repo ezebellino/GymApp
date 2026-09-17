@@ -42,6 +42,8 @@ function makeExercise(overrides: Partial<RoutineTemplateExercise> = {}): Routine
     muscle_group: "Pecho",
     base: { sets: 4, reps: 8, weight_kg: 45 },
     strategy: "constant",
+    rir: null,
+    rest_seconds: null,
     planned_sets: [{ index: 1, weight_kg: 45, reps: 8, note: null }],
     ...overrides,
   };
@@ -521,4 +523,37 @@ describe("vista Mi rutina", () => {
     });
     expect(await screen.findByText(/Peso muerto · #1 · 120 kg × 8/)).toBeInTheDocument();
   });
+
+  // --- Prescripción visible al entrenar (`routine-exercise-intensity`) -------
+
+  function mockOneExercise(exercise: RoutineTemplateExercise) {
+    const assignments = [makeAssignment()];
+    const detail = makeDetail({ days: [{ ...makeDetail().days[0], exercises: [exercise] }] });
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url === "/routines/my/templates") return jsonResponse(assignments);
+      if (url === "/routines/my/templates/assign-1") return jsonResponse(detail);
+      return jsonResponse([]);
+    });
+  }
+
+  it("muestra el RIR y la pausa prescritos del ejercicio", async () => {
+    mockOneExercise(makeExercise({ rir: 2, rest_seconds: 90 }));
+
+    renderWithProviders(<UserRoutine />, { route: "/my-routine" });
+    await screen.findByText("Press banca");
+
+    expect(await screen.findByText("RIR 2")).toBeInTheDocument();
+    expect(screen.getByText("Pausa 1 min 30 s")).toBeInTheDocument();
+  });
+
+  it("un ejercicio sin prescripción no muestra etiquetas vacías", async () => {
+    mockOneExercise(makeExercise());
+
+    renderWithProviders(<UserRoutine />, { route: "/my-routine" });
+    await screen.findByText("Press banca");
+
+    expect(screen.queryByText(/^RIR/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Pausa/)).not.toBeInTheDocument();
+  });
+
 });

@@ -39,6 +39,8 @@ function makeTemplate(
             muscle_group: "Pecho",
             base: { sets: 4, reps: 8, weight_kg: 45 },
             strategy: "constant",
+            rir: null,
+            rest_seconds: null,
             planned_sets: [
               { index: 1, weight_kg: 45, reps: 8, note: null },
               { index: 2, weight_kg: 45, reps: 8, note: null },
@@ -136,7 +138,13 @@ describe("detalle de plantilla de rutina — borrador y guardado", () => {
             day_id: "day-1",
             muscle_groups: ["Pecho", "Tríceps"],
             exercises: [
-              { exercise_id: "ex-1", strategy: "constant", base: { sets: 4, reps: 8, weight_kg: 45 } },
+              {
+                exercise_id: "ex-1",
+                strategy: "constant",
+                base: { sets: 4, reps: 8, weight_kg: 45 },
+                rir: null,
+                rest_seconds: null,
+              },
             ],
           },
           { day_id: null, muscle_groups: [], exercises: [] },
@@ -274,7 +282,13 @@ describe("detalle de plantilla de rutina — borrador y guardado", () => {
             day_id: "day-1",
             muscle_groups: ["Pecho", "Tríceps"],
             exercises: [
-              { exercise_id: "ex-1", strategy: "constant", base: { sets: 5, reps: 6, weight_kg: 50 } },
+              {
+                exercise_id: "ex-1",
+                strategy: "constant",
+                base: { sets: 5, reps: 6, weight_kg: 50 },
+                rir: null,
+                rest_seconds: null,
+              },
             ],
           },
         ],
@@ -372,7 +386,13 @@ describe("detalle de plantilla de rutina — borrador y guardado", () => {
             day_id: "day-1",
             muscle_groups: ["Pecho", "Tríceps"],
             exercises: [
-              { exercise_id: "ex-1", strategy: "rest_pause", base: { sets: 4, reps: 8, weight_kg: 45 } },
+              {
+                exercise_id: "ex-1",
+                strategy: "rest_pause",
+                base: { sets: 4, reps: 8, weight_kg: 45 },
+                rir: null,
+                rest_seconds: null,
+              },
             ],
           },
         ],
@@ -438,6 +458,110 @@ describe("detalle de plantilla de rutina — borrador y guardado", () => {
 
     expect(screen.queryByText("Día 2")).toBeNull();
     expect(screen.getByText("Día 1 - Pecho/Tríceps")).toBeInTheDocument();
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
+  // --- RIR/pausa (`routine-exercise-intensity`) ------------------------------
+
+  it("edita el RIR y la pausa de un ejercicio y los manda en el guardado", async () => {
+    const template = makeTemplate({});
+    mockGet(template);
+    vi.mocked(api.put).mockImplementation(() => jsonResponse(template));
+
+    renderAt("/routines/tpl-1");
+    await screen.findByText("Press banca");
+
+    fireEvent.change(screen.getByLabelText("RIR del ejercicio"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("Pausa entre series, en segundos"), {
+      target: { value: "90" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Guardar configuración/ }));
+
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith("/routines/templates/tpl-1/days", {
+        days: [
+          {
+            day_id: "day-1",
+            muscle_groups: ["Pecho", "Tríceps"],
+            exercises: [
+              {
+                exercise_id: "ex-1",
+                strategy: "constant",
+                base: { sets: 4, reps: 8, weight_kg: 45 },
+                rir: 2,
+                rest_seconds: 90,
+              },
+            ],
+          },
+        ],
+      });
+    });
+  });
+
+  it("anotar en RPE guarda el RIR equivalente", async () => {
+    const template = makeTemplate({});
+    mockGet(template);
+    vi.mocked(api.put).mockImplementation(() => jsonResponse(template));
+
+    renderAt("/routines/tpl-1");
+    await screen.findByText("Press banca");
+
+    // La etiqueta del campo es el toggle de escala: RPE 8 es RIR 2, y lo que
+    // viaja al servidor es SIEMPRE el RIR.
+    fireEvent.click(screen.getByRole("button", { name: /Escala de intensidad: RIR/ }));
+    fireEvent.change(screen.getByLabelText("RPE del ejercicio"), { target: { value: "8" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /Guardar configuración/ }));
+
+    await waitFor(() => {
+      const [, body] = vi.mocked(api.put).mock.calls[0];
+      expect((body as any).days[0].exercises[0].rir).toBe(2);
+    });
+  });
+
+  it("vaciar el campo borra la prescripción en vez de dejar el valor anterior", async () => {
+    const template = makeTemplate({});
+    template.days[0].exercises[0].rir = 3;
+    template.days[0].exercises[0].rest_seconds = 60;
+    mockGet(template);
+    vi.mocked(api.put).mockImplementation(() => jsonResponse(template));
+
+    renderAt("/routines/tpl-1");
+    await screen.findByText("Press banca");
+
+    fireEvent.change(screen.getByLabelText("RIR del ejercicio"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Pausa entre series, en segundos"), {
+      target: { value: "" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Guardar configuración/ }));
+
+    await waitFor(() => {
+      const [, body] = vi.mocked(api.put).mock.calls[0];
+      expect((body as any).days[0].exercises[0].rir).toBeNull();
+      expect((body as any).days[0].exercises[0].rest_seconds).toBeNull();
+    });
+  });
+
+  it("un RIR fuera de la escala no se aplica al borrador", async () => {
+    const template = makeTemplate({});
+    template.days[0].exercises[0].rir = 2;
+    mockGet(template);
+    vi.mocked(api.put).mockImplementation(() => jsonResponse(template));
+
+    renderAt("/routines/tpl-1");
+    await screen.findByText("Press banca");
+
+    const input = screen.getByLabelText("RIR del ejercicio");
+    fireEvent.change(input, { target: { value: "11" } });
+
+    // El input deja ver lo tipeado (no se pelea con quien escribe), pero el
+    // borrador no se toca: sin cambio real no hay nada que guardar.
+    expect(input).toHaveValue(11);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Guardar configuración/ })).toBeDisabled();
+    });
     expect(api.put).not.toHaveBeenCalled();
   });
 });

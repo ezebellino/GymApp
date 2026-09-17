@@ -444,6 +444,13 @@ class RoutineTemplateDayExercise(Base):
         Float, nullable=False, default=DEFAULT_EXERCISE_BASE_WEIGHT_KG,
         server_default=str(DEFAULT_EXERCISE_BASE_WEIGHT_KG),
     )
+    # `routine-exercise-intensity`: RIR (repeticiones en reserva) y pausa entre
+    # series, ambos opcionales — un ejercicio puede no prescribirlos. Se guarda
+    # SIEMPRE el RIR, nunca el RPE: son la misma escala invertida
+    # (RPE = 10 - RIR) y el frontend convierte para mostrar. `rir` es Float
+    # porque la escala admite medios (RIR 1.5 ⇔ RPE 8.5).
+    rir = Column(Float, nullable=True)
+    rest_seconds = Column(Integer, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     updated_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
@@ -580,6 +587,13 @@ class RoutineAssignmentDayExercise(Base):
         Float, nullable=False, default=DEFAULT_EXERCISE_BASE_WEIGHT_KG,
         server_default=str(DEFAULT_EXERCISE_BASE_WEIGHT_KG),
     )
+    # `routine-exercise-intensity`: RIR (repeticiones en reserva) y pausa entre
+    # series, ambos opcionales — un ejercicio puede no prescribirlos. Se guarda
+    # SIEMPRE el RIR, nunca el RPE: son la misma escala invertida
+    # (RPE = 10 - RIR) y el frontend convierte para mostrar. `rir` es Float
+    # porque la escala admite medios (RIR 1.5 ⇔ RPE 8.5).
+    rir = Column(Float, nullable=True)
+    rest_seconds = Column(Integer, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     updated_by_user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 

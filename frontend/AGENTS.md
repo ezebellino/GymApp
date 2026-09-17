@@ -366,6 +366,49 @@ completo con acciones).
     simultáneo encuentre dos elementos). El botón "+ Asignar plantilla" solo se ofrece con
     `canManageUser(...)` **y** `membership_status === "active"`; la lista de copias sigue completa
     aunque la membresía esté dada de baja.
+  - **RIR/RPE y pausa por ejercicio** (`routine-exercise-intensity`): dos campos opcionales junto
+    a la base, editables en el editor de días (plantilla **y** copia — es el mismo componente) con
+    `components/routine/ExerciseIntensityFields.tsx`, visibles en solo lectura en "Mi rutina" y
+    impresos en las columnas RIR/RPE y PAUSA del PDF. Reglas:
+    - **`lib/intensity.ts` es la única fuente de la conversión y del formato.** El modelo guarda
+      un solo número, el **RIR**; el RPE se deriva (`RPE = 10 − RIR`). Nunca escribas esa resta
+      en un componente ni guardes un `rpe`.
+    - **La etiqueta del campo es el toggle de escala**, y la preferencia es **global del editor**:
+      alternarla en una fila las cambia todas. Vive en `localStorage`
+      (`routine_intensity_scale`), con `try/catch` en lectura y escritura — es cómo prefiere leerlo
+      quien mira, no un dato de la rutina, así que **no** es un store (los stores persistidos
+      siguen siendo tres) ni viaja al backend. `MemberRoutineEditor` la pasa al PDF para que la
+      planilla se imprima en la misma escala.
+    - **`null` es "sin prescribir" y es distinto de `0`**: RIR 0 (al fallo) es un valor legítimo.
+      Cuidado con los `if (!rir)` — borran el 0. Un campo vacío guarda `null` y **borra** lo que
+      hubiera (el `PUT` es de reemplazo para estos dos, ver `backend/AGENTS.md`).
+    - **Un valor inválido no se aplica al borrador pero tampoco revierte el input**: los parsers
+      devuelven `undefined` ("no lo apliques") y el componente mantiene su texto local, así no se
+      pelea con quien está tipeando.
+    - **El PDF usa `formatRestCompact` y la app `formatRest`**: "1 min 30 s" no entra en los ~40pt
+      de la columna PAUSA y wrapea deformando la fila, así que ahí va "1:30".
+  - **Exportar la copia a la planilla imprimible en PDF**: el header de
+    `pages/MemberRoutineEditor.tsx` ofrece "Exportar PDF" (icono `FileDown`) — entra en la
+    excepción declarada arriba: es un botón de **cabecera de página**, no una acción de fila, así
+    que lleva icono + texto y no pasa por `RowActionButton`. El documento es
+    `components/routine/RoutineSheet.tsx` (`@react-pdf/renderer`, A4 vertical: un bloque por día
+    + la evaluación del mesociclo al pie, calcado del modelo impreso del entrenador) y
+    `lib/routinePdf.tsx` es quien lo renderiza y dispara la descarga
+    (`buildRoutinePdfBlob`/`exportRoutinePdf`/`routinePdfFilename`). Reglas:
+    - **Los dos archivos están separados por el lint, no por gusto**: `react-refresh/
+      only-export-components` da error si un archivo exporta componentes **y** funciones. El
+      documento exporta solo `RoutineSheet`; el disparador solo funciones.
+    - **El caller difiere la carga, no el módulo**: `@react-pdf/renderer` pesa ~457 KB gzip y
+      queda en su propio chunk porque la página hace `await import("@/lib/routinePdf")` recién al
+      tocar el botón. Un `import()` dentro de `routinePdf.tsx` no serviría — sus componentes ya
+      traen el renderer. No lo importes estáticamente desde una vista.
+    - **Exporta la copia guardada (`assignment`), no el borrador**: si hay cambios sin guardar en
+      el editor, el PDF no los trae.
+    - **Las columnas RIR/RPE y PAUSA van vacías a propósito** (el modelo de datos no las tiene) y
+      de las cuatro semanas de registro de cargas solo se prellena SEM 1 con la carga
+      planificada: la planilla se termina de completar a mano.
+    - **Un día no se parte entre hojas** (`wrap={false}` en el bloque): si no entra entero,
+      arranca en la siguiente. Con el mínimo de 8 renglones entran tres días por hoja.
   - **Ejecución del Miembro** (`pages/UserRoutine.tsx`, `/my-routine`): ya no es de solo lectura.
     El Miembro elige entre **todas** sus copias asignadas (Activas y Alternativas) — por defecto la
     Activa y, sin ninguna, la más reciente — y marca cada serie planificada (`PUT
@@ -621,7 +664,7 @@ completo con acciones).
     se muestran los días de la copia asignada, y que un ejercicio quitado del día de la copia ya no
     aparece en el plan. `pages/__tests__/MemberRoutineEditor.test.tsx` (archivo nuevo) cubre
     guardar los días de la copia con un solo `PUT` a la asignación (no a la plantilla) y que no
-    deja agregar un sexto día. `pages/__tests__/MemberProgress.test.tsx` (archivo nuevo) cubre
+    deja agregar un sexto día. Suma de la exportación a PDF: ese mismo archivo cubre que "Exportar PDF" llama a `exportRoutinePdf` con los datos de la copia (mockeando `@/lib/routinePdf` entero — `vi.mock` intercepta también el `import()` dinámico), y `lib/__tests__/routinePdf.test.tsx` cubre la paginación de la planilla contando los objetos `/Type /Page` del PDF (una rutina corta en una hoja, cinco días en dos, y que los días largos ocupan más hojas) más el slug del nombre de archivo. Suma de `routine-exercise-intensity`: `lib/__tests__/intensity.test.ts` (conversión RIR↔RPE ida y vuelta con medios, que RIR 0 no se confunde con "sin prescribir", los dos formatos de pausa, el parseo de lo tipeado incluida la coma decimal y el rechazo de fuera de escala, y la preferencia de `localStorage` con un valor basura cayendo a RIR); `pages/__tests__/RoutineTemplateDetail.test.tsx` suma editar RIR y pausa y mandarlos en el `PUT`, que anotar en RPE guarda el RIR equivalente, que vaciar el campo manda `null` (no conserva el valor previo) y que un RIR fuera de escala deja el borrador limpio — el botón de guardar sigue deshabilitado; `pages/__tests__/UserRoutine.test.tsx` suma que el Miembro ve las badges de prescripción y que un ejercicio sin prescribir no renderiza etiquetas vacías. **Ojo al tocar el editor**: los payloads esperados de los tests de guardado incluyen ahora `rir`/`rest_seconds` en cada ejercicio, porque viajan siempre. **Ojo**: bajo jsdom los streams comprimidos del PDF salen corruptos (vitest resuelve el build de navegador de react-pdf) — la estructura de objetos sobrevive, que es lo que esos tests leen, pero para mirar el PDF de verdad hay que generarlo fuera de la suite. `pages/__tests__/MemberProgress.test.tsx` (archivo nuevo) cubre
     filtrar el histórico por ejercicio, que el filtro ofrece un ejercicio que ya no está en la
     copia (viene del histórico, no de la copia vigente) y el aviso explícito de "sin progreso
     registrado" en vez de tabla y gráfico vacíos. Suma en `pages/__tests__/Users.test.tsx`: el

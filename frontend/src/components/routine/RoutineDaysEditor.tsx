@@ -25,6 +25,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StrategyChips from "@/components/StrategyChips";
 import PlannedSetsList from "@/components/PlannedSetsList";
 import EditExerciseBaseDialog from "@/components/EditExerciseBaseDialog";
+import ExerciseIntensityFields from "@/components/routine/ExerciseIntensityFields";
+import {
+  readIntensityScale,
+  writeIntensityScale,
+  type IntensityScale,
+} from "@/lib/intensity";
 import EditDayMuscleGroupsDialog from "@/components/routine/EditDayMuscleGroupsDialog";
 
 // Editor de días compartido por la plantilla (`RoutineTemplateDetail.tsx`) y
@@ -46,6 +52,16 @@ type Props = {
 };
 
 export default function RoutineDaysEditor({ detail, onSave, isSaving, saveError }: Props) {
+  // Escala de anotación de la intensidad: preferencia de quien mira, global
+  // al editor y persistida en `localStorage` (no es un dato de la rutina —
+  // ver `lib/intensity.ts`). Inicializador lazy: `localStorage` puede tirar.
+  const [intensityScale, setIntensityScale] = useState<IntensityScale>(() => readIntensityScale());
+
+  function changeIntensityScale(scale: IntensityScale) {
+    setIntensityScale(scale);
+    writeIntensityScale(scale);
+  }
+
   const [editingBase, setEditingBase] = useState<{ dayKey: string; exercise: DraftExercise } | null>(
     null,
   );
@@ -144,6 +160,14 @@ export default function RoutineDaysEditor({ detail, onSave, isSaving, saveError 
             onSetStrategy={(exerciseId, strategy) =>
               dispatch({ type: "SET_EXERCISE_STRATEGY", key: day.key, exerciseId, strategy })
             }
+            intensityScale={intensityScale}
+            onIntensityScaleChange={changeIntensityScale}
+            onSetRir={(exerciseId, rir) =>
+              dispatch({ type: "SET_EXERCISE_RIR", key: day.key, exerciseId, rir })
+            }
+            onSetRest={(exerciseId, restSeconds) =>
+              dispatch({ type: "SET_EXERCISE_REST", key: day.key, exerciseId, restSeconds })
+            }
           />
         ))}
 
@@ -216,6 +240,10 @@ type DayCardProps = {
   onMoveExercise: (exerciseId: string, direction: "up" | "down") => void;
   onEditBase: (exercise: DraftExercise) => void;
   onSetStrategy: (exerciseId: string, strategy: ProgressionStrategy) => void;
+  intensityScale: IntensityScale;
+  onIntensityScaleChange: (scale: IntensityScale) => void;
+  onSetRir: (exerciseId: string, rir: number | null) => void;
+  onSetRest: (exerciseId: string, restSeconds: number | null) => void;
 };
 
 function DayCard({
@@ -230,6 +258,10 @@ function DayCard({
   onMoveExercise,
   onEditBase,
   onSetStrategy,
+  intensityScale,
+  onIntensityScaleChange,
+  onSetRir,
+  onSetRest,
 }: DayCardProps) {
   const [query, setQuery] = useState("");
   const [editingMuscleGroups, setEditingMuscleGroups] = useState(false);
@@ -404,6 +436,15 @@ function DayCard({
               <StrategyChips
                 value={exercise.strategy}
                 onChange={(strategy) => onSetStrategy(exercise.exercise_id, strategy)}
+              />
+
+              <ExerciseIntensityFields
+                rir={exercise.rir}
+                restSeconds={exercise.rest_seconds}
+                scale={intensityScale}
+                onScaleChange={onIntensityScaleChange}
+                onRirChange={(rir) => onSetRir(exercise.exercise_id, rir)}
+                onRestChange={(restSeconds) => onSetRest(exercise.exercise_id, restSeconds)}
               />
 
               <ExercisePlanPreview exercise={exercise} />

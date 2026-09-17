@@ -109,6 +109,22 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
     ejercicio en dos días, o en dos plantillas, tiene base y estrategia completamente
     independientes. `RoutineTemplateDay` no tiene columna `name`: el título "Día N" se deriva de
     `position` en el serializador.
+  - **`rir` y `rest_seconds`** (`routine-exercise-intensity`) viven junto a la base, en las **dos**
+    tablas espejo de ejercicio (`RoutineTemplateDayExercise` y `RoutineAssignmentDayExercise`), las
+    dos nullable — `NULL` es "sin prescribir", un estado legítimo y el default. Reglas que no se
+    negocian:
+    - **Se guarda RIR, nunca RPE.** Son la misma escala invertida (`RPE = 10 - RIR`) y la
+      conversión la hace el frontend (`lib/intensity.ts`). El servidor no conoce el RPE: si
+      aparece un `rpe` en un schema o en una columna, es un bug de diseño, no una feature.
+    - `rir` es `Float`, no `Integer`: la escala admite medios (RIR 1.5 ⇔ RPE 8.5). Validado
+      `0 <= rir <= 10` y `0 <= rest_seconds <= 3600` en el schema de entrada.
+    - **En el `PUT` de días son de reemplazo, no de "ausente ⇒ conservar"** — a diferencia de
+      `strategy`/`base`, que conservan lo guardado cuando no vienen. El borrador del frontend manda
+      siempre el estado completo, así que un `null` significa "le quitaron la prescripción" y
+      borra. Está cubierto por `test_guardar_sin_rir_borra_el_que_habia`.
+    - No participan del motor de progresión: `plan_sets(...)` sigue tomando solo
+      `(strategy, sets, reps, weight_kg)`. Son prescripción para quien entrena, no input de cálculo
+      — por eso van **al lado** de la base y no adentro de `ExerciseBaseIn`.
   - `app/routers/routine_templates.py` (`/routines/templates`, owner+coach):
     - `POST` toma solo `{name, tag}` y crea la plantilla **y** su Día 1 vacío en la misma
       transacción — la invariante "toda plantilla tiene ≥1 día" vale desde el `INSERT`, sin
@@ -165,7 +181,10 @@ python -m scripts.seed_dev_users   # crea/actualiza los 3 usuarios de desarrollo
     mismas funciones — nunca reimplementes esta lógica en un router, el punto de este módulo es que
     no exista una tercera copia. `copy_days` (design D5) es la única forma de poblar una copia
     nueva: recorre la plantilla origen día por día, grupo por grupo y ejercicio por ejercicio,
-    fiel incluso a un ejercicio inactivo que ya estaba en la plantilla.
+    fiel incluso a un ejercicio inactivo que ya estaba en la plantilla. Un campo nuevo de
+    `RoutineTemplateDayExercise` hay que sumarlo en **tres** puntos de este módulo, no en uno:
+    `serialize_exercise` (sale en el `Out`), `replace_days` (alta y update del par) y `copy_days`
+    (lo hereda la copia del Miembro) — así se agregaron `rir`/`rest_seconds`.
   - **`WorkoutSetLog`** (`routine-progress-tracking`, design D3) reemplaza a `WorkoutLog`/
     `RoutineAssignmentBase` con un cambio de grano: **una fila = una serie marcada**, no un
     ejercicio con `sets_count`. La serie planificada que la originó no es una fila propia: sale de

@@ -544,6 +544,11 @@ class RoutineTemplateExerciseOut(BaseSchema):
     muscle_group: Optional[str] = None
     base: ExerciseBaseOut
     strategy: ProgressionStrategyLiteral
+    # `routine-exercise-intensity`: intensidad y descanso prescritos, los dos
+    # opcionales. `rir` viaja SIEMPRE como RIR — el RPE es la misma escala
+    # invertida (RPE = 10 - rir) y lo deriva el cliente, no el servidor.
+    rir: Optional[float] = None
+    rest_seconds: Optional[int] = None
     planned_sets: list[PlannedSetOut]
 
 
@@ -638,6 +643,13 @@ class RoutineTemplateDayExerciseInput(BaseSchema):
     exercise_id: str
     strategy: Optional[ProgressionStrategyLiteral] = None
     base: Optional[ExerciseBaseIn] = None
+    # `routine-exercise-intensity`: a diferencia de `strategy`/`base`, estos
+    # dos son de **reemplazo**, no de "ausente ⇒ conservar": el borrador manda
+    # siempre el estado completo, así que `None` significa "sin prescribir" y
+    # borra lo que hubiera. RIR va en la escala 0-10 (0 = al fallo) y admite
+    # medios; la pausa en segundos.
+    rir: Optional[Annotated[float, Field(ge=0, le=10)]] = None
+    rest_seconds: Optional[Annotated[int, Field(ge=0, le=3600)]] = None
 
 
 class RoutineTemplateDayInput(BaseSchema):

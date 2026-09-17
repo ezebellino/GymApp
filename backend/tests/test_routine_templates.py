@@ -35,12 +35,19 @@ def _day_payload(*, day_id=None, muscle_groups=None, exercises=None):
     }
 
 
-def _exercise_payload(exercise_id, *, strategy=None, base=None):
+def _exercise_payload(exercise_id, *, strategy=None, base=None, rir=None, rest_seconds=None):
     payload = {"exercise_id": exercise_id}
     if strategy is not None:
         payload["strategy"] = strategy
     if base is not None:
         payload["base"] = base
+    # `rir`/`rest_seconds` son de reemplazo, no de "ausente ⇒ conservar": el
+    # helper los omite solo para no ensuciar los payloads de los tests que no
+    # los usan (donde el default `None` del schema hace lo mismo).
+    if rir is not None:
+        payload["rir"] = rir
+    if rest_seconds is not None:
+        payload["rest_seconds"] = rest_seconds
     return payload
 
 
@@ -606,3 +613,150 @@ def test_un_miembro_no_puede_listar_plantillas(client, db_session, auth_header):
     response = client.get("/routines/templates", headers=headers)
 
     assert response.status_code == 403, response.text
+
+
+# --- RIR y pausa (`routine-exercise-intensity`) -------------------------------
+
+
+def test_un_ejercicio_sin_rir_ni_pausa_los_devuelve_en_null(client, owner_user, auth_header, catalog_basic):
+    headers = auth_header(OWNER_EMAIL)
+    template = _create_template(client, headers)
+
+    result = _save_days(
+        client,
+        headers,
+        template["id"],
+        [_day_payload(exercises=[_exercise_payload("chest-bench-press")])],
+    ).json()
+
+    exercise = result["days"][0]["exercises"][0]
+    assert exercise["rir"] is None
+    assert exercise["rest_seconds"] is None
+
+
+def test_guardar_rir_y_pausa_de_un_ejercicio_los_persiste(client, owner_user, auth_header, catalog_basic):
+    headers = auth_header(OWNER_EMAIL)
+    template = _create_template(client, headers)
+
+    result = _save_days(
+        client,
+        headers,
+        template["id"],
+        [
+            _day_payload(
+                exercises=[_exercise_payload("chest-bench-press", rir=2, rest_seconds=90)]
+            )
+        ],
+    ).json()
+
+    exercise = result["days"][0]["exercises"][0]
+    assert exercise["rir"] == 2
+    assert exercise["rest_seconds"] == 90
+
+
+def test_el_rir_admite_medios(client, owner_user, auth_header, catalog_basic):
+    """RIR 1.5 es RPE 8.5: la escala admite medios, por eso la columna es Float."""
+    headers = auth_header(OWNER_EMAIL)
+    template = _create_template(client, headers)
+
+    result = _save_days(
+        client,
+        headers,
+        template["id"],
+        [_day_payload(exercises=[_exercise_payload("chest-bench-press", rir=1.5)])],
+    ).json()
+
+    assert result["days"][0]["exercises"][0]["rir"] == 1.5
+
+
+def test_guardar_sin_rir_borra_el_que_habia(client, owner_user, auth_header, catalog_basic):
+    """Reemplazo, no "ausente ⇒ conservar" (a diferencia de `base`/`strategy`):
+    el borrador manda siempre el estado completo, así que quitar la
+    prescripción en la UI tiene que borrarla en el servidor."""
+    headers = auth_header(OWNER_EMAIL)
+    template = _create_template(client, headers)
+
+    created = _save_days(
+        client,
+        headers,
+        template["id"],
+        [_day_payload(exercises=[_exercise_payload("chest-bench-press", rir=2, rest_seconds=90)])],
+    ).json()
+    day_id = created["days"][0]["day_id"]
+
+    result = _save_days(
+        client,
+        headers,
+        template["id"],
+        [_day_payload(day_id=day_id, exercises=[_exercise_payload("chest-bench-press")])],
+    ).json()
+
+    exercise = result["days"][0]["exercises"][0]
+    assert exercise["rir"] is None
+    assert exercise["rest_seconds"] is None
+
+
+def test_un_rir_fuera_de_la_escala_0_10_es_422(client, owner_user, auth_header, catalog_basic):
+    headers = auth_header(OWNER_EMAIL)
+    template = _create_template(client, headers)
+
+    response = _save_days(
+        client,
+        headers,
+        template["id"],
+        [_day_payload(exercises=[_exercise_payload("chest-bench-press", rir=11)])],
+    )
+
+    assert response.status_code == 422, response.text
+
+
+def test_una_pausa_negativa_es_422(client, owner_user, auth_header, catalog_basic):
+    headers = auth_header(OWNER_EMAIL)
+    template = _create_template(client, headers)
+
+    response = _save_days(
+        client,
+        headers,
+        template["id"],
+        [_day_payload(exercises=[_exercise_payload("chest-bench-press", rest_seconds=-1)])],
+    )
+
+    assert response.status_code == 422, response.text
+
+
+def test_el_rir_y_la_pausa_de_un_dia_no_tocan_los_del_mismo_ejercicio_en_otro_dia(
+    client, owner_user, auth_header, catalog_basic
+):
+    headers = auth_header(OWNER_EMAIL)
+    template = _create_template(client, headers)
+
+    created = _save_days(
+        client,
+        headers,
+        template["id"],
+        [
+            _day_payload(exercises=[_exercise_payload("chest-bench-press")]),
+            _day_payload(exercises=[_exercise_payload("chest-bench-press")]),
+        ],
+    ).json()
+    day_one_id = created["days"][0]["day_id"]
+    day_two_id = created["days"][1]["day_id"]
+
+    result = _save_days(
+        client,
+        headers,
+        template["id"],
+        [
+            _day_payload(
+                day_id=day_one_id,
+                exercises=[_exercise_payload("chest-bench-press", rir=3, rest_seconds=120)],
+            ),
+            _day_payload(day_id=day_two_id, exercises=[_exercise_payload("chest-bench-press")]),
+        ],
+    ).json()
+
+    day_one = next(day for day in result["days"] if day["day_id"] == day_one_id)
+    day_two = next(day for day in result["days"] if day["day_id"] == day_two_id)
+    assert (day_one["exercises"][0]["rir"], day_one["exercises"][0]["rest_seconds"]) == (3, 120)
+    assert day_two["exercises"][0]["rir"] is None
+    assert day_two["exercises"][0]["rest_seconds"] is None

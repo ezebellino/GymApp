@@ -253,6 +253,12 @@ export type RoutineTemplateExercise = {
   muscle_group: string | null;
   base: ExerciseBase;
   strategy: ProgressionStrategy;
+  // `routine-exercise-intensity`: intensidad y descanso prescritos, los dos
+  // opcionales (`null` = sin prescribir). El backend guarda y devuelve
+  // SIEMPRE el RIR — el RPE es la misma escala invertida (`rirToRpe` en
+  // `lib/intensity.ts`) y lo deriva el cliente para mostrar.
+  rir: number | null;
+  rest_seconds: number | null;
   planned_sets: PlannedSet[];
 };
 

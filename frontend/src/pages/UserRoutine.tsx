@@ -13,6 +13,7 @@ import {
 } from "@/services/routineAssignments.queries";
 import type { PlannedSet, RoutineAssignmentStatus, RoutineTemplateExercise } from "@/types";
 import { cn, formatDate } from "@/lib/utils";
+import { formatIntensity, formatRest, readIntensityScale } from "@/lib/intensity";
 
 const STATUS_LABEL: Record<RoutineAssignmentStatus, string> = {
   active: "Activa",
@@ -251,6 +252,7 @@ function ExerciseExecutionCard({
       <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
         {exercise.muscle_group ?? "Sin grupo muscular"}
       </p>
+      <ExercisePrescription rir={exercise.rir} restSeconds={exercise.rest_seconds} />
       <ul className="mt-3 space-y-2">
         {exercise.planned_sets.length === 0 ? (
           <li className="text-sm text-muted-foreground">Sin series configuradas.</li>
@@ -266,6 +268,42 @@ function ExerciseExecutionCard({
           ))
         )}
       </ul>
+    </div>
+  );
+}
+
+// Intensidad y pausa prescritas (`routine-exercise-intensity`), solo lectura:
+// el Miembro las consulta mientras entrena, las edita el Coach. Sin nada
+// prescripto no se renderiza nada — no hay "—" ni fila vacía.
+//
+// La escala (RIR o RPE) sale de la misma preferencia de `localStorage` que el
+// editor, leída una vez al montar: es cómo prefiere leerlo quien mira, no un
+// dato de la rutina.
+function ExercisePrescription({
+  rir,
+  restSeconds,
+}: {
+  rir: number | null;
+  restSeconds: number | null;
+}) {
+  const scale = useMemo(() => readIntensityScale(), []);
+  const intensity = formatIntensity(rir, scale);
+  const rest = formatRest(restSeconds);
+
+  if (!intensity && !rest) return null;
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {intensity ? (
+        <Badge variant="outline" title="Repeticiones en reserva al terminar cada serie">
+          {intensity}
+        </Badge>
+      ) : null}
+      {rest ? (
+        <Badge variant="outline" title="Pausa entre series">
+          Pausa {rest}
+        </Badge>
+      ) : null}
     </div>
   );
 }

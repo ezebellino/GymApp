@@ -99,6 +99,8 @@ def serialize_exercise(
             sets=link.base_sets, reps=link.base_reps, weight_kg=link.base_weight_kg
         ),
         strategy=link.strategy.value,
+        rir=link.rir,
+        rest_seconds=link.rest_seconds,
         planned_sets=[
             schemas.PlannedSetOut(
                 index=item.index,
@@ -247,6 +249,8 @@ def _replace_exercises(
                     "base_sets": base.sets if base else DEFAULT_EXERCISE_BASE_SETS,
                     "base_reps": base.reps if base else DEFAULT_EXERCISE_BASE_REPS,
                     "base_weight_kg": base.weight_kg if base else DEFAULT_EXERCISE_BASE_WEIGHT_KG,
+                    "rir": exercise_input.rir,
+                    "rest_seconds": exercise_input.rest_seconds,
                     "updated_by_user_id": current_user_id,
                 }
             )
@@ -259,6 +263,11 @@ def _replace_exercises(
                 existing_link.base_sets = exercise_input.base.sets
                 existing_link.base_reps = exercise_input.base.reps
                 existing_link.base_weight_kg = exercise_input.base.weight_kg
+            # Reemplazo directo (a diferencia de `strategy`/`base`): el
+            # borrador manda siempre el estado completo, así que un `None` acá
+            # es "le quitaron la prescripción", no "no vino en el request".
+            existing_link.rir = exercise_input.rir
+            existing_link.rest_seconds = exercise_input.rest_seconds
             existing_link.updated_at = datetime.utcnow()
             existing_link.updated_by_user_id = current_user_id
 
@@ -306,6 +315,8 @@ def copy_days(
                     base_sets=source_link.base_sets,
                     base_reps=source_link.base_reps,
                     base_weight_kg=source_link.base_weight_kg,
+                    rir=source_link.rir,
+                    rest_seconds=source_link.rest_seconds,
                     updated_by_user_id=current_user_id,
                 )
             )

@@ -20,6 +20,12 @@ export type DraftExercise = {
   muscle_group: string | null;
   base: ExerciseBase;
   strategy: ProgressionStrategy;
+  // `routine-exercise-intensity`: RIR (0-10, admite medios) y pausa en
+  // segundos, los dos `null` cuando no se prescriben. Sí viajan en el `PUT`
+  // (a diferencia de `planned_sets`), y de forma **reemplazante**: mandar
+  // `null` borra lo que hubiera en el servidor.
+  rir: number | null;
+  rest_seconds: number | null;
   // `member-routine-copies` (design D13, corrección del gate): esto NO es
   // "lo que se muestra". El plan mostrado sale de `usePlannedSetsPreviewQuery`
   // en `RoutineDaysEditor.tsx`, con la tupla vigente `(strategy, sets, reps,
@@ -57,7 +63,33 @@ export type DraftAction =
   | { type: "REMOVE_EXERCISE"; key: string; exerciseId: string }
   | { type: "MOVE_EXERCISE"; key: string; exerciseId: string; direction: "up" | "down" }
   | { type: "SET_EXERCISE_BASE"; key: string; exerciseId: string; base: ExerciseBase }
-  | { type: "SET_EXERCISE_STRATEGY"; key: string; exerciseId: string; strategy: ProgressionStrategy };
+  | { type: "SET_EXERCISE_STRATEGY"; key: string; exerciseId: string; strategy: ProgressionStrategy }
+  | { type: "SET_EXERCISE_RIR"; key: string; exerciseId: string; rir: number | null }
+  | { type: "SET_EXERCISE_REST"; key: string; exerciseId: string; restSeconds: number | null };
+
+// Aplica un cambio a un ejercicio de un día puntual, dejando el resto del
+// borrador intacto. Los casos viejos del reducer repiten este `map` anidado a
+// mano; los nuevos lo comparten.
+function updateExercise(
+  state: DraftState,
+  key: string,
+  exerciseId: string,
+  update: (exercise: DraftExercise) => DraftExercise,
+): DraftState {
+  return {
+    ...state,
+    days: state.days.map((day) =>
+      day.key === key
+        ? {
+            ...day,
+            exercises: day.exercises.map((exercise) =>
+              exercise.exercise_id === exerciseId ? update(exercise) : exercise,
+            ),
+          }
+        : day,
+    ),
+  };
+}
 
 export function draftReducer(state: DraftState, action: DraftAction): DraftState {
   switch (action.type) {
@@ -102,6 +134,10 @@ export function draftReducer(state: DraftState, action: DraftAction): DraftState
             muscle_group: action.exercise.muscle_group ?? null,
             base: DEFAULT_EXERCISE_BASE,
             strategy: "constant",
+            // Sin prescripción de intensidad ni pausa hasta que alguien las
+            // cargue: son opcionales, no tienen default del servidor.
+            rir: null,
+            rest_seconds: null,
             planned_sets: [],
           };
           return { ...day, exercises: [...day.exercises, newExercise] };
@@ -156,6 +192,18 @@ export function draftReducer(state: DraftState, action: DraftAction): DraftState
         ),
       };
 
+    case "SET_EXERCISE_RIR":
+      return updateExercise(state, action.key, action.exerciseId, (exercise) => ({
+        ...exercise,
+        rir: action.rir,
+      }));
+
+    case "SET_EXERCISE_REST":
+      return updateExercise(state, action.key, action.exerciseId, (exercise) => ({
+        ...exercise,
+        rest_seconds: action.restSeconds,
+      }));
+
     case "SET_EXERCISE_STRATEGY":
       return {
         ...state,
@@ -197,6 +245,8 @@ export function deriveDraftDays(detail: RoutineDaysSource): DraftDay[] {
         muscle_group: exercise.muscle_group,
         base: exercise.base,
         strategy: exercise.strategy,
+        rir: exercise.rir ?? null,
+        rest_seconds: exercise.rest_seconds ?? null,
         planned_sets: exercise.planned_sets,
       })),
     }));
@@ -214,6 +264,8 @@ export function serializeDraft(days: DraftDay[]): string {
         exercise_id: exercise.exercise_id,
         strategy: exercise.strategy,
         base: exercise.base,
+        rir: exercise.rir,
+        rest_seconds: exercise.rest_seconds,
       })),
     })),
   );
@@ -227,6 +279,8 @@ export function toSavePayload(days: DraftDay[]): SaveRoutineTemplateDaysInput {
       exercise_id: exercise.exercise_id,
       strategy: exercise.strategy,
       base: exercise.base,
+      rir: exercise.rir,
+      rest_seconds: exercise.rest_seconds,
     })),
   }));
   return { days: payload };

@@ -538,3 +538,88 @@ def test_borrar_la_plantilla_origen_con_solo_copias_alternativas_deja_la_copia_e
     logs = client.get(f"/routines/users/{member.id}/logs", headers=headers).json()
     assert len(logs) == 1
     assert logs[0]["exercise_id"] == "chest-bench-press"
+
+
+# --- RIR y pausa en la copia (`routine-exercise-intensity`) -------------------
+
+
+def test_la_copia_hereda_el_rir_y_la_pausa_de_la_plantilla(
+    client, owner_user, auth_header, db_session, catalog_basic
+):
+    headers = auth_header(OWNER_EMAIL)
+    member = _create_member(db_session)
+    template = _create_template(client, headers)
+    _save_days(
+        client,
+        headers,
+        template["id"],
+        [
+            {
+                "day_id": None,
+                "muscle_groups": [],
+                "exercises": [
+                    {"exercise_id": "chest-bench-press", "rir": 2, "rest_seconds": 90}
+                ],
+            }
+        ],
+    )
+
+    assignment = assign_template_copy(client, headers, member.id, template["id"])
+    detail = client.get(
+        f"/routines/users/{member.id}/templates/{assignment['id']}", headers=headers
+    ).json()
+
+    exercise = detail["days"][0]["exercises"][0]
+    assert exercise["rir"] == 2
+    assert exercise["rest_seconds"] == 90
+
+
+def test_editar_el_rir_de_la_copia_no_toca_la_plantilla_origen(
+    client, owner_user, auth_header, db_session, catalog_basic
+):
+    """Invariante I3: la copia es independiente, también en estos dos campos."""
+    headers = auth_header(OWNER_EMAIL)
+    member = _create_member(db_session)
+    template = _create_template(client, headers)
+    _save_days(
+        client,
+        headers,
+        template["id"],
+        [
+            {
+                "day_id": None,
+                "muscle_groups": [],
+                "exercises": [
+                    {"exercise_id": "chest-bench-press", "rir": 2, "rest_seconds": 90}
+                ],
+            }
+        ],
+    )
+    assignment = assign_template_copy(client, headers, member.id, template["id"])
+    detail = client.get(
+        f"/routines/users/{member.id}/templates/{assignment['id']}", headers=headers
+    ).json()
+
+    response = client.put(
+        f"/routines/users/{member.id}/templates/{assignment['id']}/days",
+        json={
+            "days": [
+                {
+                    "day_id": detail["days"][0]["day_id"],
+                    "muscle_groups": [],
+                    "exercises": [
+                        {"exercise_id": "chest-bench-press", "rir": 0, "rest_seconds": 180}
+                    ],
+                }
+            ]
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+
+    copy_exercise = response.json()["days"][0]["exercises"][0]
+    assert (copy_exercise["rir"], copy_exercise["rest_seconds"]) == (0, 180)
+
+    template_detail = client.get(f"/routines/templates/{template['id']}", headers=headers).json()
+    template_exercise = template_detail["days"][0]["exercises"][0]
+    assert (template_exercise["rir"], template_exercise["rest_seconds"]) == (2, 90)
